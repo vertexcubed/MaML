@@ -20,6 +20,7 @@ class PrecedenceParsers {
                 TrueParser() as Parser<AstNode>,
                 FalseParser() as Parser<AstNode>,
                 UnitParser() as Parser<AstNode>,
+                TupleParser() as Parser<AstNode>,
                 ParenthesesExprParser() as Parser<AstNode>,
                 IdentifierParser().map { r -> VariableNode(r, tokens[index].line) }
             )).parse(tokens, index)
@@ -31,6 +32,14 @@ class PrecedenceParsers {
         override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
             return (ApplicationParser() as Parser<AstNode>).disjoint(ConstLevel()).parse(tokens, index)
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    class TupleLevel(): Parser<AstNode>() {
+        override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
+            return (TupleParser() as Parser<AstNode>).disjoint(AppLevel()).parse(tokens, index)
+        }
+
     }
 
     class UnaryLevel(): Parser<AstNode>() {

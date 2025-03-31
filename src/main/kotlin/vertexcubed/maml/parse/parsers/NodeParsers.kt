@@ -1,11 +1,12 @@
 package vertexcubed.maml.parse.parsers
 
-import vertexcubed.maml.eval.ParseException
+import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.MBinding
 import vertexcubed.maml.type.MFunction
+import vertexcubed.maml.type.MType
 import kotlin.math.pow
 
 //Parse an expression.
@@ -19,8 +20,8 @@ class LetParser(): Parser<LetNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<LetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
             IdentifierParser().bind { first ->
-                    ZeroOrMore(TypedIdentifierParser()).bind { arguments ->
-                    SpecialCharParser(":").rCompose(TypeParser()).bind {type ->
+                    ZeroOrMore(TupleIdentifierParser().disjoint(TypedIdentifierParser())).bind { arguments ->
+                    SpecialCharParser(":").rCompose((TupleTypeParser() as Parser<MType>).disjoint(TypeParser())).bind {type ->
                         SpecialCharParser("=").rCompose(ExprParser()).bind { second ->
                             KeywordParser("in").rCompose(ExprParser()).map { third ->
                                 if(rec.isPresent() && arguments.isEmpty()) throw ParseException(tokens[index].line, "Only functions can be recursive, not values.")
@@ -112,6 +113,19 @@ class FloatParser(): Parser<FloatNode>() {
     }
 }
 
+class TupleParser(): Parser<TupleNode>() {
+    override fun parse(tokens: List<Token>, index: Int): ParseResult<TupleNode> {
+        return LParenParser().rCompose(ExprParser()).bind { first ->
+            OneOrMore(SpecialCharParser(",").rCompose(ExprParser())).lCompose(RParenParser()).map { secondList ->
+                val list = ArrayList<AstNode>()
+                list.add(first)
+                list.addAll(secondList)
+                TupleNode(list, first.line)
+            }
+        }.parse(tokens, index)
+    }
+}
+
 class UnitParser(): Parser<UnitNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<UnitNode> {
         return LParenParser().rCompose(RParenParser()).map { _ -> UnitNode(tokens[index].line) }.parse(tokens, index)
@@ -140,7 +154,7 @@ class ApplicationParser(): Parser<AppNode>() {
 
 class FunctionParser(): Parser<FunctionNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<FunctionNode> {
-        return KeywordParser("fun").rCompose(TypedIdentifierParser()).bind { first ->
+        return KeywordParser("fun").rCompose(TupleIdentifierParser().disjoint(TypedIdentifierParser())).bind { first ->
             SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(ExprParser()).map { second ->
                 FunctionNode(first, second, tokens[index].line)
             }

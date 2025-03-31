@@ -1,5 +1,6 @@
 package vertexcubed.maml.parse.ast
 
+import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 
@@ -134,6 +135,24 @@ class FloatNode(val number: Float, line: Int): AstNode(line) {
 
     override fun toString(): String {
         return "$number"
+    }
+}
+
+class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        return TupleValue(nodes.map { node -> node.eval(env) })
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        return MTuple(nodes.map { node -> node.type(env) })
+    }
+
+    override fun pretty(): String {
+        return "($nodes)"
+    }
+
+    override fun toString(): String {
+        return "Tuple($nodes)"
     }
 }
 
@@ -404,7 +423,7 @@ class BuiltinNode(val name: MBinding, val arg: MType, line: Int, val function: (
     }
 
     override fun eval(env: Map<String, MValue>): MValue {
-        val argVal = env.getOrElse(argBinding, { throw UnboundVarException(argBinding)})
+        val argVal = env.getOrElse(argBinding, { throw UnboundVarException(argBinding) })
         return function(argVal)
     }
 

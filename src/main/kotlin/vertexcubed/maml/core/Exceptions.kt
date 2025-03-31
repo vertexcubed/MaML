@@ -1,4 +1,4 @@
-package vertexcubed.maml.eval
+package vertexcubed.maml.core
 
 import vertexcubed.maml.parse.ast.AstNode
 import vertexcubed.maml.type.MType

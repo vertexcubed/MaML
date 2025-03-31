@@ -1,6 +1,6 @@
 package vertexcubed.maml.parse
 
-import vertexcubed.maml.eval.ParseException
+import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.TokenType.*
 import java.lang.StringBuilder
 
@@ -110,7 +110,7 @@ class Lexer(val source: String) {
         return when(c) {
             '!', '%', '&', '$', '#', '+', '-', '/',
             ':', '<', '=', '>', '?', '@', '\\', '~',
-            '`', '^', '|', '*', '.' -> Token(SPECIAL_CHAR, "$c", lineIdx)
+            '`', '^', '|', '*', '.', ',' -> Token(SPECIAL_CHAR, "$c", lineIdx)
             '(' -> {
                 if(hasNext()) {
                     val next = peek()

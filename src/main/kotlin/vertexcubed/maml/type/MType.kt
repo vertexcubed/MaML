@@ -37,3 +37,16 @@ data class MFunction(val arg: MType, val ret: MType): MType() {
         return "$arg -> $ret"
     }
 }
+
+data class MTuple(val types: List<MType>): MType() {
+    init {
+        if(types.isEmpty()) throw IllegalArgumentException("Cannot create tuple of empty type")
+    }
+    override fun toString(): String {
+        var str = types[0].toString()
+        for(i in 1 until types.size) {
+            str += " * " + types[i].toString()
+        }
+        return str
+    }
+}

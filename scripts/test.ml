@@ -1,8 +1,2 @@
-let firstFun (x: int): int = x + 2 in
-
-let secondFun (y: int): int = firstFun y in
-
-let builtinTest: unit = print "Hello World!" in
-
-
-secondFun 3
+let pos: int * int = (5, 6) in
+pos

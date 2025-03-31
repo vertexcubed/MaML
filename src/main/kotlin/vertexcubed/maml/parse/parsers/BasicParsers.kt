@@ -121,6 +121,19 @@ class IdentifierParser(): Parser<String>() {
 
 class TypeParser(): Parser<MType>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<MType> {
+        return SingleTypeParser().bind{ firstType ->
+            ZeroOrMore(
+                SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(TypeParser())
+            ).map { moreTypes ->
+                moreTypes.fold(firstType, {acc, rest -> MFunction(rest, acc)})
+            }
+        }.parse(tokens, index)
+    }
+
+}
+
+class SingleTypeParser(): Parser<MType>() {
+    override fun parse(tokens: List<Token>, index: Int): ParseResult<MType> {
         if(index < tokens.size) {
             val first = tokens[index]
             if(first.type == TokenType.PRIMITIVE_TYPE) {
@@ -142,18 +155,33 @@ class TypeParser(): Parser<MType>() {
 
 }
 
+class TupleTypeParser(): Parser<MTuple>() {
+    override fun parse(tokens: List<Token>, index: Int): ParseResult<MTuple> {
+        return TypeParser().bind { first ->
+            OneOrMore(SpecialCharParser("*").rCompose(TypeParser())).map { rest ->
+                val list = ArrayList<MType>()
+                list.add(first)
+                list.addAll(rest)
+                MTuple(list)
+            }
+        }.parse(tokens, index)
+    }
+
+}
+
+class TupleIdentifierParser(): Parser<MBinding>() {
+    override fun parse(tokens: List<Token>, index: Int): ParseResult<MBinding> {
+        val parser = IdentifierParser().lCompose(SpecialCharParser(":")).bind { iden ->
+            TupleTypeParser().map {type -> MBinding(iden, type)}
+        }
+        return parser.parse(tokens, index)
+    }
+}
+
 class TypedIdentifierParser(): Parser<MBinding>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<MBinding> {
         val parser = IdentifierParser().lCompose(SpecialCharParser(":")).bind { iden ->
-            TypeParser().bind{ firstType ->
-                ZeroOrMore(
-                    SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(TypeParser())
-                ).map { moreTypes ->
-                    if(moreTypes.isEmpty()) MBinding(iden, firstType)
-                    MBinding(iden, moreTypes.fold(firstType, {acc, rest -> MFunction(rest, acc)}))
-                }
-            }
-
+            TypeParser().map { type -> MBinding(iden, type) }
         }
         return parser.disjoint(LParenParser().rCompose(parser).lCompose(RParenParser())).parse(tokens, index)
     }
