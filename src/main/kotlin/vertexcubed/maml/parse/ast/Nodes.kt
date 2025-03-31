@@ -12,6 +12,10 @@ class UnitNode(line: Int) : AstNode(line) {
         return MUnit
     }
 
+    override fun pretty(): String {
+        return "unit"
+    }
+
     override fun toString(): String {
         return "Unit"
     }
@@ -24,6 +28,10 @@ class TrueNode(line: Int) : AstNode(line) {
 
     override fun type(env: Map<String, MType>): MType {
         return MBool
+    }
+
+    override fun pretty(): String {
+        return "true"
     }
 
     override fun toString(): String {
@@ -41,6 +49,10 @@ class FalseNode(line: Int) : AstNode(line) {
         return MBool
     }
 
+    override fun pretty(): String {
+        return "false"
+    }
+
     override fun toString(): String {
         return "false"
     }
@@ -49,15 +61,19 @@ class FalseNode(line: Int) : AstNode(line) {
 class StringNode(val text: String, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
-        return BooleanValue(false)
+        return StringValue(text)
     }
 
     override fun type(env: Map<String, MType>): MType {
         return MString
     }
 
+    override fun pretty(): String {
+        return "\"$text\""
+    }
+
     override fun toString(): String {
-        return text
+        return "\"$text\""
     }
 }
 
@@ -70,8 +86,12 @@ class CharNode(val text: Char, line: Int): AstNode(line) {
         return MChar
     }
 
+    override fun pretty(): String {
+        return "\"${text}\""
+    }
+
     override fun toString(): String {
-        return text.toString()
+        return "\"${text}\""
     }
 
 }
@@ -89,6 +109,10 @@ class IntegerNode(val number: Long, line: Int) : AstNode(line) {
         return MInt
     }
 
+    override fun pretty(): String {
+        return "$number"
+    }
+
     override fun toString(): String {
         return "$number"
     }
@@ -102,6 +126,10 @@ class FloatNode(val number: Float, line: Int): AstNode(line) {
 
     override fun type(env: Map<String, MType>): MType {
         return MFloat
+    }
+
+    override fun pretty(): String {
+        return "$number"
     }
 
     override fun toString(): String {
@@ -173,6 +201,10 @@ class BinaryOpNode(val operation: Bop, val left: AstNode, val right: AstNode, li
         return myType
     }
 
+    override fun pretty(): String {
+        return "$left ${operation.display} $right"
+    }
+
     override fun toString(): String {
         return "Bop($operation, $left, $right)"
     }
@@ -209,6 +241,14 @@ class UnaryOpNode(val operation: Uop, val other: AstNode, line: Int): AstNode(li
         return otherType
     }
 
+    override fun pretty(): String {
+        return "${operation.display} $other"
+    }
+
+    override fun toString(): String {
+        return "Uop($operation, $other)"
+    }
+
 }
 
 
@@ -216,6 +256,17 @@ class UnaryOpNode(val operation: Uop, val other: AstNode, line: Int): AstNode(li
 class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
+
+
+        //Special logic for builtins: The actual builtin takes one argument, but they can get combined into a tuple ig
+        if(func is BuiltinNode) {
+            val argEval = arg.eval(env)
+            val newEnv = env + (BuiltinNode.argBinding to argEval)
+            return func.eval(newEnv)
+        }
+
+
+
         val funcVal = func.eval(env)
         when(funcVal) {
             is FunctionValue -> {
@@ -240,6 +291,10 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
 
         if(argType != funcType.arg) throw TypeException(line, arg, argType, funcType.arg)
         return funcType.ret
+    }
+
+    override fun pretty(): String {
+        return "$func $arg"
     }
 
     override fun toString(): String {
@@ -267,6 +322,10 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
         return thenType
     }
 
+    override fun pretty(): String {
+        return "If $condition then $thenBranch else $elseBranch"
+    }
+
     override fun toString(): String {
         return "If($condition, $thenBranch, $elseBranch)"
     }
@@ -287,6 +346,10 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
         return expression.type(newEnv)
     }
 
+    override fun pretty(): String {
+        return "let $name = $statement in $expression"
+    }
+
     override fun toString(): String {
         return "Let($name, $statement, $expression)"
     }
@@ -302,6 +365,10 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
     override fun type(env: Map<String, MType>): MType {
         val newEnv = env + (name.binding to name.type)
         return node.type(newEnv)
+    }
+
+    override fun pretty(): String {
+        return "rec fun $name -> $node"
     }
 
     override fun toString(): String {
@@ -321,9 +388,39 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
         return MFunction(arg.type, body.type(newEnv))
     }
 
+    override fun pretty(): String {
+        return "fun ${arg.binding} -> $body"
+    }
+
     override fun toString(): String {
         return "Fun($arg, $body)"
     }
+}
+
+class BuiltinNode(val name: MBinding, val arg: MType, line: Int, val function: (MValue) -> MValue): AstNode(line) {
+
+    companion object {
+        const val argBinding = "b0"
+    }
+
+    override fun eval(env: Map<String, MValue>): MValue {
+        val argVal = env.getOrElse(argBinding, { throw UnboundVarException(argBinding)})
+        return function(argVal)
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        val myType = MFunction(arg, name.type)
+        return myType
+    }
+
+    override fun pretty(): String {
+        return name.binding
+    }
+
+    override fun toString(): String {
+        return "Builtin(${name.binding})"
+    }
+
 }
 
 class VariableNode(val name: String, line: Int): AstNode(line) {
@@ -334,6 +431,10 @@ class VariableNode(val name: String, line: Int): AstNode(line) {
 
     override fun type(env: Map<String, MType>): MType {
         return env.getOrElse(name, { throw UnboundVarException(name) })
+    }
+
+    override fun pretty(): String {
+        return name
     }
 
     override fun toString(): String {

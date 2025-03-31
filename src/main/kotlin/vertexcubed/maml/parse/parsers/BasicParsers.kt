@@ -13,9 +13,9 @@ private fun simple(tokens: List<Token>, index: Int, type: TokenType): ParseResul
         if(first.type == type) {
     return ParseResult.Success(first.lexeme, index + 1)
         }
-        return ParseResult.Failure(index, first, "Failed against token type ${first.type} ($index) with lexeme ${first.lexeme}")
+        return ParseResult.Failure(index, first, "Expected token of type $type but found ${first.type} (${first.lexeme})")
     }
-    return ParseResult.Failure(index, tokens.last(), "End of file reached.")
+    return ParseResult.Failure(index, tokens.last(), "Expected token of type $type, but End of File reached.")
 }
 
 private fun simple(tokens: List<Token>, index: Int, type: TokenType, word: String): ParseResult<String> {
@@ -24,9 +24,9 @@ private fun simple(tokens: List<Token>, index: Int, type: TokenType, word: Strin
         if(first.type == type && first.lexeme == word) {
     return ParseResult.Success(first.lexeme, index + 1)
         }
-        return ParseResult.Failure(index, first, "Failed against token type ${first.type} ($index) with lexeme ${first.lexeme}")
+        return ParseResult.Failure(index, first, "Expected: ${word}, Found: ${first.lexeme}")
     }
-    return ParseResult.Failure(index, tokens.last(), "End of file reached.")
+    return ParseResult.Failure(index, tokens.last(), "Expected: ${word}, but End of File reached.")
 }
 
 class SimpleParser(val type: TokenType): Parser<String>() {
@@ -131,13 +131,13 @@ class TypeParser(): Parser<MType>() {
                     "char" -> MChar
                     "string" -> MString
                     "unit" -> MUnit
-                    else -> return ParseResult.Failure(index, first, "Failed against token type ${first.type} ($index) with lexeme ${first.lexeme}")
+                    else -> return ParseResult.Failure(index, first, "Catastrophic failure against token type ${first.type} ($index) with lexeme ${first.lexeme}")
                 }
                 return ParseResult.Success(type, index + 1)
             }
-            return ParseResult.Failure(index, first, "Failed against token type ${first.type} ($index) with lexeme ${first.lexeme}")
+            return ParseResult.Failure(index, first, "Expected token of type ${TokenType.PRIMITIVE_TYPE} but found ${first.type} (${first.lexeme})")
         }
-        return ParseResult.Failure(index, tokens.last(), "End of file reached.")
+        return ParseResult.Failure(index, tokens.last(), "Expected token of type ${TokenType.PRIMITIVE_TYPE}, but End of File reached.")
     }
 
 }
@@ -187,12 +187,12 @@ class DecimalNumberParser(): Parser<Long>() {
                 return try {
                     ParseResult.Success(first.lexeme.toLong(), index + 1)
                 } catch(e: NumberFormatException) {
-                    ParseResult.Failure(index, first,"Failed against token type ${first.type} ($index). Lexeme ${first.lexeme} is not a number.")
+                    ParseResult.Failure(index, first,"${first.lexeme} is not a number.")
                 }
             }
-            return ParseResult.Failure(index, first,"Failed against token type ${first.type} ($index) with lexeme ${first.lexeme}")
+            return ParseResult.Failure(index, first,"Expected token of type ${TokenType.NUMBER_LITERAL} but found ${first.type} (${first.lexeme})")
         }
-        return ParseResult.Failure(index, tokens.last(),"Failed at index $index. No more tokens to match against.")
+        return ParseResult.Failure(index, tokens.last(),"Expected token of type ${TokenType.NUMBER_LITERAL}, but End of File reached.")
     }
 }
 
@@ -210,12 +210,12 @@ class HexNumberParser(): Parser<Long>() {
                 return try {
                     ParseResult.Success(first.lexeme.hexToLong(hexFormat), index + 1)
                 } catch(e: IllegalArgumentException) {
-                    ParseResult.Failure(index, first,"Failed against token type ${first.type} ($index). Lexeme ${first.lexeme} is not a number.")
+                    ParseResult.Failure(index, first,"${first.lexeme} is not a hex number.")
                 }
             }
-            return ParseResult.Failure(index, first,"Failed against token type ${first.type} ($index) with lexeme ${first.lexeme}")
+            return ParseResult.Failure(index, first,"Expected token of type ${TokenType.HEX_LITERAL} but found ${first.type} (${first.lexeme})")
         }
-        return ParseResult.Failure(index, tokens.last(),"Failed at index $index. No more tokens to match against.")
+        return ParseResult.Failure(index, tokens.last(),"Expected token of type ${TokenType.HEX_LITERAL}, but End of File reached.")
     }
 }
 

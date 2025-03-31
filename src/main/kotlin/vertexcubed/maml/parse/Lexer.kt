@@ -72,6 +72,11 @@ class Lexer(val source: String) {
     var lineIdx = 1
     var current = 0
 
+    fun toStringList(): List<String> {
+        return source.split('\n')
+    }
+
+
     fun read(): List<Token> {
 
         while(hasNext()) {

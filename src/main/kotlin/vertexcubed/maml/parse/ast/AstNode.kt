@@ -9,5 +9,6 @@ abstract class AstNode(val line: Int) {
 
     abstract fun type(env: Map<String, MType>): MType
 
+    abstract fun pretty(): String
 }
 
