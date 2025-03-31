@@ -4,6 +4,7 @@ import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.Lexer
 import vertexcubed.maml.parse.parsers.*
 import vertexcubed.maml.parse.result.ParseResult
+import vertexcubed.maml.type.MType
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.IOException
@@ -41,11 +42,15 @@ fun main(args: Array<String>) {
     val lexer = Lexer(code)
 
     val emptyEnv = emptyMap<String, MValue>()
+    val emptyTypeEnv = emptyMap<String, MType>()
 
     val parser = ExprParser()
     when(val result = parser.parse(lexer.read())) {
         is ParseResult.Success -> {
-            println("Parse successful. Evaluating: ")
+            println(result.result)
+            println("Parse successful. Type checking: ")
+            println(result.result.type(emptyTypeEnv))
+            println("Type check successful. Evaluating: ")
             println(result.result.eval(emptyEnv))
         }
         is ParseResult.Failure -> {

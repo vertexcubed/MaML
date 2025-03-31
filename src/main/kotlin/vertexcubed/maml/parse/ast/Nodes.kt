@@ -1,10 +1,15 @@
 package vertexcubed.maml.parse.ast
 
 import vertexcubed.maml.eval.*
+import vertexcubed.maml.type.*
 
-class UnitNode : AstNode() {
+class UnitNode(line: Int) : AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         return UnitValue
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        return MUnit
     }
 
     override fun toString(): String {
@@ -12,9 +17,13 @@ class UnitNode : AstNode() {
     }
 }
 
-class TrueNode : AstNode() {
+class TrueNode(line: Int) : AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         return BooleanValue(true)
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        return MBool
     }
 
     override fun toString(): String {
@@ -22,10 +31,14 @@ class TrueNode : AstNode() {
     }
 }
 
-class FalseNode : AstNode() {
+class FalseNode(line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
         return BooleanValue(false)
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        return MBool
     }
 
     override fun toString(): String {
@@ -33,10 +46,14 @@ class FalseNode : AstNode() {
     }
 }
 
-class StringNode(val text: String) : AstNode() {
+class StringNode(val text: String, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
         return BooleanValue(false)
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        return MString
     }
 
     override fun toString(): String {
@@ -44,9 +61,13 @@ class StringNode(val text: String) : AstNode() {
     }
 }
 
-class CharNode(val text: Char): AstNode() {
+class CharNode(val text: Char, line: Int): AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         return CharValue(text)
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        return MChar
     }
 
     override fun toString(): String {
@@ -58,29 +79,37 @@ class CharNode(val text: Char): AstNode() {
 /**
  * All integers in MaML are 64-bit.
  */
-class IntegerNode(val number: Long) : AstNode() {
+class IntegerNode(val number: Long, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
         return IntegerValue(number)
     }
 
+    override fun type(env: Map<String, MType>): MType {
+        return MInt
+    }
+
     override fun toString(): String {
         return "$number"
     }
 }
 
-class FloatNode(val number: Float): AstNode() {
+class FloatNode(val number: Float, line: Int): AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
         return FloatValue(number)
     }
 
+    override fun type(env: Map<String, MType>): MType {
+        return MFloat
+    }
+
     override fun toString(): String {
         return "$number"
     }
 }
 
-class BinaryOpNode(val operation: Bop, val left: AstNode, val right: AstNode) : AstNode() {
+class BinaryOpNode(val operation: Bop, val left: AstNode, val right: AstNode, line: Int) : AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         val datatype = operation.dataType
         val leftVal = left.eval(env)
@@ -115,13 +144,42 @@ class BinaryOpNode(val operation: Bop, val left: AstNode, val right: AstNode) : 
 
     }
 
+    override fun type(env: Map<String, MType>): MType {
+        val myType: MType
+        val expectedType: MType
+        when(operation) {
+
+            Bop.ADD, Bop.SUB, Bop.MUL, Bop.DIV, Bop.MOD -> {
+                myType = MInt
+                expectedType = MInt
+            }
+            Bop.LT, Bop.LTE, Bop.GT, Bop.GTE, Bop.EQ, Bop.NEQ -> {
+                myType = MBool
+                expectedType = MInt
+            }
+            Bop.AND, Bop.OR -> {
+                myType = MBool
+                expectedType = MBool
+            }
+        }
+        val leftType = left.type(env)
+        val rightType = right.type(env)
+        if(leftType != expectedType) {
+            throw TypeException(line, left, leftType, expectedType)
+        }
+        if(rightType != expectedType) {
+            throw TypeException(line, right, rightType, expectedType)
+        }
+        return myType
+    }
+
     override fun toString(): String {
         return "Bop($operation, $left, $right)"
     }
 
 }
 
-class UnaryOpNode(val operation: Uop, val other: AstNode): AstNode() {
+class UnaryOpNode(val operation: Uop, val other: AstNode, line: Int): AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         val otherVal = other.eval(env)
         return when(operation) {
@@ -139,11 +197,23 @@ class UnaryOpNode(val operation: Uop, val other: AstNode): AstNode() {
         }
     }
 
+    override fun type(env: Map<String, MType>): MType {
+        val types = when(operation) {
+            Uop.NEGATE -> listOf(MInt, MFloat)
+            Uop.NOT -> listOf(MBool)
+        }
+        val otherType = other.type(env)
+        if(otherType !in types) {
+            throw TypeException(line, other, otherType, types[0])
+        }
+        return otherType
+    }
+
 }
 
 
 
-class AppNode(val func: AstNode, val arg: AstNode) : AstNode() {
+class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
         val funcVal = func.eval(env)
@@ -162,12 +232,22 @@ class AppNode(val func: AstNode, val arg: AstNode) : AstNode() {
         }
     }
 
+    override fun type(env: Map<String, MType>): MType {
+        val funcType = func.type(env)
+        if(funcType !is MFunction) throw TypeException(line, func, "This expression has type $funcType\nThis is not a function; it cannot be applied")
+
+        val argType = arg.type(env)
+
+        if(argType != funcType.arg) throw TypeException(line, arg, argType, funcType.arg)
+        return funcType.ret
+    }
+
     override fun toString(): String {
         return "App($func, $arg)"
     }
 }
 
-class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: AstNode) : AstNode() {
+class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: AstNode, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
         val conditionValue = condition.eval(env)
@@ -178,18 +258,33 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
         return elseBranch.eval(env)
     }
 
+    override fun type(env: Map<String, MType>): MType {
+        val condType = condition.type(env)
+        if(condType !is MBool) throw TypeException(line, condition, condType, MBool)
+        val thenType = thenBranch.type(env)
+        val elseType = elseBranch.type(env)
+        if(thenType != elseType) throw TypeException(line, condition, elseType, thenType)
+        return thenType
+    }
+
     override fun toString(): String {
         return "If($condition, $thenBranch, $elseBranch)"
     }
 
 }
 
-class LetNode(val name: String, val statement: AstNode, val expression: AstNode) : AstNode() {
+class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNode, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
         val statementVal = statement.eval(env)
-        val newEnv = env + (name to statementVal)
+        val newEnv = env + (name.binding to statementVal)
         return expression.eval(newEnv)
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        val statementType = statement.type(env)
+        val newEnv = env + (name.binding to statementType)
+        return expression.type(newEnv)
     }
 
     override fun toString(): String {
@@ -198,10 +293,15 @@ class LetNode(val name: String, val statement: AstNode, val expression: AstNode)
 
 }
 
-class RecursiveFunctionNode(val name: String, val node: FunctionNode): AstNode() {
+class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: Int): AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         val nodeVal = node.eval(env)
-        return RecursiveFunctionValue(name, nodeVal)
+        return RecursiveFunctionValue(name.binding, nodeVal)
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        val newEnv = env + (name.binding to name.type)
+        return node.type(newEnv)
     }
 
     override fun toString(): String {
@@ -210,10 +310,15 @@ class RecursiveFunctionNode(val name: String, val node: FunctionNode): AstNode()
 
 }
 
-class FunctionNode(val arg: String, val body: AstNode) : AstNode() {
+class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): FunctionValue {
-        return FunctionValue(arg, body, env)
+        return FunctionValue(arg.binding, body, env)
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        val newEnv = env + (arg.binding to arg.type)
+        return MFunction(arg.type, body.type(newEnv))
     }
 
     override fun toString(): String {
@@ -221,10 +326,14 @@ class FunctionNode(val arg: String, val body: AstNode) : AstNode() {
     }
 }
 
-class VariableNode(val name: String): AstNode() {
+class VariableNode(val name: String, line: Int): AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
-        return env.getOrElse(name, { throw UnboundVarException(name)})
+        return env.getOrElse(name, { throw UnboundVarException(name) })
+    }
+
+    override fun type(env: Map<String, MType>): MType {
+        return env.getOrElse(name, { throw UnboundVarException(name) })
     }
 
     override fun toString(): String {

@@ -18,6 +18,7 @@ class Lexer(val source: String) {
 
     companion object {
         private val keywords = HashSet<String>()
+        private val primitives = HashSet<String>()
 
         init {
             keywords.addAll(listOf(
@@ -55,6 +56,13 @@ class Lexer(val source: String) {
                 "while",
                 "true",
                 "false",
+            ))
+            primitives.addAll(listOf(
+                "int",
+                "char",
+                "string",
+                "bool",
+                "unit"
             ))
         }
     }
@@ -165,8 +173,9 @@ class Lexer(val source: String) {
         while(hasNext() && IDENTIFIER_REG.matches("${peek()}")) {
             builder.append(poll())
         }
+        val type = if(builder.toString() in keywords) KEYWORD else if(builder.toString() in primitives) PRIMITIVE_TYPE else IDENTIFIER
 
-        return Token(if(builder.toString() in keywords) KEYWORD else IDENTIFIER, builder.toString(), lineIdx)
+        return Token(type, builder.toString(), lineIdx)
     }
 
     private fun escapeSequence(): Token {
@@ -353,6 +362,7 @@ enum class TokenType {
     NUMBER_LITERAL,
     HEX_LITERAL,
     SPECIAL_CHAR,
+    PRIMITIVE_TYPE,
     STRING_LITERAL,
     CHAR_LITERAL,
     IDENTIFIER,

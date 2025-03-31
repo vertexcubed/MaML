@@ -21,7 +21,7 @@ class PrecedenceParsers {
                 FalseParser() as Parser<AstNode>,
                 UnitParser() as Parser<AstNode>,
                 ParenthesesExprParser() as Parser<AstNode>,
-                IdentifierParser().map { r -> VariableNode(r) }
+                IdentifierParser().map { r -> VariableNode(r, tokens[index].line) }
             )).parse(tokens, index)
         }
     }
@@ -44,7 +44,7 @@ class PrecedenceParsers {
                         "not" -> Uop.NOT
                         else -> throw AssertionError()
                     }
-                    UnaryOpNode(uop, second)
+                    UnaryOpNode(uop, second, tokens[index].line)
                 }
             }).parse(tokens, index)
         }

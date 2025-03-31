@@ -4,6 +4,8 @@ import vertexcubed.maml.eval.ParseException
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.result.ParseResult
+import vertexcubed.maml.type.MBinding
+import vertexcubed.maml.type.MFunction
 import kotlin.math.pow
 
 //Parse an expression.
@@ -17,16 +19,20 @@ class LetParser(): Parser<LetNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<LetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
             IdentifierParser().bind { first ->
-                    ZeroOrMore(IdentifierParser()).bind { arguments ->
-                    SpecialCharParser("=").rCompose(ExprParser()).bind { second ->
-                        KeywordParser("in").rCompose(ExprParser()).map { third ->
-                            if(rec.isPresent() && arguments.isEmpty()) throw ParseException(tokens[index].line, "Only functions can be recursive, not values.")
-                            val node = arguments.foldRightIndexed(second, { index, str, exist ->
-                                if(rec.isPresent() && index == 0) {
-                                    RecursiveFunctionNode(first, FunctionNode(str, exist))
-                                }
-                                else FunctionNode(str, exist)})
-                            LetNode(first, node, third)
+                    ZeroOrMore(TypedIdentifierParser()).bind { arguments ->
+                    SpecialCharParser(":").rCompose(TypeParser()).bind {type ->
+                        SpecialCharParser("=").rCompose(ExprParser()).bind { second ->
+                            KeywordParser("in").rCompose(ExprParser()).map { third ->
+                                if(rec.isPresent() && arguments.isEmpty()) throw ParseException(tokens[index].line, "Only functions can be recursive, not values.")
+                                val funcType = arguments.fold(type, {acc, rest -> MFunction(rest.type, acc)})
+
+                                val node = arguments.foldRightIndexed(second, { index, str, exist ->
+                                    if(rec.isPresent() && index == 0) {
+                                        RecursiveFunctionNode(MBinding(first, funcType), FunctionNode(str, exist, tokens[index].line), tokens[index].line)
+                                    }
+                                    else FunctionNode(str, exist, tokens[index].line)})
+                                LetNode(MBinding(first, type), node, third, tokens[index].line)
+                            }
                         }
                     }
                 }
@@ -45,7 +51,8 @@ class IfParser(): Parser<IfNode>() {
                     IfNode(
                         first,
                         second,
-                        third
+                        third,
+                        tokens[index].line
                     )
                 }
             }
@@ -57,7 +64,7 @@ class IfParser(): Parser<IfNode>() {
 class IntegerParser(): Parser<IntegerNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<IntegerNode> {
         val parser =DecimalNumberParser().disjoint(HexNumberParser()).map { second ->
-            IntegerNode(second)
+            IntegerNode(second, tokens[index].line)
         }
         return parser.parse(tokens, index)
     }
@@ -65,26 +72,26 @@ class IntegerParser(): Parser<IntegerNode>() {
 
 class StringParser(): Parser<StringNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<StringNode> {
-        return StringLitParser().map { str -> StringNode(str) }.parse(tokens, index)
+        return StringLitParser().map { str -> StringNode(str, tokens[index].line) }.parse(tokens, index)
     }
 }
 
 class CharParser(): Parser<CharNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<CharNode> {
-        return CharLitParser().map { c -> CharNode(c) }.parse(tokens, index)
+        return CharLitParser().map { c -> CharNode(c, tokens[index].line) }.parse(tokens, index)
     }
 
 }
 
 class TrueParser(): Parser<TrueNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<TrueNode> {
-        return KeywordParser("true").map {_ -> TrueNode() }.parse(tokens, index)
+        return KeywordParser("true").map {_ -> TrueNode(tokens[index].line) }.parse(tokens, index)
     }
 }
 
 class FalseParser(): Parser<FalseNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<FalseNode> {
-        return KeywordParser("false").map {_ -> FalseNode() }.parse(tokens, index)
+        return KeywordParser("false").map {_ -> FalseNode(tokens[index].line) }.parse(tokens, index)
     }
 }
 
@@ -98,7 +105,7 @@ class FloatParser(): Parser<FloatNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<FloatNode> {
         val parser = DecimalNumberParser().lCompose(SpecialCharParser(".")).bind { second ->
             DecimalNumberParser().map { third ->
-                FloatNode(second + toDec(third))
+                FloatNode(second + toDec(third), tokens[index].line)
             }
         }
         return parser.parse(tokens, index)
@@ -107,7 +114,7 @@ class FloatParser(): Parser<FloatNode>() {
 
 class UnitParser(): Parser<UnitNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<UnitNode> {
-        return LParenParser().rCompose(RParenParser()).map { _ -> UnitNode() }.parse(tokens, index)
+        return LParenParser().rCompose(RParenParser()).map { _ -> UnitNode(tokens[index].line) }.parse(tokens, index)
     }
 }
 
@@ -121,9 +128,9 @@ class ApplicationParser(): Parser<AppNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<AppNode> {
         return PrecedenceParsers.ConstLevel().bind {first ->
             OneOrMore(PrecedenceParsers.ConstLevel()).map(fun(second: List<AstNode>): AppNode {
-                var app = AppNode(first, second[0])
+                var app = AppNode(first, second[0], tokens[index].line)
                 for(i in 1..<second.size) {
-                    app = AppNode(app, second[i])
+                    app = AppNode(app, second[i], tokens[index].line)
                 }
                 return app
             })
@@ -133,9 +140,9 @@ class ApplicationParser(): Parser<AppNode>() {
 
 class FunctionParser(): Parser<FunctionNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<FunctionNode> {
-        return KeywordParser("fun").rCompose(IdentifierParser()).bind { first ->
+        return KeywordParser("fun").rCompose(TypedIdentifierParser()).bind { first ->
             SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(ExprParser()).map { second ->
-                FunctionNode(first, second)
+                FunctionNode(first, second, tokens[index].line)
             }
         }.parse(tokens, index)
     }
@@ -147,10 +154,10 @@ class LeftAssocBopParser(val parser: Parser<AstNode>, val bopList: List<Bop>): P
             fun(data: BinaryOpParser.BopData<AstNode>): AstNode {
                 val first = data.first
                 if(data.rest.isEmpty()) return first
-                var node = BinaryOpNode(data.rest[0].first, first, data.rest[0].second)
+                var node = BinaryOpNode(data.rest[0].first, first, data.rest[0].second, tokens[index].line)
                 for(i in 1..<data.rest.size) {
                     val pair = data.rest[i]
-                    node = BinaryOpNode(pair.first, node, pair.second)
+                    node = BinaryOpNode(pair.first, node, pair.second, tokens[index].line)
                 }
                 return node
             })
@@ -178,10 +185,10 @@ class RightAssocBopParser(val parser: Parser<AstNode>, val bopList: List<Bop>): 
                 //Do same thing as left associative
                 val lastIdx = data.rest.size-1
                 val last = data.rest[lastIdx].second
-                var node = BinaryOpNode(newList[lastIdx].second, newList[lastIdx].first, last)
+                var node = BinaryOpNode(newList[lastIdx].second, newList[lastIdx].first, last, tokens[index].line)
                 for(i in 1..<newList.size) {
                     val pair = newList[i]
-                    node = BinaryOpNode(pair.second, pair.first, node)
+                    node = BinaryOpNode(pair.second, pair.first, node, tokens[index].line)
                 }
 
                 return node

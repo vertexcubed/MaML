@@ -3,7 +3,7 @@ package vertexcubed.maml.parse.ast
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.type.MType
 
-abstract class AstNode() {
+abstract class AstNode(val line: Int) {
 
     abstract fun eval(env: Map<String, MValue>): MValue
 

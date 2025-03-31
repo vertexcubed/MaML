@@ -4,7 +4,7 @@ import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.TokenType
 import vertexcubed.maml.parse.ast.Bop
 import vertexcubed.maml.parse.result.ParseResult
-
+import vertexcubed.maml.type.*
 
 
 private fun simple(tokens: List<Token>, index: Int, type: TokenType): ParseResult<String> {
@@ -29,7 +29,12 @@ private fun simple(tokens: List<Token>, index: Int, type: TokenType, word: Strin
     return ParseResult.Failure(index, tokens.last(), "End of file reached.")
 }
 
+class SimpleParser(val type: TokenType): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
+        return simple(tokens, index, type)
+    }
 
+}
 
 class StringLitParser(): Parser<String>() {
     override fun parse(
@@ -108,9 +113,53 @@ class KeywordParser(private val word: String): Parser<String>() {
 
 class IdentifierParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
-        return simple(tokens, index, TokenType.IDENTIFIER)
+        return SimpleParser(TokenType.IDENTIFIER).disjoint(
+            LParenParser().rCompose(SimpleParser(TokenType.IDENTIFIER)).lCompose(RParenParser())
+        ).parse(tokens, index)
     }
 }
+
+class TypeParser(): Parser<MType>() {
+    override fun parse(tokens: List<Token>, index: Int): ParseResult<MType> {
+        if(index < tokens.size) {
+            val first = tokens[index]
+            if(first.type == TokenType.PRIMITIVE_TYPE) {
+                val type = when(first.lexeme) {
+                    "int" -> MInt
+                    "bool" -> MBool
+                    "float" -> MFloat
+                    "char" -> MChar
+                    "string" -> MString
+                    "unit" -> MUnit
+                    else -> return ParseResult.Failure(index, first, "Failed against token type ${first.type} ($index) with lexeme ${first.lexeme}")
+                }
+                return ParseResult.Success(type, index + 1)
+            }
+            return ParseResult.Failure(index, first, "Failed against token type ${first.type} ($index) with lexeme ${first.lexeme}")
+        }
+        return ParseResult.Failure(index, tokens.last(), "End of file reached.")
+    }
+
+}
+
+class TypedIdentifierParser(): Parser<MBinding>() {
+    override fun parse(tokens: List<Token>, index: Int): ParseResult<MBinding> {
+        val parser = IdentifierParser().lCompose(SpecialCharParser(":")).bind { iden ->
+            TypeParser().bind{ firstType ->
+                ZeroOrMore(
+                    SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(TypeParser())
+                ).map { moreTypes ->
+                    if(moreTypes.isEmpty()) MBinding(iden, firstType)
+                    MBinding(iden, moreTypes.fold(firstType, {acc, rest -> MFunction(rest, acc)}))
+                }
+            }
+
+        }
+        return parser.disjoint(LParenParser().rCompose(parser).lCompose(RParenParser())).parse(tokens, index)
+    }
+}
+
+
 
 class SpecialCharParser(private val char: String): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {

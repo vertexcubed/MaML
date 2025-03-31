@@ -1,5 +1,4 @@
-let add_func x y = x + y in
-let apply_func func x y =
-    func x y
-in
-apply_func (add_func) 1 4
+let rec factorial (n: int): int =
+    if n <= 0 then 1
+    else n * factorial (n - 1)
+in factorial 5
