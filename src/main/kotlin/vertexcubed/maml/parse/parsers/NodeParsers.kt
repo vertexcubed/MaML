@@ -7,6 +7,8 @@ import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.MBinding
 import vertexcubed.maml.type.MFunction
 import vertexcubed.maml.type.MType
+import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.math.pow
 
 //Parse an expression.
@@ -16,20 +18,29 @@ class ExprParser(): Parser<AstNode>() {
     }
 }
 
+//class SequenceParser(): Parser<LetNode>() {
+//    override fun parse(tokens: List<Token>, index: Int): ParseResult<LetNode> {
+//        return ExprParser().lCompose(SpecialCharParser(";").bind { expr ->
+//            ExprParser().bind { rest ->
+//                LetNode(MBinding("_"))
+//            }
+//        })
+//    }
+//}
+
 class LetParser(): Parser<LetNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<LetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
             IdentifierParser().bind { first ->
                     ZeroOrMore(TupleIdentifierParser().disjoint(TypedIdentifierParser())).bind { arguments ->
-                    SpecialCharParser(":").rCompose((TupleTypeParser() as Parser<MType>).disjoint(TypeParser())).bind {type ->
+                    OptionalParser(SpecialCharParser(":").rCompose((TupleTypeParser() as Parser<MType>).disjoint(TypeParser()))).bind {type ->
                         SpecialCharParser("=").rCompose(ExprParser()).bind { second ->
                             KeywordParser("in").rCompose(ExprParser()).map { third ->
                                 if(rec.isPresent() && arguments.isEmpty()) throw ParseException(tokens[index].line, "Only functions can be recursive, not values.")
-                                val funcType = arguments.fold(type, {acc, rest -> MFunction(rest.type, acc)})
 
                                 val node = arguments.foldRightIndexed(second, { index, str, exist ->
                                     if(rec.isPresent() && index == 0) {
-                                        RecursiveFunctionNode(MBinding(first, funcType), FunctionNode(str, exist, tokens[index].line), tokens[index].line)
+                                        RecursiveFunctionNode(MBinding(first, Optional.empty()), FunctionNode(str, exist, tokens[index].line), tokens[index].line)
                                     }
                                     else FunctionNode(str, exist, tokens[index].line)})
                                 LetNode(MBinding(first, type), node, third, tokens[index].line)

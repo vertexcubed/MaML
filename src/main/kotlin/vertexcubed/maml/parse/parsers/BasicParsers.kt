@@ -5,6 +5,8 @@ import vertexcubed.maml.parse.TokenType
 import vertexcubed.maml.parse.ast.Bop
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
+import java.util.*
+import kotlin.collections.ArrayList
 
 
 private fun simple(tokens: List<Token>, index: Int, type: TokenType): ParseResult<String> {
@@ -171,8 +173,9 @@ class TupleTypeParser(): Parser<MTuple>() {
 
 class TupleIdentifierParser(): Parser<MBinding>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<MBinding> {
-        val parser = IdentifierParser().lCompose(SpecialCharParser(":")).bind { iden ->
-            TupleTypeParser().map {type -> MBinding(iden, type)}
+        val parser = IdentifierParser().bind { iden ->
+            OptionalParser(SpecialCharParser(":").rCompose(TupleTypeParser())).map {
+                type -> MBinding(iden, type as Optional<MType>)}
         }
         return parser.parse(tokens, index)
     }
@@ -180,8 +183,9 @@ class TupleIdentifierParser(): Parser<MBinding>() {
 
 class TypedIdentifierParser(): Parser<MBinding>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<MBinding> {
-        val parser = IdentifierParser().lCompose(SpecialCharParser(":")).bind { iden ->
-            TypeParser().map { type -> MBinding(iden, type) }
+        val parser = IdentifierParser().bind { iden ->
+            OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).map {
+                    type -> MBinding(iden, type)}
         }
         return parser.disjoint(LParenParser().rCompose(parser).lCompose(RParenParser())).parse(tokens, index)
     }

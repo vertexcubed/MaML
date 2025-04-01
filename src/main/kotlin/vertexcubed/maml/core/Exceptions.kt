@@ -14,3 +14,6 @@ class TypeException(val line: Int, val node: AstNode, val log: String): Exceptio
         constructor(line: Int, node: AstNode, actualType: MType, expectedType: MType) : this(line, node,
             "This expression has type $actualType but an expression was expected of type $expectedType")
 }
+
+class UnifyException(t1: MType, t2: MType): Exception("Cannot unify type $t1 with type $t2")
+class BindException(t1: MType, boundType: MType): Exception("Type $t1 already bound to type $boundType")

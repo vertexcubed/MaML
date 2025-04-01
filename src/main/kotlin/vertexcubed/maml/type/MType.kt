@@ -1,41 +1,120 @@
 package vertexcubed.maml.type
 
-sealed class MType() {}
+import vertexcubed.maml.core.UnifyException
+
+sealed class MType() {
+
+    /**
+     * Check if some other type occurs in this type.
+     */
+    open fun occurs(other: MType): Boolean {
+        return false
+    }
+    open fun find(): MType {
+        return this
+    }
+
+    //Override for non primitives
+    open fun unify(other: MType) {
+        val myType = find()
+        val otherType = other.find()
+        if(otherType is MTypeVar) {
+            otherType.unify(myType)
+            return
+        }
+        if(this != otherType) {
+            throw UnifyException(myType, other)
+        }
+    }
+
+    abstract fun substitute(from: MType, to: MType): MType
+}
 
 data object MInt: MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        return MInt
+    }
+
     override fun toString(): String {
         return "int"
     }
 }
 data object MFloat: MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        return MFloat
+    }
+
     override fun toString(): String {
         return "float"
     }
 }
 data object MBool: MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        return MBool
+    }
+
     override fun toString(): String {
         return "bool"
     }
 }
 data object MString: MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        return MString
+    }
+
     override fun toString(): String {
         return "string"
     }
 }
 data object MChar: MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        return MChar
+    }
+
     override fun toString(): String {
         return "int"
     }
 }
 data object MUnit: MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        return MUnit
+    }
+
     override fun toString(): String {
         return "unit"
     }
 }
 data class MFunction(val arg: MType, val ret: MType): MType() {
     override fun toString(): String {
-        return "$arg -> $ret"
+        val argStr: String
+        if(arg.find() is MFunction) {
+            argStr = "($arg)"
+        }
+        else argStr = arg.toString()
+
+        return "$argStr -> $ret"
     }
+
+    override fun occurs(other: MType): Boolean {
+        return arg.occurs(other) || ret.occurs(other)
+    }
+
+    override fun unify(other: MType) {
+        val myType = find()
+        val otherType = other.find()
+        if(otherType is MTypeVar) {
+            otherType.unify(myType)
+            return
+        }
+        if(otherType !is MFunction) throw UnifyException(myType, otherType)
+        arg.unify(otherType.arg)
+        ret.unify(otherType.ret)
+    }
+
+    override fun substitute(from: MType, to: MType): MType {
+        return MFunction(arg.substitute(from, to), ret.substitute(from, to))
+    }
+
 }
 
 data class MTuple(val types: List<MType>): MType() {
@@ -49,4 +128,35 @@ data class MTuple(val types: List<MType>): MType() {
         }
         return str
     }
+
+    override fun occurs(other: MType): Boolean {
+        for(type in types) {
+            if (type.occurs(other)) return true
+        }
+        return false
+    }
+
+    override fun unify(other: MType) {
+        val myType = find()
+        val otherType = other.find()
+        if(otherType is MTypeVar) {
+            otherType.unify(myType)
+            return
+        }
+        if(otherType !is MTuple) throw UnifyException(myType, otherType)
+        if(otherType.types.size != types.size) throw UnifyException(myType, otherType)
+        for(i in types.indices) {
+            types[i].unify(otherType.types[i])
+        }
+    }
+
+    override fun substitute(from: MType, to: MType): MType {
+        return MTuple(types.map { it.substitute(from, to) })
+    }
 }
+
+//class MTypeCon(val name: String, val args: List<MType>): MType() {
+//    override fun toString(): String {
+//        return "$name $args"
+//    }
+//}

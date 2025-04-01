@@ -9,7 +9,7 @@ class UnitNode(line: Int) : AstNode(line) {
         return UnitValue
     }
 
-    override fun type(env: Map<String, MType>): MType {
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
         return MUnit
     }
 
@@ -27,7 +27,7 @@ class TrueNode(line: Int) : AstNode(line) {
         return BooleanValue(true)
     }
 
-    override fun type(env: Map<String, MType>): MType {
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
         return MBool
     }
 
@@ -46,7 +46,7 @@ class FalseNode(line: Int) : AstNode(line) {
         return BooleanValue(false)
     }
 
-    override fun type(env: Map<String, MType>): MType {
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
         return MBool
     }
 
@@ -65,7 +65,7 @@ class StringNode(val text: String, line: Int) : AstNode(line) {
         return StringValue(text)
     }
 
-    override fun type(env: Map<String, MType>): MType {
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
         return MString
     }
 
@@ -83,7 +83,7 @@ class CharNode(val text: Char, line: Int): AstNode(line) {
         return CharValue(text)
     }
 
-    override fun type(env: Map<String, MType>): MType {
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
         return MChar
     }
 
@@ -106,7 +106,7 @@ class IntegerNode(val number: Long, line: Int) : AstNode(line) {
         return IntegerValue(number)
     }
 
-    override fun type(env: Map<String, MType>): MType {
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
         return MInt
     }
 
@@ -125,7 +125,7 @@ class FloatNode(val number: Float, line: Int): AstNode(line) {
         return FloatValue(number)
     }
 
-    override fun type(env: Map<String, MType>): MType {
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
         return MFloat
     }
 
@@ -143,8 +143,8 @@ class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
         return TupleValue(nodes.map { node -> node.eval(env) })
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        return MTuple(nodes.map { node -> node.type(env) })
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
+        return MTuple(nodes.map { node -> node.inferType(env, types) })
     }
 
     override fun pretty(): String {
@@ -191,7 +191,7 @@ class BinaryOpNode(val operation: Bop, val left: AstNode, val right: AstNode, li
 
     }
 
-    override fun type(env: Map<String, MType>): MType {
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
         val myType: MType
         val expectedType: MType
         when(operation) {
@@ -209,14 +209,10 @@ class BinaryOpNode(val operation: Bop, val left: AstNode, val right: AstNode, li
                 expectedType = MBool
             }
         }
-        val leftType = left.type(env)
-        val rightType = right.type(env)
-        if(leftType != expectedType) {
-            throw TypeException(line, left, leftType, expectedType)
-        }
-        if(rightType != expectedType) {
-            throw TypeException(line, right, rightType, expectedType)
-        }
+        val leftType = left.inferType(env, types)
+        val rightType = right.inferType(env, types)
+        leftType.unify(expectedType)
+        rightType.unify(expectedType)
         return myType
     }
 
@@ -248,15 +244,14 @@ class UnaryOpNode(val operation: Uop, val other: AstNode, line: Int): AstNode(li
         }
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        val types = when(operation) {
-            Uop.NEGATE -> listOf(MInt, MFloat)
-            Uop.NOT -> listOf(MBool)
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
+        val validTypes = when(operation) {
+            Uop.NEGATE -> MInt
+            Uop.NOT -> MBool
         }
-        val otherType = other.type(env)
-        if(otherType !in types) {
-            throw TypeException(line, other, otherType, types[0])
-        }
+        val otherType = other.inferType(env, types)
+
+        otherType.unify(validTypes)
         return otherType
     }
 
@@ -302,14 +297,25 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
         }
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        val funcType = func.type(env)
-        if(funcType !is MFunction) throw TypeException(line, func, "This expression has type $funcType\nThis is not a function; it cannot be applied")
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
 
-        val argType = arg.type(env)
+        val funcType = func.inferType(env, types)
 
-        if(argType != funcType.arg) throw TypeException(line, arg, argType, funcType.arg)
-        return funcType.ret
+        val argType = arg.inferType(env, types)
+
+        val myType = types.newTypeVar()
+
+        funcType.unify(MFunction(argType, myType))
+
+        return myType
+
+//        val funcType = func.type(env, types)
+//        if(funcType !is MFunction) throw TypeException(line, func, "This expression has type $funcType\nThis is not a function; it cannot be applied")
+//
+//        val argType = arg.type(env, types)
+//
+//        if(argType != funcType.arg) throw TypeException(line, arg, argType, funcType.arg)
+//        return funcType.ret
     }
 
     override fun pretty(): String {
@@ -332,12 +338,13 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
         return elseBranch.eval(env)
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        val condType = condition.type(env)
-        if(condType !is MBool) throw TypeException(line, condition, condType, MBool)
-        val thenType = thenBranch.type(env)
-        val elseType = elseBranch.type(env)
-        if(thenType != elseType) throw TypeException(line, condition, elseType, thenType)
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
+
+        val condType = condition.inferType(env, types)
+        condType.unify(MBool)
+        val thenType = thenBranch.inferType(env, types)
+        val elseType = thenBranch.inferType(env, types)
+        thenType.unify(elseType)
         return thenType
     }
 
@@ -359,10 +366,15 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
         return expression.eval(newEnv)
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        val statementType = statement.type(env)
-        val newEnv = env + (name.binding to statementType)
-        return expression.type(newEnv)
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
+//        val statementType = statement.type(env)
+//        val newEnv = env + (name.binding to statementType)
+//        return expression.type(newEnv)
+        val statementType = statement.inferType(env, types)
+        val scheme = ForAll.generalize(statementType, types)
+        val newEnv = env +  (name.binding to scheme)
+        return expression.inferType(newEnv, types)
+
     }
 
     override fun pretty(): String {
@@ -381,9 +393,14 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         return RecursiveFunctionValue(name.binding, nodeVal)
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        val newEnv = env + (name.binding to name.type)
-        return node.type(newEnv)
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
+        val myType = types.newTypeVar()
+        if(name.type.isPresent) {
+            myType.unify(name.type.get())
+        }
+
+        val newEnv = env + (name.binding to ForAll.empty(myType))
+        return node.inferType(newEnv, types)
     }
 
     override fun pretty(): String {
@@ -402,10 +419,19 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
         return FunctionValue(arg.binding, body, env)
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        val newEnv = env + (arg.binding to arg.type)
-        return MFunction(arg.type, body.type(newEnv))
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
+        val argType = types.newTypeVar()
+        if(arg.type.isPresent) {
+            argType.unify(arg.type.get())
+        }
+        val newEnv = env + (arg.binding to ForAll.empty(argType))
+        val bodyType = body.inferType(newEnv, types)
+
+
+        return MFunction(argType, bodyType)
     }
+
+
 
     override fun pretty(): String {
         return "fun ${arg.binding} -> $body"
@@ -427,9 +453,10 @@ class BuiltinNode(val name: MBinding, val arg: MType, line: Int, val function: (
         return function(argVal)
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        val myType = MFunction(arg, name.type)
-        return myType
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
+//        val myType = MFunction(arg, name.type)
+//        return myType
+        TODO("Not Yet Implemented")
     }
 
     override fun pretty(): String {
@@ -448,8 +475,8 @@ class VariableNode(val name: String, line: Int): AstNode(line) {
         return env.getOrElse(name, { throw UnboundVarException(name) })
     }
 
-    override fun type(env: Map<String, MType>): MType {
-        return env.getOrElse(name, { throw UnboundVarException(name) })
+    override fun inferType(env: Map<String, ForAll>, types: TypeEnv): MType {
+        return env.getOrElse(name, { throw UnboundVarException(name) }).instantiate(types)
     }
 
     override fun pretty(): String {

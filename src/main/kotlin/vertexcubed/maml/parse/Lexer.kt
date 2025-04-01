@@ -79,6 +79,12 @@ class Lexer(val source: String) {
 
     fun read(): List<Token> {
 
+        if(source.isEmpty()) {
+            data.add(Token(EOF, "", lineIdx))
+            return data
+        }
+
+
         while(hasNext()) {
             val token = token(poll())
             if(token.type == COMMENT) continue //ignore comments
