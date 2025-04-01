@@ -3,6 +3,8 @@ package vertexcubed.maml.parse.parsers
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.result.ParseResult
+import vertexcubed.maml.type.MBinding
+import java.util.*
 
 //All the precedence levels.
 
@@ -32,14 +34,6 @@ class PrecedenceParsers {
         override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
             return (ApplicationParser() as Parser<AstNode>).disjoint(ConstLevel()).parse(tokens, index)
         }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    class TupleLevel(): Parser<AstNode>() {
-        override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
-            return (TupleParser() as Parser<AstNode>).disjoint(AppLevel()).parse(tokens, index)
-        }
-
     }
 
     class UnaryLevel(): Parser<AstNode>() {
@@ -112,23 +106,23 @@ class PrecedenceParsers {
         }
     }
 
+    class SequenceLevel(): Parser<AstNode>() {
+        override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
+            val parser: Parser<AstNode> = FunctionLevel().lCompose(SpecialCharParser(";")).bind { first ->
+                ExprParser().map { second ->
+                    LetNode(MBinding("_", Optional.empty()), first, second, tokens[index].line)
+                }
+            }
+            return FunctionLevel().disjoint(parser).parse(tokens, index)
+        }
+
+    }
+
     //Let statements.
     @Suppress("UNCHECKED_CAST")
     class LetLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
-            return FunctionLevel().disjoint(LetParser() as Parser<AstNode>).parse(tokens, index)
+            return SequenceLevel().disjoint(LetParser() as Parser<AstNode>).parse(tokens, index)
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
 }

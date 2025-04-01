@@ -116,7 +116,7 @@ class Lexer(val source: String) {
         return when(c) {
             '!', '%', '&', '$', '#', '+', '-', '/',
             ':', '<', '=', '>', '?', '@', '\\', '~',
-            '`', '^', '|', '*', '.', ',' -> Token(SPECIAL_CHAR, "$c", lineIdx)
+            '`', '^', '|', '*', '.', ',', ';', -> Token(SPECIAL_CHAR, "$c", lineIdx)
             '(' -> {
                 if(hasNext()) {
                     val next = peek()

@@ -32,13 +32,13 @@ data object UnitValue : MValue() {
 
 data class FunctionValue(val arg: String, val expr: AstNode, val env: Map<String, MValue>) : MValue() {
     override fun toString(): String {
-        return "Function($arg)"
+        return "<fun>"
     }
 }
 
 data class RecursiveFunctionValue(val name: String, val func: FunctionValue): MValue() {
     override fun toString(): String {
-        return "RecFun($name, ${func.arg})"
+        return "<fun>"
     }
 }
 

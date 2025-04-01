@@ -201,6 +201,7 @@ class SpecialCharParser(private val char: String): Parser<String>() {
 
 class LParenParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
+//        print("$index ")
         return simple(tokens, index, TokenType.LPAREN)
     }
 }

@@ -10,6 +10,11 @@ sealed class ParseResult<T> {
         fun <V> newResult(): Failure<V> {
             return Failure(index, token, logMessage)
         }
+        override fun toString(): String {
+            return "Index $index, token $token, message:\n$logMessage"
+        }
     }
+
+
 }
 

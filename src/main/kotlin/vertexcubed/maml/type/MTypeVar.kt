@@ -6,6 +6,8 @@ import java.util.*
 
 class MTypeVar(val id: Int): MType() {
 
+    var display = "'$id"
+
     private var substitute = Optional.empty<MType>()
 
     override fun occurs(other: MType): Boolean {
@@ -14,6 +16,10 @@ class MTypeVar(val id: Int): MType() {
             return id == other.id
         }
         return false
+    }
+
+    fun isBound(): Boolean {
+        return substitute.isPresent
     }
 
     override fun find(): MType {
@@ -40,46 +46,32 @@ class MTypeVar(val id: Int): MType() {
     }
 
     override fun unify(other: MType) {
-        val myType = find()
-        val otherType = other.find()
-        if(otherType.occurs(myType)) throw UnifyException(myType, otherType)
-
-        if(myType !is MTypeVar && otherType is MTypeVar) {
-            otherType.unify(myType)
+        if(substitute.isPresent) {
+            substitute.get().unify(other)
             return
         }
-
+        val otherType = other.find()
+        if(otherType.occurs(this)) throw UnifyException(this, otherType)
         bind(otherType)
     }
 
     override fun substitute(from: MType, to: MType): MType {
-        val me = find()
-        if(me is MTypeVar) {
-            val first = from.find()
-            if(first is MTypeVar && me.id == first.id) {
-                return to
-            }
+        if(substitute.isPresent) {
+            return substitute.get().substitute(from, to)
+        }
+        val first = from.find()
+        if(first is MTypeVar && id == first.id) {
+            return to
         }
         return this
     }
 
     override fun toString(): String {
         if(substitute.isPresent) return substitute.get().toString()
-        return "'${idToStr()}"
+        return display
     }
 
-    private fun idToStr(): String {
-        var num = id + 1
-        var str = ""
-        while(num > 0) {
-            val digit = num % 26
-            //ASCII a is 96
-            val letter = (digit + 96).toChar()
-            str = letter + str
-            num /= 26
-        }
-        return str
-    }
+
 }
 
 data class MGeneralTypeVar(val id: Int): MType() {
