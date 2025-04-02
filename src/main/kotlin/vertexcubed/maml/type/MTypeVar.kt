@@ -51,6 +51,7 @@ class MTypeVar(val id: Int): MType() {
             return
         }
         val otherType = other.find()
+        if(otherType is MTypeVar && this.id == otherType.id) return
         if(otherType.occurs(this)) throw UnifyException(this, otherType)
         bind(otherType)
     }

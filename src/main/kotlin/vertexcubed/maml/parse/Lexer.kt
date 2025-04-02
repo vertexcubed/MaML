@@ -333,6 +333,13 @@ class Lexer(val source: String) {
             if(next == '\n') {
                 lineIdx++
             }
+            if(next == '\\') {
+                if(peek() == 'n') {
+                    builder.append('\n')
+                    poll()
+                    continue
+                }
+            }
             builder.append(next)
         }
         throw ParseException(beginningLine, "String literal not terminated.")

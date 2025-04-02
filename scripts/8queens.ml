@@ -1,27 +1,28 @@
-let N = 8 in
+let N = 8
 
 (*
     fun print_dots (i: int): void =
         if i > 0 then (print ". "; print_dots (i-1)) else ()
 *)
-(* let print_dots (i : int) : unit = *)
-(*  if i > 0 then ( *)
-(*    print(". "); *)
-(*    print_dots(i - 1)) *)
-(*  else () *)
-(* in *)
+let rec print_dots (i : int) : unit =
+  if i > 0 then (
+    print(". ");
+    print_dots(i - 1)
+    )
+else ()
+
 (*
     fun print_row (i: int): void =
     (
         print_dots (i); print "Q "; print_dots (N-i-1); print "\n";
     )
 *)
-(* let print_row (i : int) : unit = *)
-(*  print_dots(i); *)
-(*  print("Q "); *)
-(*  print_dots(N - i - 1); *)
-(*  print("\n") *)
-(* in *)
+let print_row (i : int) : unit =
+  print_dots(i);
+  print("Q ");
+  print_dots(N - i - 1);
+  print("\n")
+
 (*
     fun board_get
         (bd: int8, i: int): int =
@@ -35,17 +36,17 @@ let N = 8 in
         else if i = 7 then bd.7
         else ~1
 *)
-(* let board_get bd (i : int) : int = *)
-(*  if i = 0 then fst (bd) *)
-(*  else if i = 1 then fst (snd (bd)) *)
-(*  else if i = 2 then fst (snd (snd (bd))) *)
-(*  else if i = 3 then fst (snd (snd (snd (bd)))) *)
-(*  else if i = 4 then fst (snd (snd (snd (snd (bd))))) *)
-(*  else if i = 5 then fst (snd (snd (snd (snd (snd (bd)))))) *)
-(*  else if i = 6 then fst (snd (snd (snd (snd (snd (snd (bd))))))) *)
-(*  else if i = 7 then snd (snd (snd (snd (snd (snd (snd (bd))))))) *)
-(*  else -1 *)
-(* in *)
+let board_get bd (i : int) : int =
+  if i = 0 then fst (bd)
+  else if i = 1 then fst (snd (bd))
+  else if i = 2 then fst (snd (snd (bd)))
+  else if i = 3 then fst (snd (snd (snd (bd))))
+  else if i = 4 then fst (snd (snd (snd (snd (bd)))))
+  else if i = 5 then fst (snd (snd (snd (snd (snd (bd))))))
+  else if i = 6 then fst (snd (snd (snd (snd (snd (snd (bd)))))))
+  else if i = 7 then snd (snd (snd (snd (snd (snd (snd (bd)))))))
+  else -1
+
 (*
     fun print_board (bd: int8): void =
     (
@@ -54,16 +55,16 @@ let N = 8 in
         print_newline ()
     )
 *)
- let print_board (bd) : unit =
-  print_row (board_get (bd 0));
-  print_row (board_get (bd 1));
-  print_row (board_get (bd 2));
-  print_row (board_get (bd 3));
-  print_row (board_get (bd 4));
-  print_row (board_get (bd 5));
-  print_row (board_get (bd 6));
-  print_row (board_get (bd 7))
- in
+let print_board (bd) : unit =
+  print_row (board_get bd 0);
+  print_row (board_get bd 1);
+  print_row (board_get bd 2);
+  print_row (board_get bd 3);
+  print_row (board_get bd 4);
+  print_row (board_get bd 5);
+  print_row (board_get bd 6);
+  print_row (board_get bd 7)
+
 (*
     fun board_set
         (bd: int8, i: int, j:int): int8 = let
@@ -88,41 +89,41 @@ let N = 8 in
         end else bd // end of [if]
     end
 *)
-(* let board_set bd (i : int) (j : int) = *)
-(*  let x0 = board_get (bd 0) in *)
-(*  let x1 = board_get (bd 1) in *)
-(*  let x2 = board_get (bd 2) in *)
-(*  let x3 = board_get (bd 3) in *)
-(*  let x4 = board_get (bd 4) in *)
-(*  let x5 = board_get (bd 5) in *)
-(*  let x6 = board_get (bd 6) in *)
-(*  let x7 = board_get (bd 7) in *)
-(*  if i = 0 then *)
-(*    let x0 = j in *)
-(*    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7))))))) *)
-(*  else if i = 1 then *)
-(*    let x1 = j in *)
-(*    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7))))))) *)
-(*  else if i = 2 then *)
-(*    let x2 = j in *)
-(*    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7))))))) *)
-(*  else if i = 3 then *)
-(*    let x3 = j in *)
-(*    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7))))))) *)
-(*  else if i = 4 then *)
-(*    let x4 = j in *)
-(*    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7))))))) *)
-(*  else if i = 5 then *)
-(*    let x5 = j in *)
-(*    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7))))))) *)
-(*  else if i = 6 then *)
-(*    let x6 = j in *)
-(*    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7))))))) *)
-(*  else if i = 7 then *)
-(*    let x7 = j in *)
-(*    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7))))))) *)
-(*  else bd *)
-(* in *)
+let board_set bd (i : int) (j : int) =
+  let x0 = board_get bd 0 in
+  let x1 = board_get bd 1 in
+  let x2 = board_get bd 2 in
+  let x3 = board_get bd 3 in
+  let x4 = board_get bd 4 in
+  let x5 = board_get bd 5 in
+  let x6 = board_get bd 6 in
+  let x7 = board_get bd 7 in
+  if i = 0 then
+    let x0 = j in
+    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
+  else if i = 1 then
+    let x1 = j in
+    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
+  else if i = 2 then
+    let x2 = j in
+    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
+  else if i = 3 then
+    let x3 = j in
+    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
+  else if i = 4 then
+    let x4 = j in
+    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
+  else if i = 5 then
+    let x5 = j in
+    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
+  else if i = 6 then
+    let x6 = j in
+    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
+  else if i = 7 then
+    let x7 = j in
+    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
+  else bd
+
 (*
     fun safety_test1
     (
@@ -130,11 +131,11 @@ let N = 8 in
     ) : bool =
         j0 != j andalso abs (i0 - i) != abs (j0 - j)
 *)
-(* let abs (n : int) : int = if n < 0 then -n else n in *)
-(*  *)
-(* let safety_test1 (i0 : int) (j0 : int) (i : int) (j : int) : bool = *)
-(*  j0 != j && abs (i0 - i) != abs (j0 - j) *)
-(* in *)
+let abs (n : int) : int = if n < 0 then -n else n
+
+let safety_test1 (i0 : int) (j0 : int) (i : int) (j : int) : bool =
+  j0 != j && abs (i0 - i) != abs (j0 - j)
+
 (*
     fun safety_test2
     (
@@ -145,12 +146,12 @@ let N = 8 in
                 then safety_test2 (i0, j0, bd, i-1) else false
         else true
 *)
-let safety_test2 (i0 : int) (j0 : int) bd (i : int) : bool =
+let rec safety_test2 (i0 : int) (j0 : int) bd (i : int) : bool =
   if i >= 0 then
     if safety_test1 i0 j0 i (board_get bd i) then safety_test2 i0 j0 bd (i - 1)
     else false
   else true
-in
+
 (*
     fun search
     (
@@ -194,14 +195,15 @@ let rec search bd (i : int) (j : int) (nsol : int) : int =
         print (":\n\n");
         print_board (bd1);
         search bd i (j + 1) (nsol + 1) )
-      else search bd1 (i + 1) 0 nsol
-    else search bd i (j + 1) nsol
-    test
+      else
+        search bd1 (i + 1) 0 nsol
+    else
+        search bd i (j + 1) nsol
   else
-    if i > 0 then search bd (i - 1) (board_get bd (i - 1) + 1) nsol else nsol
-in
+    if i > 0 then search bd (i - 1) ((board_get bd (i - 1)) + 1) nsol else nsol
 
 
 
+let _ = println "Hi!"
 
-let main (i : int) = search (0, (0, (0, (0, (0, (0, (0, 0))))))) 0 0 0 in main 1
+let _ = println (search (0, (0, (0, (0, (0, (0, (0, 0))))))) 0 0 0)

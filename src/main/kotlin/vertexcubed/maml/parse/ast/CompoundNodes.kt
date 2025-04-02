@@ -4,158 +4,6 @@ import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 
-class UnitNode(line: Int) : AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
-        return UnitValue
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MUnit
-    }
-
-    override fun pretty(): String {
-        return "unit"
-    }
-
-    override fun toString(): String {
-        return "Unit"
-    }
-}
-
-class TrueNode(line: Int) : AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
-        return BooleanValue(true)
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MBool
-    }
-
-    override fun pretty(): String {
-        return "true"
-    }
-
-    override fun toString(): String {
-        return "true"
-    }
-}
-
-class FalseNode(line: Int) : AstNode(line) {
-
-    override fun eval(env: Map<String, MValue>): MValue {
-        return BooleanValue(false)
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MBool
-    }
-
-    override fun pretty(): String {
-        return "false"
-    }
-
-    override fun toString(): String {
-        return "false"
-    }
-}
-
-class StringNode(val text: String, line: Int) : AstNode(line) {
-
-    override fun eval(env: Map<String, MValue>): MValue {
-        return StringValue(text)
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MString
-    }
-
-    override fun pretty(): String {
-        return "\"$text\""
-    }
-
-    override fun toString(): String {
-        return "\"$text\""
-    }
-}
-
-class CharNode(val text: Char, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
-        return CharValue(text)
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MChar
-    }
-
-    override fun pretty(): String {
-        return "\"${text}\""
-    }
-
-    override fun toString(): String {
-        return "\"${text}\""
-    }
-
-}
-
-/**
- * All integers in MaML are 64-bit.
- */
-class IntegerNode(val number: Long, line: Int) : AstNode(line) {
-
-    override fun eval(env: Map<String, MValue>): MValue {
-        return IntegerValue(number)
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MInt
-    }
-
-    override fun pretty(): String {
-        return "$number"
-    }
-
-    override fun toString(): String {
-        return "$number"
-    }
-}
-
-class FloatNode(val number: Float, line: Int): AstNode(line) {
-
-    override fun eval(env: Map<String, MValue>): MValue {
-        return FloatValue(number)
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MFloat
-    }
-
-    override fun pretty(): String {
-        return "$number"
-    }
-
-    override fun toString(): String {
-        return "$number"
-    }
-}
-
-class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
-        return TupleValue(nodes.map { node -> node.eval(env) })
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MTuple(nodes.map { node -> node.inferType(env, types) })
-    }
-
-    override fun pretty(): String {
-        return "($nodes)"
-    }
-
-    override fun toString(): String {
-        return "Tuple($nodes)"
-    }
-}
-
 class BinaryOpNode(val operation: Bop, val left: AstNode, val right: AstNode, line: Int) : AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         val datatype = operation.dataType
@@ -343,7 +191,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
         val condType = condition.inferType(env, types)
         condType.unify(MBool)
         val thenType = thenBranch.inferType(env, types)
-        val elseType = thenBranch.inferType(env, types)
+        val elseType = elseBranch.inferType(env, types)
         thenType.unify(elseType)
         return thenType
     }
@@ -387,7 +235,6 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
     override fun toString(): String {
         return "Let($name, $statement, $expression)"
     }
-
 }
 
 class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: Int): AstNode(line) {
@@ -397,14 +244,32 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
     }
 
     override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        val myType = types.newTypeVar()
+        val myRetType = types.newTypeVar()
         if(name.type.isPresent) {
-            myType.unify(name.type.get())
+            myRetType.unify(name.type.get())
         }
         if(name.binding == "_") throw TypeCheckException(line, this, "Only variables are allowed as left-hand side of let rec")
 
-        val newEnv = env + (name.binding to ForAll.empty(myType))
-        return node.inferType(newEnv, types)
+        val argType = types.newTypeVar()
+        if(node.arg.type.isPresent) {
+            argType.unify(node.arg.type.get())
+        }
+        val myType = MFunction(argType, myRetType)
+        var newEnv = env + (name.binding to ForAll.empty(myType))
+
+        if(node.arg.binding == "_") {
+            val bodyType = node.body.inferType(newEnv, types)
+            return MFunction(argType, bodyType)
+        }
+
+        newEnv = newEnv + (node.arg.binding to ForAll.empty(argType))
+        val bodyType = node.body.inferType(newEnv, types)
+
+        myRetType.unify(bodyType)
+
+        return MFunction(argType, bodyType)
+
+
     }
 
     override fun pretty(): String {
@@ -474,25 +339,5 @@ class BuiltinNode(val name: MBinding, line: Int, val function: (MValue) -> MValu
 
     override fun toString(): String {
         return "Builtin(${name.binding})"
-    }
-
-}
-
-class VariableNode(val name: String, line: Int): AstNode(line) {
-
-    override fun eval(env: Map<String, MValue>): MValue {
-        return env.getOrElse(name, { throw UnboundVarException(name) })
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return env.getOrElse(name, { throw UnboundVarException(name) }).instantiate(types)
-    }
-
-    override fun pretty(): String {
-        return name
-    }
-
-    override fun toString(): String {
-        return "Var($name)"
     }
 }

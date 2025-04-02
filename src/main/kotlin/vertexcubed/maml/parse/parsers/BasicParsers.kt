@@ -116,7 +116,7 @@ class KeywordParser(private val word: String): Parser<String>() {
 class IdentifierParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
         return SimpleParser(TokenType.IDENTIFIER).disjoint(
-            LParenParser().rCompose(SimpleParser(TokenType.IDENTIFIER)).lCompose(RParenParser())
+            SimpleParser(TokenType.IDENTIFIER)
         ).parse(tokens, index)
     }
 }
@@ -168,9 +168,9 @@ class TupleTypeParser(): Parser<MTuple>() {
             }
         }.parse(tokens, index)
     }
-
 }
 
+//TODO: Make just One TypedIdentifierParser
 class TupleIdentifierParser(): Parser<MBinding>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<MBinding> {
         val parser = IdentifierParser().bind { iden ->

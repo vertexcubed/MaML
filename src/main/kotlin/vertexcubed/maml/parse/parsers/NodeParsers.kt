@@ -27,6 +27,9 @@ class ExprParser(): Parser<AstNode>() {
 //    }
 //}
 
+
+
+
 class LetParser(): Parser<LetNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<LetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
@@ -147,10 +150,12 @@ class ParenthesesParser(): Parser<AstNode>() {
     }
 }
 
-class ApplicationParser(): Parser<AppNode>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<AppNode> {
+class ApplicationParser(): Parser<AstNode>() {
+    override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
         return PrecedenceParsers.ConstLevel().bind {first ->
-            OneOrMore(PrecedenceParsers.ConstLevel()).map(fun(second: List<AstNode>): AppNode {
+            ZeroOrMore(PrecedenceParsers.ConstLevel()).map(fun(second: List<AstNode>): AstNode {
+                if(second.isEmpty()) return first
+
                 var app = AppNode(first, second[0], tokens[index].line)
                 for(i in 1..<second.size) {
                     app = AppNode(app, second[i], tokens[index].line)

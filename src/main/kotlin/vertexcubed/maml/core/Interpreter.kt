@@ -7,6 +7,7 @@ import vertexcubed.maml.parse.ast.BuiltinNode
 import vertexcubed.maml.parse.ast.FunctionNode
 import vertexcubed.maml.parse.ast.VariableNode
 import vertexcubed.maml.parse.parsers.ExprParser
+import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.ForAll
 import vertexcubed.maml.type.MBinding
@@ -46,7 +47,7 @@ class Interpreter {
         val strList = lexer.toStringList()
 
 
-        val parser = ExprParser()
+        val parser = ProgramParser()
         val tokens = lexer.read()
         println(tokens)
         val result = parser.parse(tokens)
@@ -63,11 +64,12 @@ class Interpreter {
         }
 
 
-        println(result.result)
+        val program = result.result
+        program.init(dynEnv, typeEnv)
+        println(program.nodes)
         println("Parse successful. Type checking...")
-        val type: MType
         try {
-            type = result.result.inferType(typeEnv, varTypeEnv)
+            program.inferTypes(varTypeEnv)
         }
         catch(e: TypeCheckException) {
             println(strList[e.line - 1].trim())
@@ -78,7 +80,7 @@ class Interpreter {
 
         println("Type checked. Evaluating...")
         try {
-            println("$type = ${result.result.eval(dynEnv)}")
+            program.eval()
         }
         catch(e: Exception) {
             println("Runtime Error: $e")

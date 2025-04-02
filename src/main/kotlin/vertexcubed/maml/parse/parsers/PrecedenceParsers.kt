@@ -31,7 +31,7 @@ class PrecedenceParsers {
     @Suppress("UNCHECKED_CAST")
     class AppLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
-            return (ApplicationParser() as Parser<AstNode>).disjoint(ConstLevel()).parse(tokens, index)
+            return (ApplicationParser() as Parser<AstNode>).parse(tokens, index)
         }
     }
 
@@ -89,11 +89,23 @@ class PrecedenceParsers {
         }
     }
 
+    class SequenceLevel(): Parser<AstNode>() {
+        override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
+            val parser: Parser<AstNode> = OrLevel().bind { first ->
+                OptionalParser(SpecialCharParser(";").rCompose(ExprParser())).map { second ->
+                    if(second.isPresent) LetNode(MBinding("_", Optional.empty()), first, second.get(), tokens[index].line)
+                else first
+                }
+            }
+            return parser.parse(tokens, index)
+        }
+    }
+
     //if statements.
     @Suppress("UNCHECKED_CAST")
     class IfLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
-            return OrLevel().disjoint(IfParser() as Parser<AstNode>).parse(tokens, index)
+            return SequenceLevel().disjoint(IfParser() as Parser<AstNode>).parse(tokens, index)
         }
     }
 
@@ -105,23 +117,11 @@ class PrecedenceParsers {
         }
     }
 
-    class SequenceLevel(): Parser<AstNode>() {
-        override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
-            val parser: Parser<AstNode> = FunctionLevel().lCompose(SpecialCharParser(";")).bind { first ->
-                ExprParser().map { second ->
-                    LetNode(MBinding("_", Optional.empty()), first, second, tokens[index].line)
-                }
-            }
-            return FunctionLevel().disjoint(parser).parse(tokens, index)
-        }
-
-    }
-
     //Let statements.
     @Suppress("UNCHECKED_CAST")
     class LetLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
-            return SequenceLevel().disjoint(LetParser() as Parser<AstNode>).parse(tokens, index)
+            return FunctionLevel().disjoint(LetParser() as Parser<AstNode>).parse(tokens, index)
         }
     }
 }

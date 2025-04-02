@@ -131,7 +131,7 @@ class OneOrMore<T>(val parser: Parser<T>): Parser<List<T>>() {
 
 class ChoiceParser<T>(val parsers: List<Parser<T>>): Parser<T>() {
     init {
-        if(parsers.size ==0) throw IllegalArgumentException("Cannot make Choice parser wtih no parsers!")
+        if(parsers.size == 0) throw IllegalArgumentException("Cannot make Choice parser wtih no parsers!")
     }
 
 
