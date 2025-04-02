@@ -5,7 +5,6 @@ import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.MBinding
-import vertexcubed.maml.type.MFunction
 import vertexcubed.maml.type.MType
 import java.util.*
 import kotlin.collections.ArrayList
@@ -124,28 +123,27 @@ class FloatParser(): Parser<FloatNode>() {
     }
 }
 
-class TupleParser(): Parser<TupleNode>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<TupleNode> {
-        return LParenParser().rCompose(ExprParser()).bind { first ->
-            OneOrMore(SpecialCharParser(",").rCompose(ExprParser())).lCompose(RParenParser()).map { secondList ->
-                val list = ArrayList<AstNode>()
-                list.add(first)
-                list.addAll(secondList)
-                TupleNode(list, first.line)
-            }
-        }.parse(tokens, index)
-    }
-}
-
 class UnitParser(): Parser<UnitNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<UnitNode> {
         return LParenParser().rCompose(RParenParser()).map { _ -> UnitNode(tokens[index].line) }.parse(tokens, index)
     }
 }
 
-class ParenthesesExprParser(): Parser<AstNode>() {
+class ParenthesesParser(): Parser<AstNode>() {
     override fun parse(tokens: List<Token>, index: Int): ParseResult<AstNode> {
-        return LParenParser().rCompose(ExprParser()).lCompose(RParenParser()).parse(tokens, index)
+        return LParenParser().rCompose(ExprParser()).bind { first ->
+            ZeroOrMore(SpecialCharParser(",").rCompose(ExprParser())).lCompose(RParenParser()).map { second ->
+                if(second.isEmpty()) {
+                    first
+                }
+                else {
+                    val list = ArrayList<AstNode>()
+                    list.add(first)
+                    list.addAll(second)
+                    TupleNode(list, first.line) as AstNode
+                }
+            }
+        }.parse(tokens, index)
     }
 }
 

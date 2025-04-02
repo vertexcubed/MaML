@@ -22,8 +22,7 @@ class PrecedenceParsers {
                 TrueParser() as Parser<AstNode>,
                 FalseParser() as Parser<AstNode>,
                 UnitParser() as Parser<AstNode>,
-                TupleParser() as Parser<AstNode>,
-                ParenthesesExprParser() as Parser<AstNode>,
+                ParenthesesParser() as Parser<AstNode>,
                 IdentifierParser().map { r -> VariableNode(r, tokens[index].line) }
             )).parse(tokens, index)
         }
