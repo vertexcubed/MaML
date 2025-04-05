@@ -1,5 +1,6 @@
 package vertexcubed.maml.parse.parsers
 
+import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.TokenType
 import vertexcubed.maml.parse.ast.Bop
@@ -32,17 +33,13 @@ private fun simple(tokens: List<Token>, index: Int, type: TokenType, word: Strin
 }
 
 class SimpleParser(val type: TokenType): Parser<String>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, type)
     }
-
 }
 
 class StringLitParser(): Parser<String>() {
-    override fun parse(
-        tokens: List<Token>,
-        index: Int
-    ): ParseResult<String> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.STRING_LITERAL)
     }
 }
@@ -50,7 +47,7 @@ class StringLitParser(): Parser<String>() {
 @OptIn(ExperimentalStdlibApi::class)
 class CharLitParser(): Parser<Char>() {
 
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<Char> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Char> {
         if(index < tokens.size) {
             val first = tokens[index]
             if(first.type == TokenType.CHAR_LITERAL) {
@@ -108,34 +105,55 @@ class CharLitParser(): Parser<Char>() {
 }
 
 class KeywordParser(private val word: String): Parser<String>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.KEYWORD, word)
     }
 }
 
 class IdentifierParser(): Parser<String>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
-        return SimpleParser(TokenType.IDENTIFIER).disjoint(
-            SimpleParser(TokenType.IDENTIFIER)
-        ).parse(tokens, index)
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        return SimpleParser(TokenType.IDENTIFIER).parse(tokens, index, env)
     }
 }
 
-class TypeParser(): Parser<MType>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<MType> {
+class CompoundSpecialCharParser(val name: String): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        if(name.isEmpty()) throw IllegalArgumentException("Cannot make compound special char parser on empty string")
+        return SeriesParser(name.map { c -> SpecialCharParser("$c") }).map { results ->
+            results.joinToString(separator = "")
+        }.parse(tokens, index, env)
+    }
+
+}
+
+class SpecificIdentifierParser(val name: String): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        return simple(tokens, index, TokenType.IDENTIFIER, name)
+    }
+
+}
+
+class ConstructorParser(): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        return SimpleParser(TokenType.CONSTRUCTOR).parse(tokens, index, env)
+    }
+
+}
+
+class FunTypeParser(): Parser<MType>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MType> {
         return SingleTypeParser().bind{ firstType ->
             ZeroOrMore(
-                SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(TypeParser())
+                SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(FunTypeParser())
             ).map { moreTypes ->
                 moreTypes.fold(firstType, {acc, rest -> MFunction(rest, acc)})
             }
-        }.parse(tokens, index)
+        }.parse(tokens, index, env)
     }
-
 }
 
 class SingleTypeParser(): Parser<MType>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<MType> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MType> {
         if(index < tokens.size) {
             val first = tokens[index]
             if(first.type == TokenType.PRIMITIVE_TYPE) {
@@ -154,66 +172,59 @@ class SingleTypeParser(): Parser<MType>() {
         }
         return ParseResult.Failure(index, tokens.last(), "Expected token of type ${TokenType.PRIMITIVE_TYPE}, but End of File reached.")
     }
-
 }
 
-class TupleTypeParser(): Parser<MTuple>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<MTuple> {
-        return TypeParser().bind { first ->
-            OneOrMore(SpecialCharParser("*").rCompose(TypeParser())).map { rest ->
-                val list = ArrayList<MType>()
-                list.add(first)
-                list.addAll(rest)
-                MTuple(list)
+class TypeParser(): Parser<MType>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MType> {
+        return FunTypeParser().bind { first ->
+            ZeroOrMore(SpecialCharParser("*").rCompose(FunTypeParser())).map { rest: List<MType> ->
+                if (rest.isEmpty()) {
+                    first
+                }
+                else {
+                    val list = ArrayList<MType>()
+                    list.add(first)
+                    list.addAll(rest)
+                    MTuple(list)
+                }
             }
-        }.parse(tokens, index)
-    }
-}
-
-//TODO: Make just One TypedIdentifierParser
-class TupleIdentifierParser(): Parser<MBinding>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<MBinding> {
-        val parser = IdentifierParser().bind { iden ->
-            OptionalParser(SpecialCharParser(":").rCompose(TupleTypeParser())).map {
-                type -> MBinding(iden, type as Optional<MType>)}
-        }
-        return parser.parse(tokens, index)
+        }.parse(tokens, index, env)
     }
 }
 
 class TypedIdentifierParser(): Parser<MBinding>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<MBinding> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MBinding> {
         val parser = IdentifierParser().bind { iden ->
             OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).map {
                     type -> MBinding(iden, type)}
         }
-        return parser.disjoint(LParenParser().rCompose(parser).lCompose(RParenParser())).parse(tokens, index)
+        return parser.disjoint(LParenParser().rCompose(parser).lCompose(RParenParser())).parse(tokens, index, env)
     }
 }
 
 
 
 class SpecialCharParser(private val char: String): Parser<String>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.SPECIAL_CHAR, char)
     }
 }
 
 class LParenParser(): Parser<String>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
 //        print("$index ")
         return simple(tokens, index, TokenType.LPAREN)
     }
 }
 
 class RParenParser(): Parser<String>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<String> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.RPAREN)
     }
 }
 
 class DecimalNumberParser(): Parser<Long>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<Long> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Long> {
         if(index < tokens.size) {
             val first = tokens[index]
             if(first.type == TokenType.NUMBER_LITERAL) {
@@ -236,7 +247,7 @@ class HexNumberParser(): Parser<Long>() {
             number.prefix = "0x"
         }
     }
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<Long> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Long> {
         if(index < tokens.size) {
             val first = tokens[index]
             if(first.type == TokenType.HEX_LITERAL) {
@@ -283,8 +294,8 @@ class OpParser(val op: Bop): Parser<Bop>() {
 
 
 
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<Bop> {
-        return toStringParser(op).map {_ -> op}.parse(tokens, index)
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Bop> {
+        return toStringParser(op).map {_ -> op}.parse(tokens, index, env)
     }
 
 }

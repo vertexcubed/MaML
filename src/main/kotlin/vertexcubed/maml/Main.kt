@@ -1,8 +1,16 @@
 package vertexcubed.maml
 
 import vertexcubed.maml.core.Interpreter
+import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.eval.TupleValue
 import vertexcubed.maml.eval.UnitValue
+import vertexcubed.maml.parse.Lexer
+import vertexcubed.maml.parse.ParseEnv
+import vertexcubed.maml.parse.ast.AppNode
+import vertexcubed.maml.parse.ast.AstNode
+import vertexcubed.maml.parse.ast.VariableNode
+import vertexcubed.maml.parse.parsers.*
+import vertexcubed.maml.parse.preprocess.Associativity
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.IOException
@@ -36,8 +44,9 @@ fun main(args: Array<String>) {
     val code = lines.toString()
 
 
+
+
     println("Starting execution of file ${args[0]}")
-//    val lexer = Lexer("if true else 2")
     val interp = Interpreter()
 
     interp.registerBuiltin("print", { arg ->
@@ -59,4 +68,36 @@ fun main(args: Array<String>) {
     })
 
     interp.run(code)
+
+//    val names1 = listOf("*", "/")
+//    val names2 = listOf("+", "-")
+//
+//    val name1Parser = ChoiceParser(names1.map { name ->
+//        CompoundSpecialCharParser(name).disjoint(SpecificIdentifierParser(name))
+//    })
+//    val name2Parser = ChoiceParser(names2.map { name ->
+//        CompoundSpecialCharParser(name).disjoint(SpecificIdentifierParser(name))
+//    })
+//    val env = ParseEnv()
+//    val parserList = arrayListOf<Parser<AstNode>>(PrecedenceParsers.UnaryLevel())
+//    parserList.add(parserList[0].bind { first ->
+//        ZeroOrMore(AndParser(name1Parser, parserList[0])).map { secondList ->
+//            if(secondList.isEmpty()) return@map first
+//            env.leftAssocParser(first, secondList)
+//        }
+//    })
+//
+//    parserList.add(parserList[1].bind { first ->
+//        ZeroOrMore(AndParser(name2Parser, parserList[1])).map { secondList ->
+//            if(secondList.isEmpty()) return@map first
+//            env.leftAssocParser(first, secondList)
+//        }
+//    })
+//
+//    val str = "1 + 2 * 3 + 4"
+//    val res = parserList[parserList.lastIndex].parse(Lexer(str).read(), env)
+//    println(res)
+//    env.init()
+//    val otherRes = env.infixParser(PrecedenceParsers.UnaryLevel()).parse(Lexer(str).read(), env)
+//    println(otherRes)
 }

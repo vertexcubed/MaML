@@ -174,3 +174,44 @@ class VariableNode(val name: String, line: Int): AstNode(line) {
         return "Var($name)"
     }
 }
+
+class ConNode(val name: String, val value: AstNode, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        TODO("Not yet implemented")
+    }
+
+    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+        TODO("Not yet implemented")
+    }
+
+    override fun pretty(): String {
+        TODO("Not yet implemented")
+    }
+
+    override fun toString(): String {
+        return "Con $name($value)"
+    }
+}
+
+class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        TODO("Not yet implemented")
+    }
+
+    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+        TODO("Not yet implemented")
+    }
+
+    override fun pretty(): String {
+        var out = name.binding
+        if(name.type.isPresent) {
+            out += " of ${name.type.get()}"
+        }
+        return out
+    }
+
+    override fun toString(): String {
+        return "ConDef(${pretty()})"
+    }
+
+}

@@ -1,4 +1,4 @@
-let N = 8
+let n = 8
 
 (*
     fun print_dots (i: int): void =
@@ -20,7 +20,7 @@ else ()
 let print_row (i : int) : unit =
   print_dots(i);
   print("Q ");
-  print_dots(N - i - 1);
+  print_dots(n - i - 1);
   print("\n")
 
 (*
@@ -185,11 +185,11 @@ let rec safety_test2 (i0 : int) (j0 : int) bd (i : int) : bool =
     )
 *)
 let rec search bd (i : int) (j : int) (nsol : int) : int =
-  if j < N then
+  if j < n then
     let test = safety_test2 i j bd (i - 1) in
     if test then
       let bd1 = board_set bd i j in
-      if i + 1 = N then (
+      if i + 1 = n then (
         print ("Solution #");
         print (nsol + 1);
         print (":\n\n");

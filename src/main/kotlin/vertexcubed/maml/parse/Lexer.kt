@@ -180,11 +180,12 @@ class Lexer(val source: String) {
     }
 
     private fun literal(currentChar: Char): Token {
+        val iden = if(currentChar.isUpperCase()) CONSTRUCTOR else IDENTIFIER
         val builder = StringBuilder().append(currentChar)
         while(hasNext() && IDENTIFIER_REG.matches("${peek()}")) {
             builder.append(poll())
         }
-        val type = if(builder.toString() in keywords) KEYWORD else if(builder.toString() in primitives) PRIMITIVE_TYPE else IDENTIFIER
+        val type = if(builder.toString() in keywords) KEYWORD else if(builder.toString() in primitives) PRIMITIVE_TYPE else iden
 
         return Token(type, builder.toString(), lineIdx)
     }
@@ -384,6 +385,7 @@ enum class TokenType {
     STRING_LITERAL,
     CHAR_LITERAL,
     IDENTIFIER,
+    CONSTRUCTOR,
     KEYWORD,
 
     EOF,

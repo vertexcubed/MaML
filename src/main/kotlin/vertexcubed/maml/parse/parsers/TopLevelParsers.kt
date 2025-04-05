@@ -1,26 +1,26 @@
 package vertexcubed.maml.parse.parsers
 
-import com.sun.tools.example.debug.expr.ExpressionParser
 import vertexcubed.maml.core.ParseException
+import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.TokenType
 import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.MBinding
-import vertexcubed.maml.type.MType
 import java.util.*
 
 @Suppress("UNCHECKED_CAST")
 class ProgramParser(): Parser<Program>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<Program> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Program> {
         val parser = ChoiceParser(listOf(
             TopLetParser() as Parser<AstNode>,
+            DataTypeDefParser() as Parser<AstNode>,
 
         ))
         var workingIndex = index
         val output = ArrayList<AstNode>()
         while(workingIndex < tokens.size && tokens[workingIndex].type != TokenType.EOF) {
-            val res = parser.parse(tokens, workingIndex)
+            val res = parser.parse(tokens, workingIndex, env)
             when(res) {
                 is ParseResult.Success -> {
                     workingIndex = res.newIndex
@@ -43,11 +43,11 @@ class ProgramParser(): Parser<Program>() {
 
 
 class TopLetParser(): Parser<TopLetNode>() {
-    override fun parse(tokens: List<Token>, index: Int): ParseResult<TopLetNode> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TopLetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
             IdentifierParser().bind { first ->
-                ZeroOrMore(TupleIdentifierParser().disjoint(TypedIdentifierParser())).bind { arguments ->
-                    OptionalParser(SpecialCharParser(":").rCompose((TupleTypeParser() as Parser<MType>).disjoint(TypeParser()))).bind { type ->
+                ZeroOrMore(TypedIdentifierParser()).bind { arguments ->
+                    OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).bind { type ->
                         SpecialCharParser("=").rCompose(ExprParser()).map { second ->
                             if(rec.isPresent() && arguments.isEmpty()) throw ParseException(tokens[index].line, "Only functions can be recursive, not values.")
 
@@ -63,6 +63,34 @@ class TopLetParser(): Parser<TopLetNode>() {
                 }
             }
         }
-        return parser.parse(tokens, index)
+        return parser.parse(tokens, index, env)
+    }
+}
+
+
+class DataTypeDefParser(): Parser<DataTypeNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<DataTypeNode> {
+        val parser = KeywordParser("type").rCompose(IdentifierParser()).lCompose(SpecialCharParser("=")).bind { iden ->
+            ConDefParser().bind { first ->
+                ZeroOrMore(SpecialCharParser("|").rCompose(ConDefParser())).map { second ->
+                    val list = ArrayList<ConDefNode>()
+                    list.add(first)
+                    list.addAll(second)
+                    DataTypeNode(iden, list, index)
+                }
+            }
+        }
+        return parser.parse(tokens, index, env)
+    }
+}
+
+class TypeAliasParser(): Parser<TypeAliasNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TypeAliasNode> {
+        val parser = KeywordParser("type").rCompose(IdentifierParser()).lCompose(SpecialCharParser("=")).bind { iden ->
+            TypeParser().map { type ->
+                TypeAliasNode(iden, type, index)
+            }
+        }
+        return parser.parse(tokens, index, env)
     }
 }

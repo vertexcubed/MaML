@@ -67,3 +67,49 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
     }
 
 }
+
+/**
+ * Represents an ADT
+ */
+class DataTypeNode(val name: String, val types: List<ConDefNode>, line: Int): AstNode(line) {
+
+    override fun eval(env: Map<String, MValue>): MValue {
+        TODO("Not yet implemented")
+    }
+
+    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+        TODO("Not yet implemented")
+    }
+
+    override fun pretty(): String {
+        var str = ""
+        for(i in types.indices) {
+            str += types[i].toString() + " "
+            if(i != types.size - 1) {
+                str += "| "
+            }
+        }
+        return "type $name = "
+    }
+
+    override fun toString(): String {
+        return "Type($name, $types)"
+    }
+}
+
+
+
+class TypeAliasNode(val name: String, val type: MType, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        TODO("Not yet implemented")
+    }
+
+    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+        return type
+    }
+
+    override fun pretty(): String {
+        return "type $name = $type"
+    }
+
+}

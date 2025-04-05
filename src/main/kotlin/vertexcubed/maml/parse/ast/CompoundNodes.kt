@@ -4,76 +4,6 @@ import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 
-class BinaryOpNode(val operation: Bop, val left: AstNode, val right: AstNode, line: Int) : AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
-        val datatype = operation.dataType
-        val leftVal = left.eval(env)
-        val rightVal = right.eval(env)
-        when(datatype) {
-            Bop.DataType.INT -> {
-                if(leftVal !is IntegerValue || rightVal !is IntegerValue) throw BinaryOpException("Cannot perform operation on non-integer values")
-                return when(operation) {
-                    Bop.ADD -> IntegerValue(leftVal.value + rightVal.value)
-                    Bop.SUB -> IntegerValue(leftVal.value - rightVal.value)
-                    Bop.MUL -> IntegerValue(leftVal.value * rightVal.value)
-                    Bop.DIV -> IntegerValue(leftVal.value / rightVal.value)
-                    Bop.MOD -> IntegerValue(leftVal.value % rightVal.value)
-                    Bop.LT -> BooleanValue(leftVal.value < rightVal.value)
-                    Bop.LTE -> BooleanValue(leftVal.value <= rightVal.value)
-                    Bop.GT -> BooleanValue(leftVal.value > rightVal.value)
-                    Bop.GTE -> BooleanValue(leftVal.value >= rightVal.value)
-                    Bop.EQ -> BooleanValue(leftVal.value == rightVal.value)
-                    Bop.NEQ -> BooleanValue(leftVal.value != rightVal.value)
-                    else -> throw AssertionError()
-                }
-            }
-            Bop.DataType.BOOL -> {
-                if(leftVal !is BooleanValue || rightVal !is BooleanValue) throw BinaryOpException("Cannot perform operation on non-bool values")
-                return when(operation) {
-                    Bop.AND -> BooleanValue(leftVal.value && rightVal.value)
-                    Bop.OR -> BooleanValue(leftVal.value || rightVal.value)
-                    else -> throw AssertionError()
-                }
-            }
-        }
-
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        val myType: MType
-        val expectedType: MType
-        when(operation) {
-
-            Bop.ADD, Bop.SUB, Bop.MUL, Bop.DIV, Bop.MOD -> {
-                myType = MInt
-                expectedType = MInt
-            }
-            Bop.LT, Bop.LTE, Bop.GT, Bop.GTE, Bop.EQ, Bop.NEQ -> {
-                myType = MBool
-                expectedType = MInt
-            }
-            Bop.AND, Bop.OR -> {
-                myType = MBool
-                expectedType = MBool
-            }
-        }
-        val leftType = left.inferType(env, types)
-        val rightType = right.inferType(env, types)
-        leftType.unify(expectedType)
-        rightType.unify(expectedType)
-        return myType
-    }
-
-    override fun pretty(): String {
-        return "$left ${operation.display} $right"
-    }
-
-    override fun toString(): String {
-        return "Bop($operation, $left, $right)"
-    }
-
-}
-
 class UnaryOpNode(val operation: Uop, val other: AstNode, line: Int): AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         val otherVal = other.eval(env)
@@ -206,6 +136,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
 
 }
 
+//TODO: explicit type for let not actually used!
 class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNode, line: Int) : AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
@@ -339,5 +270,36 @@ class BuiltinNode(val name: MBinding, line: Int, val function: (MValue) -> MValu
 
     override fun toString(): String {
         return "Builtin(${name.binding})"
+    }
+}
+
+
+
+
+class MatchCaseNode(val expr: AstNode, val nodes: List<MatchNode>, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        TODO("Not yet implemented")
+    }
+
+    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+        TODO("Not yet implemented")
+    }
+
+    override fun pretty(): String {
+        TODO("Not yet implemented")
+    }
+}
+
+class MatchNode(val pattern: AstNode, val expr: AstNode, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        TODO("Not yet implemented")
+    }
+
+    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+        TODO("Not yet implemented")
+    }
+
+    override fun pretty(): String {
+        TODO("Not yet implemented")
     }
 }

@@ -25,7 +25,6 @@ class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
 
         private fun recursiveFind(type: MType): List<MTypeVar> {
             return when(val real = type.find()) {
-                MInt, MString, MUnit, MBool, MChar, MFloat -> emptyList()
                 is MFunction -> {
                     val ret = HashSet<MTypeVar>()
                     val first = recursiveFind(real.arg)
@@ -44,6 +43,7 @@ class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
                     ret
                 }
                 is MTypeVar -> listOf(real)
+                else -> emptyList()
             }
         }
     }

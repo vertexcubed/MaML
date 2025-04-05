@@ -155,8 +155,41 @@ data class MTuple(val types: List<MType>): MType() {
     }
 }
 
-//class MTypeCon(val name: String, val args: List<MType>): MType() {
-//    override fun toString(): String {
-//        return "$name $args"
-//    }
-//}
+/**
+ * Polymorphic types, e.g. 'a list or 'a option
+ */
+class MTypeCon(val name: String, val arg: MType): MType() {
+
+    override fun substitute(from: MType, to: MType): MType {
+        return this
+    }
+
+    //TODO: maybe rewrite
+    override fun occurs(other: MType): Boolean {
+        val otherType = other.find()
+        val myType = find()
+        if(myType is MTypeVar && otherType is MTypeVar && myType.id == otherType.id) {
+            return true
+        }
+        return false
+    }
+
+    override fun unify(other: MType) {
+        val otherType = other.find()
+        if(otherType is MTypeVar) {
+            otherType.unify(this)
+            return
+        }
+        if(otherType is MTypeCon) {
+            val myArg = arg.find()
+            val otherArg = otherType.arg.find()
+            myArg.unify(otherArg)
+            return
+        }
+        throw UnifyException(this, otherType)
+    }
+
+    override fun toString(): String {
+        return "$name of $arg"
+    }
+}
