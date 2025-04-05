@@ -1,16 +1,8 @@
 package vertexcubed.maml
 
 import vertexcubed.maml.core.Interpreter
-import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.eval.TupleValue
 import vertexcubed.maml.eval.UnitValue
-import vertexcubed.maml.parse.Lexer
-import vertexcubed.maml.parse.ParseEnv
-import vertexcubed.maml.parse.ast.AppNode
-import vertexcubed.maml.parse.ast.AstNode
-import vertexcubed.maml.parse.ast.VariableNode
-import vertexcubed.maml.parse.parsers.*
-import vertexcubed.maml.parse.preprocess.Associativity
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.IOException

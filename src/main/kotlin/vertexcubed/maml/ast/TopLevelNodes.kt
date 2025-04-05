@@ -1,4 +1,4 @@
-package vertexcubed.maml.parse.ast
+package vertexcubed.maml.ast
 
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.type.ForAll

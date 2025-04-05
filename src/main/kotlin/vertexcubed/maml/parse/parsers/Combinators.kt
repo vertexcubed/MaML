@@ -2,9 +2,8 @@ package vertexcubed.maml.parse.parsers
 
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
-import vertexcubed.maml.parse.ast.Bop
 import vertexcubed.maml.parse.result.ParseResult
-import java.util.Optional
+import java.util.*
 
 class RComposeParser<T, V>(val first: Parser<T>, val second: Parser<V>) : Parser<V>() {
 

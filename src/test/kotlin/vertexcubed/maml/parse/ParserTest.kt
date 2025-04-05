@@ -1,7 +1,7 @@
 package vertexcubed.maml.parse
 
-import vertexcubed.maml.parse.ast.FloatNode
-import vertexcubed.maml.parse.ast.IntegerNode
+import vertexcubed.maml.ast.FloatNode
+import vertexcubed.maml.ast.IntegerNode
 import vertexcubed.maml.parse.parsers.*
 import vertexcubed.maml.parse.result.ParseResult
 import kotlin.test.Test

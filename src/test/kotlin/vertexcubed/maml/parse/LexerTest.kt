@@ -1,6 +1,6 @@
 package vertexcubed.maml.parse
 
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
 import kotlin.test.Test
 
 class LexerTest {

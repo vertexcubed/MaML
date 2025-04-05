@@ -1,12 +1,9 @@
 package vertexcubed.maml.core
 
-import vertexcubed.maml.eval.BooleanValue
-import vertexcubed.maml.eval.FunctionValue
-import vertexcubed.maml.eval.IntegerValue
-import vertexcubed.maml.eval.MValue
+import vertexcubed.maml.ast.*
+import vertexcubed.maml.eval.*
 import vertexcubed.maml.parse.Lexer
 import vertexcubed.maml.parse.ParseEnv
-import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
@@ -34,23 +31,44 @@ class Interpreter {
             "*" to infixType(MInt, MInt),
             "/" to infixType(MInt, MInt),
             "%" to infixType(MInt, MInt),
-            "mod" to infixType(MInt, MInt),
+            "+." to infixType(MFloat, MFloat),
+            "-." to infixType(MFloat, MFloat),
+            "*." to infixType(MFloat, MFloat),
+            "/." to infixType(MFloat, MFloat),
+            "%." to infixType(MFloat, MFloat),
+
+            //Unary prefix operators
+            "~-" to ForAll.empty(MFunction(MInt, MInt)),
+            "~-." to ForAll.empty(MFunction(MFloat, MFloat)),
+            "!" to ForAll.empty(MFunction(MBool, MBool)),
         )
         dynEnv = emptyMap()
-        dynEnv += ("||" to BuiltinOperators.or(dynEnv))
-        dynEnv += ("&&" to BuiltinOperators.and(dynEnv))
-        dynEnv += ("=" to BuiltinOperators.eq(dynEnv))
-        dynEnv += ("!=" to BuiltinOperators.neq(dynEnv))
-        dynEnv += ("<" to BuiltinOperators.lt(dynEnv))
-        dynEnv += ("<=" to BuiltinOperators.lte(dynEnv))
-        dynEnv += (">" to BuiltinOperators.gt(dynEnv))
-        dynEnv += (">=" to BuiltinOperators.gte(dynEnv))
-        dynEnv += ("+" to BuiltinOperators.add(dynEnv))
-        dynEnv += ("-" to BuiltinOperators.sub(dynEnv))
-        dynEnv += ("*" to BuiltinOperators.mul(dynEnv))
-        dynEnv += ("/" to BuiltinOperators.div(dynEnv))
-        dynEnv += ("%" to BuiltinOperators.mod(dynEnv))
-        dynEnv += ("mod" to BuiltinOperators.mod(dynEnv))
+        dynEnv = mapOf(
+            "||" to BuiltinOperators.or(dynEnv),
+            "&&" to BuiltinOperators.and(dynEnv),
+            "=" to BuiltinOperators.eq(dynEnv),
+            "!=" to BuiltinOperators.neq(dynEnv),
+            "<" to BuiltinOperators.lt(dynEnv),
+            "<=" to BuiltinOperators.lte(dynEnv),
+            ">" to BuiltinOperators.gt(dynEnv),
+            ">=" to BuiltinOperators.gte(dynEnv),
+            "+" to BuiltinOperators.add(dynEnv),
+            "-" to BuiltinOperators.sub(dynEnv),
+            "*" to BuiltinOperators.mul(dynEnv),
+            "/" to BuiltinOperators.div(dynEnv),
+            "%" to BuiltinOperators.mod(dynEnv),
+            "+." to BuiltinOperators.addf(dynEnv),
+            "-." to BuiltinOperators.subf(dynEnv),
+            "*." to BuiltinOperators.mulf(dynEnv),
+            "/." to BuiltinOperators.divf(dynEnv),
+            "%." to BuiltinOperators.modf(dynEnv),
+
+            //Unary prefix operators
+            "~-" to BuiltinOperators.negate(dynEnv),
+            "~-." to BuiltinOperators.negatef(dynEnv),
+            "!" to BuiltinOperators.not(dynEnv),
+        )
+
     }
 
 
@@ -132,15 +150,15 @@ class BuiltinOperators {
     companion object {
 
         fun eq(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y -> BooleanValue(x == y)})
+            return bop(env, { x, y -> BooleanValue(x == y)})
         }
 
         fun neq(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y -> BooleanValue(x != y)})
+            return bop(env, { x, y -> BooleanValue(x != y)})
         }
 
         fun lt(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 BooleanValue(x.value < y.value)
@@ -148,7 +166,7 @@ class BuiltinOperators {
         }
 
         fun lte(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 BooleanValue(x.value <= y.value)
@@ -156,7 +174,7 @@ class BuiltinOperators {
         }
 
         fun gt(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 BooleanValue(x.value > y.value)
@@ -164,7 +182,7 @@ class BuiltinOperators {
         }
 
         fun gte(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 BooleanValue(x.value >= y.value)
@@ -172,7 +190,7 @@ class BuiltinOperators {
         }
 
         fun add(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 IntegerValue(x.value + y.value)
@@ -180,7 +198,7 @@ class BuiltinOperators {
         }
 
         fun sub(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 IntegerValue(x.value - y.value)
@@ -188,7 +206,7 @@ class BuiltinOperators {
         }
 
         fun mul(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 IntegerValue(x.value * y.value)
@@ -196,7 +214,7 @@ class BuiltinOperators {
         }
 
         fun div(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 IntegerValue(x.value / y.value)
@@ -204,15 +222,69 @@ class BuiltinOperators {
         }
 
         fun mod(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
                 IntegerValue(x.value % y.value)
             })
         }
 
+        fun negate(env: Map<String, MValue>): MValue {
+            return uop(env, { x ->
+                if(x !is IntegerValue) throw AssertionError("Should not happen")
+                IntegerValue(-x.value)
+            })
+        }
+
+        fun addf(env: Map<String, MValue>): MValue {
+            return bop(env, { x, y ->
+                if(x !is FloatValue) throw AssertionError("Should not happen")
+                if(y !is FloatValue) throw AssertionError("Should not happen")
+                FloatValue(x.value + y.value)
+            })
+        }
+
+        fun subf(env: Map<String, MValue>): MValue {
+            return bop(env, { x, y ->
+                if(x !is FloatValue) throw AssertionError("Should not happen")
+                if(y !is FloatValue) throw AssertionError("Should not happen")
+                FloatValue(x.value - y.value)
+            })
+        }
+
+        fun mulf(env: Map<String, MValue>): MValue {
+            return bop(env, { x, y ->
+                if(x !is FloatValue) throw AssertionError("Should not happen")
+                if(y !is FloatValue) throw AssertionError("Should not happen")
+                FloatValue(x.value * y.value)
+            })
+        }
+
+        fun divf(env: Map<String, MValue>): MValue {
+            return bop(env, { x, y ->
+                if(x !is FloatValue) throw AssertionError("Should not happen")
+                if(y !is FloatValue) throw AssertionError("Should not happen")
+                FloatValue(x.value / y.value)
+            })
+        }
+
+        fun modf(env: Map<String, MValue>): MValue {
+            return bop(env, { x, y ->
+                if(x !is FloatValue) throw AssertionError("Should not happen")
+                if(y !is FloatValue) throw AssertionError("Should not happen")
+                FloatValue(x.value % y.value)
+            })
+        }
+
+        fun negatef(env: Map<String, MValue>): MValue {
+            return uop(env, { x ->
+                if(x !is FloatValue) throw AssertionError("Should not happen")
+                FloatValue(-x.value)
+            })
+        }
+
         fun and(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is BooleanValue) throw AssertionError("Should not happen")
                 if(y !is BooleanValue) throw AssertionError("Should not happen")
                 BooleanValue(x.value && y.value)
@@ -220,18 +292,31 @@ class BuiltinOperators {
         }
 
         fun or(env: Map<String, MValue>): MValue {
-            return basic(env, {x, y ->
+            return bop(env, { x, y ->
                 if(x !is BooleanValue) throw AssertionError("Should not happen")
                 if(y !is BooleanValue) throw AssertionError("Should not happen")
                 BooleanValue(x.value || y.value)
             })
         }
 
+        fun not(env: Map<String, MValue>): MValue {
+            return uop(env, { x ->
+                if(x !is BooleanValue) throw AssertionError("Should not happen")
+                BooleanValue(!x.value)
+            })
+        }
+
+        private fun uop(env: Map<String, MValue>, func: (MValue) -> MValue): MValue {
+            return FunctionValue("x", BuiltinOpNode({ e ->
+                val x = e.getOrElse("x", {throw UnboundVarException("x")})
+                func(x)
+            }, 1), env)
+        }
 
 
 
-        private fun basic(env: Map<String, MValue>, func: (MValue, MValue) -> MValue): MValue {
-            return FunctionValue("x", FunctionNode(MBinding("y"), BuiltinOpNode({e ->
+        private fun bop(env: Map<String, MValue>, func: (MValue, MValue) -> MValue): MValue {
+            return FunctionValue("x", FunctionNode(MBinding("y"), BuiltinOpNode({ e ->
                 val x = e.getOrElse("x", {throw UnboundVarException("x")})
                 val y = e.getOrElse("y", {throw UnboundVarException("y")})
                 func(x, y)
@@ -239,6 +324,8 @@ class BuiltinOperators {
         }
     }
 
+
+    //TODO: this is very fragile and unsafe. Replace with much more stable version.
     class BuiltinOpNode(val evalFunc: (Map<String, MValue>) -> MValue, line: Int): AstNode(line) {
         override fun eval(env: Map<String, MValue>): MValue {
             return evalFunc(env)

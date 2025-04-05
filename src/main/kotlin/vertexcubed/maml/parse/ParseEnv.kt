@@ -1,7 +1,9 @@
 package vertexcubed.maml.parse
 
+import vertexcubed.maml.ast.AppNode
+import vertexcubed.maml.ast.AstNode
+import vertexcubed.maml.ast.VariableNode
 import vertexcubed.maml.core.ParseException
-import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.parsers.*
 import vertexcubed.maml.parse.preprocess.Associativity
 import vertexcubed.maml.parse.preprocess.InfixRule

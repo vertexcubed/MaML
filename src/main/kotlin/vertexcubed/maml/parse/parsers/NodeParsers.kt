@@ -1,14 +1,12 @@
 package vertexcubed.maml.parse.parsers
 
+import vertexcubed.maml.ast.*
 import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
-import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.MBinding
-import vertexcubed.maml.type.MType
 import java.util.*
-import kotlin.collections.ArrayList
 import kotlin.math.pow
 
 //Parse an expression.
@@ -45,7 +43,8 @@ class LetParser(): Parser<LetNode>() {
                                     if(rec.isPresent() && index == 0) {
                                         RecursiveFunctionNode(MBinding(first, Optional.empty()), FunctionNode(str, exist, tokens[index].line), tokens[index].line)
                                     }
-                                    else FunctionNode(str, exist, tokens[index].line)})
+                                    else FunctionNode(str, exist, tokens[index].line)
+                                })
                                 LetNode(MBinding(first, type), node, third, tokens[index].line)
                             }
                         }
@@ -78,7 +77,7 @@ class IfParser(): Parser<IfNode>() {
 
 class IntegerParser(): Parser<IntegerNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<IntegerNode> {
-        val parser =DecimalNumberParser().disjoint(HexNumberParser()).map { second ->
+        val parser = DecimalNumberParser().disjoint(HexNumberParser()).map { second ->
             IntegerNode(second, tokens[index].line)
         }
         return parser.parse(tokens, index, env)
@@ -119,7 +118,7 @@ class FloatParser(): Parser<FloatNode>() {
 
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<FloatNode> {
         val parser = DecimalNumberParser().lCompose(SpecialCharParser(".")).bind { second ->
-            DecimalNumberParser().map { third ->
+            PositiveDecimalNumberParser().map { third ->
                 FloatNode(second + toDec(third), tokens[index].line)
             }
         }

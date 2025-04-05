@@ -1,48 +1,14 @@
-package vertexcubed.maml.parse.ast
+package vertexcubed.maml.ast
 
-import vertexcubed.maml.core.*
-import vertexcubed.maml.eval.*
+import vertexcubed.maml.core.ApplicationException
+import vertexcubed.maml.core.IfException
+import vertexcubed.maml.core.TypeCheckException
+import vertexcubed.maml.core.UnboundVarException
+import vertexcubed.maml.eval.BooleanValue
+import vertexcubed.maml.eval.FunctionValue
+import vertexcubed.maml.eval.MValue
+import vertexcubed.maml.eval.RecursiveFunctionValue
 import vertexcubed.maml.type.*
-
-class UnaryOpNode(val operation: Uop, val other: AstNode, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
-        val otherVal = other.eval(env)
-        return when(operation) {
-            Uop.NEGATE -> {
-                when(otherVal) {
-                    is FloatValue -> FloatValue(otherVal.value * -1)
-                    is IntegerValue -> IntegerValue(otherVal.value * -1)
-                    else -> throw UnaryOpException("Cannot negate non-number values")
-                }
-            }
-            Uop.NOT -> {
-                if(otherVal !is BooleanValue) throw UnaryOpException("Cannot perform not on non-boolean value")
-                else BooleanValue(!otherVal.value)
-            }
-        }
-    }
-
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        val validTypes = when(operation) {
-            Uop.NEGATE -> MInt
-            Uop.NOT -> MBool
-        }
-        val otherType = other.inferType(env, types)
-
-        otherType.unify(validTypes)
-        return otherType
-    }
-
-    override fun pretty(): String {
-        return "${operation.display} $other"
-    }
-
-    override fun toString(): String {
-        return "Uop($operation, $other)"
-    }
-
-}
-
 
 
 class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {

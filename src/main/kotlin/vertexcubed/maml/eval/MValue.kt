@@ -1,6 +1,6 @@
 package vertexcubed.maml.eval
 
-import vertexcubed.maml.parse.ast.AstNode
+import vertexcubed.maml.ast.AstNode
 
 sealed class MValue() {
 

@@ -1,8 +1,8 @@
 package vertexcubed.maml.parse.parsers
 
+import vertexcubed.maml.ast.*
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
-import vertexcubed.maml.parse.ast.*
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.MBinding
 import java.util.*
@@ -17,8 +17,8 @@ class PrecedenceParsers {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
             return ChoiceParser(listOf(
                 ConNodeParser() as Parser<AstNode>,
-                IntegerParser() as Parser<AstNode>,
                 FloatParser() as Parser<AstNode>,
+                IntegerParser() as Parser<AstNode>,
                 CharParser() as Parser<AstNode>,
                 StringParser() as Parser<AstNode>,
                 TrueParser() as Parser<AstNode>,
@@ -39,16 +39,28 @@ class PrecedenceParsers {
 
     class UnaryLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
-            val opParser = SpecialCharParser("-").disjoint(SpecialCharParser("!")).disjoint(KeywordParser("not"))
+
+
+            val opParser =
+                    CompoundSpecialCharParser("-.")
+                    .disjoint(SpecialCharParser("-"))
+                    .disjoint(SpecialCharParser("!"))
+                    .disjoint(CompoundSpecialCharParser("~-."))
+                    .disjoint(CompoundSpecialCharParser("~-"))
             return (AppLevel() as Parser<AstNode>).disjoint(opParser.bind { op ->
                 AppLevel().map { second ->
-                    val uop = when(op) {
-                        "-" -> Uop.NEGATE
-                        "!" -> Uop.NOT
-                        "not" -> Uop.NOT
-                        else -> throw AssertionError()
+                    var oper = op
+                    //Syntax sugar: - (float) -> ~-. float, - -> ~-, -. -> ~-.
+                    if(second is FloatNode && op == "-") {
+                        oper = "~-."
                     }
-                    UnaryOpNode(uop, second, tokens[index].line)
+                    else if(op == "-") {
+                        oper = "~-"
+                    }
+                    else if(op == "-.") {
+                        oper = "~-."
+                    }
+                    AppNode(VariableNode(oper, second.line), second, second.line)
                 }
             }).parse(tokens, index, env)
         }

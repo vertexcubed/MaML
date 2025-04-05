@@ -1,6 +1,6 @@
-package vertexcubed.maml.parse.ast
+package vertexcubed.maml.ast
 
-import vertexcubed.maml.core.*
+import vertexcubed.maml.core.UnboundVarException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 

@@ -2,13 +2,11 @@ package vertexcubed.maml.parse
 
 import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.TokenType.*
-import java.lang.StringBuilder
 
 
 private val WHITESPACE_REG = Regex("[ \t\n\r]+")
 
 private val IDENTIFIER_REG = Regex("[a-zA-Z0-9_']")
-private val NUMBER_REG = Regex("-?[0-9]+")
 private val DIGIT_REG = Regex("[0-9]")
 private val HEX_DIGIT_REG = Regex("[0-9a-fA-F]")
 
@@ -114,9 +112,15 @@ class Lexer(val source: String) {
 
     private fun token(c: Char): Token {
         return when(c) {
-            '!', '%', '&', '$', '#', '+', '-', '/',
+            '!', '%', '&', '$', '#', '+', '/',
             ':', '<', '=', '>', '?', '@', '\\', '~',
             '`', '^', '|', '*', '.', ',', ';', -> Token(SPECIAL_CHAR, "$c", lineIdx)
+            '-' -> {
+                if(hasNext() && DIGIT_REG.matches(peek().toString())) {
+                    return numberLit(c)
+                }
+                Token(SPECIAL_CHAR, "$c", lineIdx)
+            }
             '(' -> {
                 if(hasNext()) {
                     val next = peek()
@@ -164,9 +168,14 @@ class Lexer(val source: String) {
     }
 
     private fun numberLit(currentChar: Char): Token {
-        val builder = StringBuilder().append(currentChar)
+        var c = currentChar
+        val builder = StringBuilder().append(c)
+        if(c == '-') {
+            c = poll()
+            builder.append(c)
+        }
         var hex = false
-        if(currentChar == '0' && hasNext() && peek() == 'x') {
+        if(c == '0' && hasNext() && peek() == 'x') {
             builder.append(poll())
             hex = true
         }

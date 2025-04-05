@@ -3,11 +3,8 @@ package vertexcubed.maml.parse.parsers
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.TokenType
-import vertexcubed.maml.parse.ast.Bop
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
-import java.util.*
-import kotlin.collections.ArrayList
 
 
 private fun simple(tokens: List<Token>, index: Int, type: TokenType): ParseResult<String> {
@@ -223,13 +220,36 @@ class RParenParser(): Parser<String>() {
     }
 }
 
-class DecimalNumberParser(): Parser<Long>() {
+class PositiveDecimalNumberParser(): Parser<Long>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Long> {
         if(index < tokens.size) {
             val first = tokens[index]
             if(first.type == TokenType.NUMBER_LITERAL) {
                 return try {
                     ParseResult.Success(first.lexeme.toLong(), index + 1)
+                } catch(e: NumberFormatException) {
+                    ParseResult.Failure(index, first,"${first.lexeme} is not a number.")
+                }
+            }
+            return ParseResult.Failure(index, first,"Expected token of type ${TokenType.NUMBER_LITERAL} but found ${first.type} (${first.lexeme})")
+        }
+        return ParseResult.Failure(index, tokens.last(),"Expected token of type ${TokenType.NUMBER_LITERAL}, but End of File reached.")
+    }
+}
+
+class DecimalNumberParser(): Parser<Long>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Long> {
+        if(index < tokens.size) {
+            val first = tokens[index]
+            if(first.type == TokenType.NUMBER_LITERAL) {
+                var lex = first.lexeme
+                var mul = 1
+                if(lex.isNotEmpty() && lex[0] == '-') {
+                    lex = first.lexeme.substring(1)
+                    mul = -1
+                }
+                return try {
+                    ParseResult.Success(lex.toLong() * mul, index + 1)
                 } catch(e: NumberFormatException) {
                     ParseResult.Failure(index, first,"${first.lexeme} is not a number.")
                 }
@@ -261,41 +281,4 @@ class HexNumberParser(): Parser<Long>() {
         }
         return ParseResult.Failure(index, tokens.last(),"Expected token of type ${TokenType.HEX_LITERAL}, but End of File reached.")
     }
-}
-
-class OpParser(val op: Bop): Parser<Bop>() {
-
-    companion object {
-        fun toStringParser(op: Bop): Parser<String> {
-            return when(op) {
-                Bop.ADD -> SpecialCharParser("+")
-                Bop.SUB -> SpecialCharParser("-")
-                Bop.MUL -> SpecialCharParser("*")
-                Bop.DIV -> SpecialCharParser("/")
-                Bop.MOD -> SpecialCharParser("%")
-                Bop.LT -> SpecialCharParser("<")
-                Bop.LTE -> AndParser(SpecialCharParser("<"), SpecialCharParser("="))
-                    .map { pair -> pair.first + pair.second }
-                Bop.GT -> SpecialCharParser(">")
-                Bop.GTE -> AndParser(SpecialCharParser(">"), SpecialCharParser("="))
-                    .map { pair -> pair.first + pair.second }
-                Bop.EQ -> SpecialCharParser("=")
-                Bop.NEQ -> AndParser(SpecialCharParser("!"), SpecialCharParser("="))
-                    .map { pair -> pair.first + pair.second }
-                    .disjoint(AndParser(SpecialCharParser("<"), SpecialCharParser(">"))
-                        .map { pair -> pair.first + pair.second })
-                Bop.AND -> AndParser(SpecialCharParser("&"), SpecialCharParser("&"))
-                    .map { pair -> pair.first + pair.second }
-                Bop.OR -> AndParser(SpecialCharParser("|"), SpecialCharParser("|"))
-                    .map { pair -> pair.first + pair.second }
-            }
-        }
-    }
-
-
-
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Bop> {
-        return toStringParser(op).map {_ -> op}.parse(tokens, index, env)
-    }
-
 }
