@@ -1,6 +1,7 @@
 package vertexcubed.maml.type
 
 import vertexcubed.maml.core.UnifyException
+import java.util.*
 
 sealed class MType() {
 
@@ -84,6 +85,7 @@ data object MUnit: MType() {
         return "unit"
     }
 }
+
 data class MFunction(val arg: MType, val ret: MType): MType() {
     override fun toString(): String {
         val argStr: String
@@ -155,41 +157,60 @@ data class MTuple(val types: List<MType>): MType() {
     }
 }
 
-/**
- * Polymorphic types, e.g. 'a list or 'a option
- */
-class MTypeCon(val name: String, val arg: MType): MType() {
+data class MDataType(val name: String, val args: List<Pair<String, MType>>): MType() {
 
-    override fun substitute(from: MType, to: MType): MType {
-        return this
-    }
 
-    //TODO: maybe rewrite
     override fun occurs(other: MType): Boolean {
-        val otherType = other.find()
-        val myType = find()
-        if(myType is MTypeVar && otherType is MTypeVar && myType.id == otherType.id) {
-            return true
+        for(arg in args) {
+            if(arg.second.occurs(other)) return true
         }
         return false
     }
 
+
     override fun unify(other: MType) {
         val otherType = other.find()
         if(otherType is MTypeVar) {
-            otherType.unify(this)
-            return
+            return otherType.unify(this)
         }
-        if(otherType is MTypeCon) {
-            val myArg = arg.find()
-            val otherArg = otherType.arg.find()
-            myArg.unify(otherArg)
-            return
+        if(otherType !is MDataType) throw UnifyException(otherType, this)
+        if(otherType.args.size != args.size) throw UnifyException(otherType, this)
+        for(i in args.indices) {
+            args[i].second.unify(otherType.args[i].second)
         }
-        throw UnifyException(this, otherType)
+    }
+
+    override fun substitute(from: MType, to: MType): MType {
+        return MDataType(name, args.map { a -> Pair(a.first, a.second.substitute(from, to)) })
     }
 
     override fun toString(): String {
-        return "$name of $arg"
+        var str = ""
+        for(arg in args) {
+            str += "${arg.second} "
+        }
+        return str + name
+    }
+}
+
+/**
+ * Not *type constructors*, but rather a wrapped type for constructors themselves
+ */
+data class MConstr(val name: String, val type: MType, val argType: Optional<MType>): MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        if(argType.isEmpty) return MConstr(name, type.substitute(from, to), Optional.empty())
+        return MConstr(name, type.substitute(from, to), Optional.of(argType.get().substitute(from, to)))
+    }
+
+    override fun unify(other: MType) {
+        type.unify(other)
+    }
+
+    override fun occurs(other: MType): Boolean {
+        return type.occurs(other)
+    }
+
+    override fun find(): MType {
+        return type.find()
     }
 }

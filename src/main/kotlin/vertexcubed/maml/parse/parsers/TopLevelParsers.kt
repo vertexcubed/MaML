@@ -2,16 +2,14 @@ package vertexcubed.maml.parse.parsers
 
 import vertexcubed.maml.ast.*
 import vertexcubed.maml.core.ParseException
-import vertexcubed.maml.parse.ParseEnv
-import vertexcubed.maml.parse.Token
-import vertexcubed.maml.parse.TokenType
+import vertexcubed.maml.parse.*
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.MBinding
 import java.util.*
 
 @Suppress("UNCHECKED_CAST")
-class ProgramParser(): Parser<Program>() {
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Program> {
+class ProgramParser(): Parser<List<AstNode>>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<List<AstNode>> {
         val parser = ChoiceParser(listOf(
             TopLetParser() as Parser<AstNode>,
             DataTypeDefParser() as Parser<AstNode>,
@@ -31,7 +29,7 @@ class ProgramParser(): Parser<Program>() {
                 }
             }
         }
-        return ParseResult.Success(Program(output), index + 1)
+        return ParseResult.Success(output, index + 1)
     }
 }
 
@@ -70,27 +68,36 @@ class TopLetParser(): Parser<TopLetNode>() {
 
 class DataTypeDefParser(): Parser<DataTypeNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<DataTypeNode> {
-        val parser = KeywordParser("type").rCompose(IdentifierParser()).lCompose(SpecialCharParser("=")).bind { iden ->
+        val parser = KeywordParser("type").rCompose(
+            idenParser()).lCompose(SpecialCharParser("=")).bind { iden ->
             ConDefParser().bind { first ->
                 ZeroOrMore(SpecialCharParser("|").rCompose(ConDefParser())).map { second ->
                     val list = ArrayList<ConDefNode>()
                     list.add(first)
                     list.addAll(second)
-                    DataTypeNode(iden, list, index)
+                    DataTypeNode(iden.first, iden.second, list, index)
                 }
             }
         }
         return parser.parse(tokens, index, env)
     }
-}
 
-class TypeAliasParser(): Parser<TypeAliasNode>() {
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TypeAliasNode> {
-        val parser = KeywordParser("type").rCompose(IdentifierParser()).lCompose(SpecialCharParser("=")).bind { iden ->
-            TypeParser().map { type ->
-                TypeAliasNode(iden, type, index)
+    private fun idenParser(): Parser<Pair<String, List<TypeVarDummy>>> {
+        return ZeroOrMore(TypeVarTypeParser()).bind { args ->
+            IdentifierParser().map { name ->
+                Pair(name, args)
             }
         }
-        return parser.parse(tokens, index, env)
     }
 }
+
+//class TypeAliasParser(): Parser<TypeAliasNode>() {
+//    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TypeAliasNode> {
+//        val parser = KeywordParser("type").rCompose(IdentifierParser()).lCompose(SpecialCharParser("=")).bind { iden ->
+//            TypeParser().map { type ->
+//                TypeAliasNode(iden, type, index)
+//            }
+//        }
+//        return parser.parse(tokens, index, env)
+//    }
+//}

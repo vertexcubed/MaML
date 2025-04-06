@@ -1,6 +1,8 @@
 package vertexcubed.maml.eval
 
 import vertexcubed.maml.ast.AstNode
+import vertexcubed.maml.ast.ConNode
+import java.util.*
 
 sealed class MValue() {
 
@@ -62,5 +64,19 @@ data class TupleValue(val values: List<MValue>): MValue() {
             if(i < values.size - 1) str += ", "
         }
         return "$str)"
+    }
+}
+
+data class ConValue(val name: String, val value: Optional<MValue>): MValue() {
+    override fun toString(): String {
+        var str = name
+        if(value.isPresent) {
+            var toAdd = value.get().toString()
+            if(value.get() is ConValue) {
+                toAdd = "($toAdd)"
+            }
+            str += " $toAdd"
+        }
+        return str;
     }
 }

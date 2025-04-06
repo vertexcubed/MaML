@@ -1,6 +1,6 @@
 package vertexcubed.maml.type
 
-class TypeVarEnv() {
+class TypeSystem() {
 
     val types = ArrayList<MTypeVar>()
     val generalizedTypes = ArrayList<MGeneralTypeVar>()

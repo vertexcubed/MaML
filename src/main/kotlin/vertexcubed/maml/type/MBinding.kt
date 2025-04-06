@@ -1,8 +1,9 @@
 package vertexcubed.maml.type
 
+import vertexcubed.maml.parse.DummyType
 import java.util.*
 
-data class MBinding(val binding: String, val type: Optional<MType>) {
+data class MBinding(val binding: String, val type: Optional<DummyType>) {
     constructor(binding: String): this(binding, Optional.empty())
 
     override fun toString(): String {

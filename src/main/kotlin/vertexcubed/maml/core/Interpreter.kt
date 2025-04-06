@@ -12,12 +12,12 @@ import java.util.*
 class Interpreter {
 
     var dynEnv: Map<String, MValue>
-    var typeEnv: Map<String, ForAll>
-    val varTypeEnv: TypeVarEnv
+    var typeEnv: TypeEnv
+    val typeSystem: TypeSystem = TypeSystem()
 
     init {
-        varTypeEnv = TypeVarEnv()
-        typeEnv = mapOf(
+        typeEnv = TypeEnv(typeSystem)
+        typeEnv.addAllBindings(mapOf(
             "||" to infixType(MBool, MBool),
             "&&" to infixType(MBool, MBool),
             "=" to genericType(MBool),
@@ -41,7 +41,15 @@ class Interpreter {
             "~-" to ForAll.empty(MFunction(MInt, MInt)),
             "~-." to ForAll.empty(MFunction(MFloat, MFloat)),
             "!" to ForAll.empty(MFunction(MBool, MBool)),
-        )
+        ))
+        typeEnv.addAllTypes(mapOf(
+            "int" to ForAll.empty(MInt),
+            "float" to ForAll.empty(MFloat),
+            "unit" to ForAll.empty(MUnit),
+            "bool" to ForAll.empty(MBool),
+            "char" to ForAll.empty(MChar),
+            "string" to ForAll.empty(MString),
+        ))
         dynEnv = emptyMap()
         dynEnv = mapOf(
             "||" to BuiltinOperators.or(dynEnv),
@@ -77,9 +85,9 @@ class Interpreter {
     }
 
     private fun genericType(ret: MType): ForAll {
-        val newType = varTypeEnv.newTypeVar()
+        val newType = typeSystem.newTypeVar()
         val rawType = MFunction(newType, MFunction(newType, ret))
-        return ForAll.generalize(rawType, varTypeEnv)
+        return ForAll.generalize(rawType, typeSystem)
     }
 
 
@@ -87,10 +95,11 @@ class Interpreter {
         val builtin = BuiltinNode(MBinding(name + "_builtin", Optional.empty()), 1, function)
         val wrapBuiltin = FunctionNode(MBinding("p0", Optional.empty()), AppNode(builtin, VariableNode("p0", 1), 1), 1)
 
-        val wrapType = wrapBuiltin.inferType(typeEnv, varTypeEnv)
-        val scheme = ForAll.generalize(wrapType, varTypeEnv)
+        val wrapType = wrapBuiltin.inferType(typeEnv)
+        val scheme = ForAll.generalize(wrapType, typeSystem)
 
-        typeEnv = typeEnv + (name to scheme)
+        typeEnv = typeEnv.copy()
+        typeEnv.addBinding(name to scheme)
         dynEnv = dynEnv + (name to wrapBuiltin.eval(dynEnv))
     }
 
@@ -122,19 +131,18 @@ class Interpreter {
         }
 
 
-        val program = result.result
-        program.init(dynEnv, typeEnv)
+        val program = Program(result.result, dynEnv, typeEnv)
         println(program.nodes)
         println("Parse successful. Type checking...")
         try {
-            program.inferTypes(varTypeEnv)
+            program.inferTypes()
         }
         catch(e: TypeCheckException) {
             println(strList[e.line - 1].trim())
             println("Error on line ${e.line} (${e.node.pretty()})\n${e.log}")
             return
         }
-        varTypeEnv.normalizeTypeNames()
+        typeSystem.normalizeTypeNames()
 
         println("Type checked. Evaluating...")
         try {
@@ -331,7 +339,7 @@ class BuiltinOperators {
             return evalFunc(env)
         }
 
-        override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+        override fun inferType(env: TypeEnv): MType {
             throw AssertionError("This should never be callled...")
         }
 

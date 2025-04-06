@@ -1,8 +1,6 @@
 package vertexcubed.maml.parse.parsers
 
-import vertexcubed.maml.parse.ParseEnv
-import vertexcubed.maml.parse.Token
-import vertexcubed.maml.parse.TokenType
+import vertexcubed.maml.parse.*
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
 
@@ -135,58 +133,6 @@ class ConstructorParser(): Parser<String>() {
         return SimpleParser(TokenType.CONSTRUCTOR).parse(tokens, index, env)
     }
 
-}
-
-class FunTypeParser(): Parser<MType>() {
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MType> {
-        return SingleTypeParser().bind{ firstType ->
-            ZeroOrMore(
-                SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(FunTypeParser())
-            ).map { moreTypes ->
-                moreTypes.fold(firstType, {acc, rest -> MFunction(rest, acc)})
-            }
-        }.parse(tokens, index, env)
-    }
-}
-
-class SingleTypeParser(): Parser<MType>() {
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MType> {
-        if(index < tokens.size) {
-            val first = tokens[index]
-            if(first.type == TokenType.PRIMITIVE_TYPE) {
-                val type = when(first.lexeme) {
-                    "int" -> MInt
-                    "bool" -> MBool
-                    "float" -> MFloat
-                    "char" -> MChar
-                    "string" -> MString
-                    "unit" -> MUnit
-                    else -> return ParseResult.Failure(index, first, "Catastrophic failure against token type ${first.type} ($index) with lexeme ${first.lexeme}")
-                }
-                return ParseResult.Success(type, index + 1)
-            }
-            return ParseResult.Failure(index, first, "Expected token of type ${TokenType.PRIMITIVE_TYPE} but found ${first.type} (${first.lexeme})")
-        }
-        return ParseResult.Failure(index, tokens.last(), "Expected token of type ${TokenType.PRIMITIVE_TYPE}, but End of File reached.")
-    }
-}
-
-class TypeParser(): Parser<MType>() {
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MType> {
-        return FunTypeParser().bind { first ->
-            ZeroOrMore(SpecialCharParser("*").rCompose(FunTypeParser())).map { rest: List<MType> ->
-                if (rest.isEmpty()) {
-                    first
-                }
-                else {
-                    val list = ArrayList<MType>()
-                    list.add(first)
-                    list.addAll(rest)
-                    MTuple(list)
-                }
-            }
-        }.parse(tokens, index, env)
-    }
 }
 
 class TypedIdentifierParser(): Parser<MBinding>() {

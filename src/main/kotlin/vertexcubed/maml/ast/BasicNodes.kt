@@ -1,15 +1,19 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.core.UnboundVarException
+import vertexcubed.maml.core.UnifyException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
+import java.util.*
+import kotlin.jvm.optionals.getOrElse
 
 class UnitNode(line: Int) : AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
         return UnitValue
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+    override fun inferType(env: TypeEnv): MType {
         return MUnit
     }
 
@@ -27,7 +31,7 @@ class TrueNode(line: Int) : AstNode(line) {
         return BooleanValue(true)
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+    override fun inferType(env: TypeEnv): MType {
         return MBool
     }
 
@@ -46,7 +50,7 @@ class FalseNode(line: Int) : AstNode(line) {
         return BooleanValue(false)
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+    override fun inferType(env: TypeEnv): MType {
         return MBool
     }
 
@@ -65,7 +69,7 @@ class StringNode(val text: String, line: Int) : AstNode(line) {
         return StringValue(text)
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+    override fun inferType(env: TypeEnv): MType {
         return MString
     }
 
@@ -83,7 +87,7 @@ class CharNode(val text: Char, line: Int): AstNode(line) {
         return CharValue(text)
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+    override fun inferType(env: TypeEnv): MType {
         return MChar
     }
 
@@ -106,7 +110,7 @@ class IntegerNode(val number: Long, line: Int) : AstNode(line) {
         return IntegerValue(number)
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+    override fun inferType(env: TypeEnv): MType {
         return MInt
     }
 
@@ -125,7 +129,7 @@ class FloatNode(val number: Float, line: Int): AstNode(line) {
         return FloatValue(number)
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
+    override fun inferType(env: TypeEnv): MType {
         return MFloat
     }
 
@@ -143,12 +147,12 @@ class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
         return TupleValue(nodes.map { node -> node.eval(env) })
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return MTuple(nodes.map { node -> node.inferType(env, types) })
+    override fun inferType(env: TypeEnv): MType {
+        return MTuple(nodes.map { node -> node.inferType(env) })
     }
 
     override fun pretty(): String {
-        return "($nodes)"
+        return "(${nodes.joinToString()})"
     }
 
     override fun toString(): String {
@@ -162,8 +166,8 @@ class VariableNode(val name: String, line: Int): AstNode(line) {
         return env.getOrElse(name, { throw UnboundVarException(name) })
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return env.getOrElse(name, { throw UnboundVarException(name) }).instantiate(types)
+    override fun inferType(env: TypeEnv): MType {
+        return env.lookupBinding(name).instantiate(env.typeSystem)
     }
 
     override fun pretty(): String {
@@ -175,17 +179,76 @@ class VariableNode(val name: String, line: Int): AstNode(line) {
     }
 }
 
-class ConNode(val name: String, val value: AstNode, line: Int): AstNode(line) {
+class ConNode(val name: String, val value: Optional<AstNode>, line: Int): AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
-        TODO("Not yet implemented")
+        if(value.isPresent) {
+            return ConValue(name, Optional.of(value.get().eval(env)))
+        }
+        return ConValue(name, Optional.empty())
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        TODO("Not yet implemented")
+    override fun inferType(env: TypeEnv): MType {
+        val myType = env.lookupBinding(name).instantiate(env.typeSystem)
+        if(myType !is MConstr) throw IllegalArgumentException("This should never happen?")
+        if(value.isEmpty) {
+            if(myType.argType.isPresent)
+                throw conException(getArgSize(myType.argType), 0)
+            return myType.type
+        }
+        val valueType = value.get().inferType(env)
+        if(myType.argType.isEmpty)
+            throw conException(0, getArgSize(valueType))
+        val expectedType = myType.argType.get()
+        try {
+            expectedType.unify(valueType)
+        }
+        catch(e: UnifyException) {
+            //Both are tuples, aka multi arg constructors
+            if(expectedType is MTuple && valueType is MTuple) {
+                //Different sizes
+                if(expectedType.types.size != valueType.types.size)
+                    throw conException(getArgSize(expectedType), getArgSize(valueType))
+
+                //Technically i should do per tuple type checking but idc lmao
+                throw TypeCheckException(line, this, valueType, expectedType)
+            }
+            //Only one of them are tuples, aka different size args
+            if(expectedType is MTuple || valueType is MTuple) {
+                throw conException(getArgSize(expectedType), getArgSize(valueType))
+            }
+            throw TypeCheckException(line, this, valueType, expectedType)
+        }
+
+
+        return myType.type
+    }
+
+    private fun conException(expectedSize: Int, actualSize: Int): TypeCheckException {
+        return TypeCheckException(line, this, "The constructor $name expects $expectedSize argument(s),\n" +
+                "but is applied here to $actualSize argument(s)")
+    }
+
+    private fun getArgSize(type: MType): Int {
+        return getArgSize(Optional.of(type))
+    }
+
+    private fun getArgSize(type: Optional<MType>): Int {
+        if(type.isEmpty) return 0
+        val t = type.get()
+        if(t is MTuple) return t.types.size
+        return 1
     }
 
     override fun pretty(): String {
-        TODO("Not yet implemented")
+        var str = name
+        if(value.isPresent) {
+            var toAdd = value.get().pretty()
+            if(value.get() is ConNode) {
+                toAdd = "($toAdd)"
+            }
+            str += " $toAdd"
+        }
+        return str;
     }
 
     override fun toString(): String {
@@ -195,11 +258,16 @@ class ConNode(val name: String, val value: AstNode, line: Int): AstNode(line) {
 
 class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
-        TODO("Not yet implemented")
+        throw AssertionError("Probably shouldn't be evaluated?")
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        TODO("Not yet implemented")
+    override fun inferType(env: TypeEnv): MType {
+        if(name.type.isPresent) {
+            //purposely discard return type?
+            name.type.get().lookup(env)
+        }
+        //Uhhhh figure out what to do here cuz this is definitely wrong
+        return MUnit
     }
 
     override fun pretty(): String {

@@ -3,7 +3,7 @@ package vertexcubed.maml.type
 class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
 
     companion object {
-        fun generalize(type: MType, types: TypeVarEnv): ForAll {
+        fun generalize(type: MType, types: TypeSystem): ForAll {
             val freeVars = recursiveFind(type)
             if(freeVars.isEmpty()) {
                 return ForAll(emptyList(), type)
@@ -42,6 +42,7 @@ class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
                     }
                     ret
                 }
+                is MDataType -> real.args.filter { a -> a.second is MTypeVar }.map { a -> a.second as MTypeVar }
                 is MTypeVar -> listOf(real)
                 else -> emptyList()
             }
@@ -49,7 +50,7 @@ class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
     }
 
 
-    fun instantiate(types: TypeVarEnv): MType {
+    fun instantiate(types: TypeSystem): MType {
         var ret = type
         for(i in typeVars.indices) {
             ret = ret.substitute(typeVars[i], types.newTypeVar())

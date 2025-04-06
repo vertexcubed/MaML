@@ -1,52 +1,9 @@
 package vertexcubed.maml.ast
 
 import vertexcubed.maml.eval.MValue
-import vertexcubed.maml.type.ForAll
-import vertexcubed.maml.type.MBinding
-import vertexcubed.maml.type.MType
-import vertexcubed.maml.type.TypeVarEnv
-
-
-class Program(val nodes: List<AstNode>) {
-
-    private val evalMap = mutableMapOf<String, MValue>()
-    private val typeMap = mutableMapOf<String, ForAll>()
-
-
-    fun init(evalMap: Map<String, MValue>, typeMap: Map<String, ForAll>) {
-        this.evalMap += evalMap
-        this.typeMap += typeMap
-    }
-
-
-    fun eval() {
-        for(node in nodes) {
-            val nodeVal = node.eval(evalMap)
-            when(node) {
-                is TopLetNode -> {
-                    if(node.name.binding != "_") {
-                        evalMap += (node.name.binding to nodeVal)
-                    }
-                }
-            }
-        }
-    }
-
-    fun inferTypes(types: TypeVarEnv) {
-        for(node in nodes) {
-            val nodeType = node.inferType(typeMap, types)
-            if(node is TopLetNode) {
-                val scheme = ForAll.generalize(nodeType, types)
-                if(node.name.binding != "_") {
-                    typeMap += (node.name.binding to scheme)
-                }
-            }
-        }
-    }
-
-}
-
-
+import vertexcubed.maml.parse.DummyType
+import vertexcubed.maml.parse.TypeVarDummy
+import vertexcubed.maml.type.*
 
 
 class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode(line) {
@@ -54,8 +11,8 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
         return statement.eval(env)
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return statement.inferType(env, types)
+    override fun inferType(env: TypeEnv): MType {
+        return statement.inferType(env)
     }
 
     override fun pretty(): String {
@@ -71,21 +28,28 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
 /**
  * Represents an ADT
  */
-class DataTypeNode(val name: String, val types: List<ConDefNode>, line: Int): AstNode(line) {
+class DataTypeNode(val name: String, val arguments: List<TypeVarDummy>, val cons: List<ConDefNode>, line: Int): AstNode(line) {
 
     override fun eval(env: Map<String, MValue>): MValue {
-        TODO("Not yet implemented")
+        throw AssertionError("Probably shouldn't be evaluated?")
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        TODO("Not yet implemented")
+    override fun inferType(env: TypeEnv): MDataType {
+        val myType = MDataType(name, arguments.map { a -> Pair(a.name, a.lookup(env)) })
+        val newEnv = env.copy()
+        newEnv.addType(name to ForAll.generalize(myType, env.typeSystem))
+        for(con in cons) {
+            //purposely discard return type?
+            con.inferType(newEnv)
+        }
+        return myType
     }
 
     override fun pretty(): String {
         var str = ""
-        for(i in types.indices) {
-            str += types[i].toString() + " "
-            if(i != types.size - 1) {
+        for(i in cons.indices) {
+            str += cons[i].toString() + " "
+            if(i != cons.size - 1) {
                 str += "| "
             }
         }
@@ -93,7 +57,7 @@ class DataTypeNode(val name: String, val types: List<ConDefNode>, line: Int): As
     }
 
     override fun toString(): String {
-        return "Type($name, $types)"
+        return "Type($name, $arguments, $cons)"
     }
 }
 
@@ -101,11 +65,11 @@ class DataTypeNode(val name: String, val types: List<ConDefNode>, line: Int): As
 
 class TypeAliasNode(val name: String, val type: MType, line: Int): AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
-        TODO("Not yet implemented")
+        TODO("NYI")
     }
 
-    override fun inferType(env: Map<String, ForAll>, types: TypeVarEnv): MType {
-        return type
+    override fun inferType(env: TypeEnv): MType {
+        TODO("NYI")
     }
 
     override fun pretty(): String {

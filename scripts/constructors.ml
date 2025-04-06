@@ -1,3 +1,3 @@
-type myType = A of int | B
+type myType = A of int * int | B of myType
 
-let test = A 5
+let test = B (A (5, 2))

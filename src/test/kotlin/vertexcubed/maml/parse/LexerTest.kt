@@ -22,8 +22,7 @@ class LexerTest {
     fun testLexing2() {
         val lexer = Lexer("-4213.2792")
         val secondTest = listOf(
-            Token(TokenType.SPECIAL_CHAR, "-", 1),
-            Token(TokenType.NUMBER_LITERAL, "4213", 1),
+            Token(TokenType.NUMBER_LITERAL, "-4213", 1),
             Token(TokenType.SPECIAL_CHAR, ".", 1),
             Token(TokenType.NUMBER_LITERAL, "2792", 1),
             Token(TokenType.EOF, "", 1)

@@ -179,8 +179,8 @@ class FunctionParser(): Parser<FunctionNode>() {
 class ConNodeParser(): Parser<ConNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConNode> {
         return ConstructorParser().bind { cons ->
-            PrecedenceParsers.ConstLevel().map { value ->
-                ConNode(cons, value, value.line)
+            OptionalParser(PrecedenceParsers.ConstLevel()).map { value ->
+                ConNode(cons, value, tokens[index].line)
             }
         }.parse(tokens, index, env)
     }
