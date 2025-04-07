@@ -25,7 +25,8 @@ class PrecedenceParsers {
                 FalseParser() as Parser<AstNode>,
                 UnitParser() as Parser<AstNode>,
                 ParenthesesParser() as Parser<AstNode>,
-                IdentifierParser().map { r -> VariableNode(r, tokens[index].line) }
+                NonInfixIdentifierParser().map { r -> VariableNode(r, tokens[index].line) },
+                KeywordParser("op").rCompose(env.choiceNameParsers()).map { str -> VariableNode(str, tokens[index + 1].line) },
             )).parse(tokens, index, env)
         }
     }

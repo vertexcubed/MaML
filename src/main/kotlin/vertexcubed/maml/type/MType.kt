@@ -186,8 +186,11 @@ data class MDataType(val name: String, val args: List<Pair<String, MType>>): MTy
 
     override fun toString(): String {
         var str = ""
-        for(arg in args) {
-            str += "${arg.second} "
+        if(args.size > 1) {
+            str += args.map { p -> p.second.toString() }.joinToString(separator = ", ", prefix = "(", postfix = ")") + " "
+        }
+        else {
+            if(args.isNotEmpty()) str += "${args[0].second} "
         }
         return str + name
     }

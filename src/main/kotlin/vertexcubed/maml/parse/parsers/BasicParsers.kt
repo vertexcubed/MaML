@@ -105,6 +105,25 @@ class KeywordParser(private val word: String): Parser<String>() {
     }
 }
 
+class NonInfixIdentifierParser(): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        val base = IdentifierParser().parse(tokens, index, env)
+        when(base) {
+            is ParseResult.Success -> {
+                val text = base.result
+                if(text in env.allStrings()) {
+                    return ParseResult.Failure(index, tokens[index], "Expected identifier, but found infix operator instead")
+                }
+                return base
+            }
+            is ParseResult.Failure -> {
+                return base
+            }
+        }
+    }
+
+}
+
 class IdentifierParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return SimpleParser(TokenType.IDENTIFIER).parse(tokens, index, env)

@@ -18,7 +18,7 @@ class ParseEnv() {
         infixMap[1] = Pair(Associativity.RIGHT, arrayListOf("&&"))
         infixMap[2] = Pair(Associativity.LEFT, arrayListOf("=", "!=", "<=", ">=", "<", ">"))
         infixMap[3] = Pair(Associativity.LEFT, arrayListOf("+", "-"))
-        infixMap[4] = Pair(Associativity.LEFT, arrayListOf("*", "/", "%", "mod"))
+        infixMap[4] = Pair(Associativity.LEFT, arrayListOf("*", "/", "%"))
     }
 
 
@@ -30,10 +30,31 @@ class ParseEnv() {
     }
 
     fun addInfixRule(rule: InfixRule) {
-        val (assoc, names) = infixMap.getOrDefault(rule.precedence, Pair(rule.assoc, arrayListOf()))
+        val (assoc, names) = infixMap.computeIfAbsent(rule.precedence, { _ -> Pair(rule.assoc, arrayListOf())})
         if(rule.assoc != assoc) throw IllegalArgumentException("Cannot have multiple associativities of same precedence level!")
         if(rule.assoc == Associativity.NONE && names.size > 0) throw IllegalArgumentException("Only one nonfix operator per precedence level!")
         names.add(rule.name)
+    }
+
+    fun allStrings(): List<String> {
+        val out = ArrayList<String>()
+        for((_, v) in infixMap) {
+            out.addAll(v.second)
+        }
+        return out
+    }
+
+    fun choiceNameParsers(): Parser<String> {
+        val sortedMap = infixMap.toSortedMap().reversed()
+        val list = ArrayList<ChoiceParser<String>>()
+        for((_, v) in sortedMap) {
+            val (_, names) = v
+            val nameParser = ChoiceParser(names.map { name ->
+                CompoundSpecialCharParser(name).disjoint(SpecificIdentifierParser(name))
+            })
+            list.add(nameParser)
+        }
+        return ChoiceParser(list)
     }
 
     fun infixParser(base: Parser<AstNode>): Parser<AstNode> {

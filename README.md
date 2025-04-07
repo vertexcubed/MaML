@@ -53,9 +53,9 @@ MaML is in active development, and bugs and issues are expected. Please report b
 - [x] Toplevel expressions
 - [x] Algebraic Data Types
 - [x] Pattern Matching
-- [ ] Custom infix functions
+- [x] Custom infix functions
 - [ ] Multi argument builtin functions
-- [ ] Multi argument Type Constructors
+- [x] Multi argument Type Constructors
 - [ ] Type aliases
 - [ ] Pattern exhaustiveness checking
 - [ ] Lists

@@ -36,6 +36,10 @@ data class TypeConDummy(val name: String, val args: List<DummyType>): DummyType(
         val type = env.lookupType(name).instantiate(env.typeSystem)
         if(type !is MDataType) throw AssertionError("what.")
         if(type.args.size != args.size) throw UnboundTyConException(this.toString())
+        for(i in args.indices) {
+            val argType = args[i].lookup(env)
+            type.args[i].second.unify(argType)
+        }
         return type
     }
 

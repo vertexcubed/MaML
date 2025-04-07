@@ -6,6 +6,7 @@ import vertexcubed.maml.parse.*
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.MBinding
 import java.util.*
+import kotlin.jvm.optionals.getOrDefault
 
 @Suppress("UNCHECKED_CAST")
 class ProgramParser(): Parser<List<AstNode>>() {
@@ -13,11 +14,25 @@ class ProgramParser(): Parser<List<AstNode>>() {
         val parser = ChoiceParser(listOf(
             TopLetParser() as Parser<AstNode>,
             DataTypeDefParser() as Parser<AstNode>,
-
         ))
         var workingIndex = index
         val output = ArrayList<AstNode>()
         while(workingIndex < tokens.size && tokens[workingIndex].type != TokenType.EOF) {
+
+            val infixRes = InfixParser().parse(tokens, workingIndex, env)
+            when(infixRes) {
+                is ParseResult.Success -> {
+                    env.addInfixRule(infixRes.result)
+                    workingIndex = infixRes.newIndex
+                    continue
+                }
+
+                is ParseResult.Failure -> {
+                    //Void failure
+                }
+            }
+
+
             val res = parser.parse(tokens, workingIndex, env)
             when(res) {
                 is ParseResult.Success -> {
@@ -83,9 +98,9 @@ class DataTypeDefParser(): Parser<DataTypeNode>() {
     }
 
     private fun idenParser(): Parser<Pair<String, List<TypeVarDummy>>> {
-        return ZeroOrMore(TypeVarTypeParser()).bind { args ->
+        return OptionalParser(MultiTypeVarTypeParser()).bind { args ->
             IdentifierParser().map { name ->
-                Pair(name, args)
+                Pair(name, args.getOrDefault(emptyList()))
             }
         }
     }

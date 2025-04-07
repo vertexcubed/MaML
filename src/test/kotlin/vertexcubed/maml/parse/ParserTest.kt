@@ -83,7 +83,7 @@ class ParserTest {
 
     @Test
     fun testSpecificIdentifierParser() {
-        val expected = "iden"
+        val expected = "meow"
         val actual = resultOrFail(SpecificIdentifierParser(expected).parse(Lexer(expected).read(), parseEnv))
         assertEquals(expected, actual)
     }

@@ -3,6 +3,9 @@ package vertexcubed.maml
 import vertexcubed.maml.core.Interpreter
 import vertexcubed.maml.eval.TupleValue
 import vertexcubed.maml.eval.UnitValue
+import vertexcubed.maml.parse.Lexer
+import vertexcubed.maml.parse.ParseEnv
+import vertexcubed.maml.parse.parsers.PrecedenceParsers
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.IOException
@@ -92,4 +95,5 @@ fun main(args: Array<String>) {
 //    env.init()
 //    val otherRes = env.infixParser(PrecedenceParsers.UnaryLevel()).parse(Lexer(str).read(), env)
 //    println(otherRes)
+
 }
