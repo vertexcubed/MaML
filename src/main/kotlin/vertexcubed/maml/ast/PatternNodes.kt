@@ -236,7 +236,7 @@ class ConstructorPatternNode(val constr: String, val expr: Optional<PatternNode>
         if(expr.name != constr) return Optional.empty()
         if(expr.value.isPresent) {
             if(this.expr.isEmpty) return Optional.empty()
-            return this.expr.get().unify(expr)
+            return this.expr.get().unify(expr.value.get())
         }
         if(this.expr.isPresent) return Optional.empty()
         //Both 0 argument constructors

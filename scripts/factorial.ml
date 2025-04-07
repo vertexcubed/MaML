@@ -1,4 +1,7 @@
-let _ =
+let rec factorial n =
+    match n with
+    | 0 | 1 -> 1
+    | _ -> n * factorial (n - 1)
+    end
 
-let my_fun y = if y > 0 then 5 else 0 in my_fun 5
-
+let _ = println (factorial 5)

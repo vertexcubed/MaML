@@ -1,11 +1,9 @@
 package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.*
-import vertexcubed.maml.eval.BooleanValue
-import vertexcubed.maml.eval.FunctionValue
-import vertexcubed.maml.eval.MValue
-import vertexcubed.maml.eval.RecursiveFunctionValue
+import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
+import java.util.*
 
 
 class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
@@ -46,7 +44,13 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
 
         val myType = env.typeSystem.newTypeVar()
 
-        funcType.unify(MFunction(argType, myType))
+        val other = MFunction(argType, myType)
+        try {
+            funcType.unify(other)
+        }
+        catch(e: UnifyException) {
+            throw TypeCheckException(line, this, e.t2, e.t1)
+        }
 
         return myType
 
@@ -60,7 +64,7 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
     }
 
     override fun pretty(): String {
-        return "$func $arg"
+        return "${func.pretty()} ${arg.pretty()}"
     }
 
     override fun toString(): String {
@@ -82,10 +86,20 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
     override fun inferType(env: TypeEnv): MType {
 
         val condType = condition.inferType(env)
-        condType.unify(MBool)
+        try {
+            condType.unify(MBool)
+        }
+        catch(e: UnifyException) {
+            throw TypeCheckException(condition.line, this, condType, MBool)
+        }
         val thenType = thenBranch.inferType(env)
         val elseType = elseBranch.inferType(env)
-        thenType.unify(elseType)
+        try {
+            thenType.unify(elseType)
+        }
+        catch(e: UnifyException) {
+            throw TypeCheckException(elseBranch.line, this, elseType, thenType)
+        }
         return thenType
     }
 
@@ -121,6 +135,7 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
         newEnv.addBinding(name.binding, scheme)
 
 //        val newEnv = env + (name.binding to scheme)
+
         return expression.inferType(newEnv)
 
     }
@@ -144,14 +159,18 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         val myRetType = env.typeSystem.newTypeVar()
         if(name.type.isPresent) {
             val expectedType = name.type.get().lookup(env)
+            //This should never throw an exception
             myRetType.unify(expectedType)
+
         }
         if(name.binding == "_") throw TypeCheckException(line, this, "Only variables are allowed as left-hand side of let rec")
 
         val argType = env.typeSystem.newTypeVar()
         if(node.arg.type.isPresent) {
             val expectedType = node.arg.type.get().lookup(env)
+            //This should never throw an exception
             argType.unify(expectedType)
+
         }
         val myType = MFunction(argType, myRetType)
         var newEnv = env.copy()
@@ -165,6 +184,7 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         newEnv.addBinding(node.arg.binding to ForAll.empty(argType))
         val bodyType = node.body.inferType(newEnv)
 
+        //This should never throw an exception?
         myRetType.unify(bodyType)
 
         return MFunction(argType, bodyType)
@@ -192,6 +212,7 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
         val argType = env.typeSystem.newTypeVar()
         if(arg.type.isPresent) {
             val expectedType = arg.type.get().lookup(env)
+            //This should never throw an exception
             argType.unify(expectedType)
         }
         if(arg.binding == "_") {
@@ -215,6 +236,83 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
 
     override fun toString(): String {
         return "Fun($arg, $body)"
+    }
+}
+
+class ConNode(val name: String, val value: Optional<AstNode>, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        if(value.isPresent) {
+            return ConValue(name, Optional.of(value.get().eval(env)))
+        }
+        return ConValue(name, Optional.empty())
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        val myType = env.lookupBinding(name).instantiate(env.typeSystem)
+        if(myType !is MConstr) throw IllegalArgumentException("This should never happen?")
+        if(value.isEmpty) {
+            if(myType.argType.isPresent)
+                throw conException(getArgSize(myType.argType), 0)
+            return myType.type
+        }
+        val valueType = value.get().inferType(env)
+        if(myType.argType.isEmpty)
+            throw conException(0, getArgSize(valueType))
+        val expectedType = myType.argType.get()
+        try {
+            expectedType.unify(valueType)
+        }
+        catch(e: UnifyException) {
+            //Both are tuples, aka multi arg constructors
+            if(expectedType is MTuple && valueType is MTuple) {
+                //Different sizes
+                if(expectedType.types.size != valueType.types.size)
+                    throw conException(getArgSize(expectedType), getArgSize(valueType))
+
+                //Technically i should do per tuple type checking but idc lmao
+                throw TypeCheckException(line, this, valueType, expectedType)
+            }
+            //Only one of them are tuples, aka different size args
+            if(expectedType is MTuple || valueType is MTuple) {
+                throw conException(getArgSize(expectedType), getArgSize(valueType))
+            }
+            throw TypeCheckException(line, this, valueType, expectedType)
+        }
+
+
+        return myType.type
+    }
+
+    private fun conException(expectedSize: Int, actualSize: Int): TypeCheckException {
+        return TypeCheckException(line, this, "The constructor $name expects $expectedSize argument(s),\n" +
+                "but is applied here to $actualSize argument(s)")
+    }
+
+    private fun getArgSize(type: MType): Int {
+        return getArgSize(Optional.of(type))
+    }
+
+    private fun getArgSize(type: Optional<MType>): Int {
+        if(type.isEmpty) return 0
+        val t = type.get()
+        if(t is MTuple) return t.types.size
+        return 1
+    }
+
+    override fun pretty(): String {
+        var str = name
+        if(value.isPresent) {
+            var toAdd = value.get().pretty()
+            if(value.get() is ConNode) {
+                toAdd = "($toAdd)"
+            }
+            str += " $toAdd"
+        }
+        return str;
+    }
+
+    override fun toString(): String {
+        return "Con $name($value)"
     }
 }
 

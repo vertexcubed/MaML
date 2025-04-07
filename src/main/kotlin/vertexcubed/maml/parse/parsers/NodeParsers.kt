@@ -169,8 +169,11 @@ class ApplicationParser(): Parser<AstNode>() {
 class FunctionParser(): Parser<FunctionNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<FunctionNode> {
         return KeywordParser("fun").rCompose(TypedIdentifierParser()).bind { first ->
-            SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(ExprParser()).map { second ->
-                FunctionNode(first, second, tokens[index].line)
+            ZeroOrMore(TypedIdentifierParser()).bind { others ->
+                SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(ExprParser()).map { second ->
+                    val secondFunc = others.foldRight(second, {cur, acc -> FunctionNode(cur, acc, acc.line)})
+                    FunctionNode(first, secondFunc, tokens[index].line)
+                }
             }
         }.parse(tokens, index, env)
     }
