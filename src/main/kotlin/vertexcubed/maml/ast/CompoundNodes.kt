@@ -1,9 +1,6 @@
 package vertexcubed.maml.ast
 
-import vertexcubed.maml.core.ApplicationException
-import vertexcubed.maml.core.IfException
-import vertexcubed.maml.core.TypeCheckException
-import vertexcubed.maml.core.UnboundVarException
+import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.BooleanValue
 import vertexcubed.maml.eval.FunctionValue
 import vertexcubed.maml.eval.MValue
@@ -250,30 +247,53 @@ class BuiltinNode(val name: MBinding, line: Int, val function: (MValue) -> MValu
 
 
 
-class MatchCaseNode(val expr: AstNode, val nodes: List<MatchNode>, line: Int): AstNode(line) {
+class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode>>, line: Int): AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
-        TODO("Not yet implemented")
+        val exprVal = expr.eval(env)
+        for((pat, newExpr) in nodes) {
+            val patBindings = pat.unify(exprVal)
+            if(patBindings.isPresent) {
+                val newEnv = env + patBindings.get()
+                return newExpr.eval(newEnv)
+            }
+        }
+        throw MatchException(exprVal)
     }
 
     override fun inferType(env: TypeEnv): MType {
-        TODO("Not yet implemented")
+        val exprType = expr.inferType(env)
+        val retType = env.typeSystem.newTypeVar()
+        for((p, e) in nodes) {
+            val (pType, pBindings) = p.inferPatternType(env)
+            try {
+                exprType.unify(pType)
+            }
+            catch(e: UnifyException) {
+                throw patException(pType, exprType)
+            }
+            val newEnv = env.copy()
+            newEnv.addAllBindings(pBindings.mapValues { t -> ForAll.empty(t.value) })
+            val eType = e.inferType(newEnv)
+            try {
+                retType.unify(eType)
+            }
+            catch(e: UnifyException) {
+                throw TypeCheckException(line, this, eType, retType)
+            }
+        }
+        return retType
+    }
+
+    fun patException(actualType: MType, expectedType: MType): TypeCheckException {
+        return TypeCheckException(line, this, "This pattern matches values of type $actualType\n" +
+                "but a pattern was expected which matches values of type $expectedType")
     }
 
     override fun pretty(): String {
-        TODO("Not yet implemented")
-    }
-}
-
-class MatchNode(val pattern: AstNode, val expr: AstNode, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
-        TODO("Not yet implemented")
+        return "match ${expr.pretty()} with ${nodes.map { p -> "${p.first} -> ${p.second}" }.joinToString(separator = " | ")}"
     }
 
-    override fun inferType(env: TypeEnv): MType {
-        TODO("Not yet implemented")
-    }
-
-    override fun pretty(): String {
-        TODO("Not yet implemented")
+    override fun toString(): String {
+        return "MatchCase($expr, ${nodes.joinToString(separator = " | ")})"
     }
 }

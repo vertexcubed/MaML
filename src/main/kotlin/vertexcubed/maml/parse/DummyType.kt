@@ -1,9 +1,7 @@
 package vertexcubed.maml.parse
 
-import vertexcubed.maml.type.MFunction
-import vertexcubed.maml.type.MTuple
-import vertexcubed.maml.type.MType
-import vertexcubed.maml.type.TypeEnv
+import vertexcubed.maml.core.UnboundTyConException
+import vertexcubed.maml.type.*
 
 /**
  * Represents a type that may or may not exist. Used at parse time only.
@@ -35,7 +33,10 @@ data class TypeVarDummy(val name: String): DummyType() {
 
 data class TypeConDummy(val name: String, val args: List<DummyType>): DummyType() {
     override fun lookup(env: TypeEnv): MType {
-        return env.lookupType(name).instantiate(env.typeSystem)
+        val type = env.lookupType(name).instantiate(env.typeSystem)
+        if(type !is MDataType) throw AssertionError("what.")
+        if(type.args.size != args.size) throw UnboundTyConException(this.toString())
+        return type
     }
 
     override fun toString(): String {

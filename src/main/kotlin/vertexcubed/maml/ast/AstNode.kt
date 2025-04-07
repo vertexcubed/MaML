@@ -11,6 +11,8 @@ abstract class AstNode(val line: Int) {
     abstract fun inferType(env: TypeEnv): MType
 
 
-    abstract fun pretty(): String
+    open fun pretty(): String {
+        return toString()
+    }
 }
 

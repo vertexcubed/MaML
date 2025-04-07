@@ -1,15 +1,15 @@
 package vertexcubed.maml.core
 
 import vertexcubed.maml.ast.AstNode
+import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.type.MType
 
 
 class ParseException(line: Int, message: String) : Exception("Error on line $line: $message")
-class BinaryOpException(message: String) : Exception(message)
-class UnaryOpException(message: String) : Exception(message)
 class UnboundVarException(name: String) : Exception("Unbound Variable: $name")
 class UnboundTyConException(name: String) : Exception("Unbound Type Constructor: $name")
 class ApplicationException(message: String) : Exception(message)
+class MatchException(value: MValue): Exception("Failed to match against $value")
 class IfException() : Exception("Cannot use non-boolean as condition")
 class TypeCheckException(val line: Int, val node: AstNode, val log: String): Exception("Line $line: $log)") {
         constructor(line: Int, node: AstNode, actualType: MType, expectedType: MType) : this(line, node,

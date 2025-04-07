@@ -19,12 +19,8 @@ class Lexer(val source: String) {
 
         init {
             keywords.addAll(listOf(
-                "abstype",
                 "and",
-                "andalso",
                 "as",
-                "case",
-                "datatype",
                 "do",
                 "else",
                 "end",
@@ -38,6 +34,7 @@ class Lexer(val source: String) {
                 "infixr",
                 "let",
                 "local",
+                "match",
                 "nonfix",
                 "of",
                 "op",
@@ -47,7 +44,6 @@ class Lexer(val source: String) {
                 "rec",
                 "then",
                 "type",
-                "val",
                 "with",
                 "withtype",
                 "while",

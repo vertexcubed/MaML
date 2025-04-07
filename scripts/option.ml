@@ -1,3 +1,4 @@
-type 'a option = Some of 'a | None
+type 'a 'b option = Some of 'a | None | Other of 'b
 
-let my_func (x: 'a option) = x
+(* TODO: Fix this not parsing *)
+let my_func (x: int int option) = x
