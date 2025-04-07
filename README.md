@@ -1,7 +1,5 @@
 # MaML
 
----
-
 MaML is a simple ML dialect inspired by OCaml and Standard ML, implemented in Kotlin. 
 It is designed to be embedded into Java/Kotlin applications as a lightweight scripting language.
 
@@ -70,8 +68,10 @@ MaML is in active development, and bugs and issues are expected. Please report b
 - [ ] Better Java integration
 - [ ] REPL environment for command-line
 - [ ] **Standard Library**
+  - [ ] Binding Operators (let*) 
   - [ ] Either
   - [ ] Format (Pretty printing)
+  - [ ] Functors (Maybe)
   - [ ] Higher order functions - map, fold
   - [ ] Lazy
   - [ ] Lists
