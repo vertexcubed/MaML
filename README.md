@@ -65,10 +65,10 @@ MaML is in active development, and bugs and issues are expected. Please report b
 
 ### Future Additions
 
+- [ ] Binding Operators (let*)  
 - [ ] Better Java integration
 - [ ] REPL environment for command-line
 - [ ] **Standard Library**
-  - [ ] Binding Operators (let*) 
   - [ ] Either
   - [ ] Format (Pretty printing)
   - [ ] Functors (Maybe)
@@ -81,7 +81,7 @@ MaML is in active development, and bugs and issues are expected. Please report b
   - [ ] Result
   - [ ] Sets
   - [ ] Stacks
-  - [ ] Streams?
+  - [ ] Streams
   - [ ] Queues
 - [ ] **Compiler**
   - [ ] IR Bytecode
@@ -95,3 +95,6 @@ MaML is in active development, and bugs and issues are expected. Please report b
 - Side effects / mutable values*
   - Lazy values *might* be the exception to this
 - Classes and objects
+- Polymorphic variants
+- Named function arguments
+- Garbage Collector
