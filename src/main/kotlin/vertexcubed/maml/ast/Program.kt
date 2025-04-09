@@ -8,8 +8,6 @@ import java.util.*
 
 class Program(val nodes: List<AstNode>, var evalMap: Map<String, MValue>, val typeEnv: TypeEnv) {
 
-
-
     fun eval() {
         for(node in nodes) {
             when(node) {
@@ -20,7 +18,7 @@ class Program(val nodes: List<AstNode>, var evalMap: Map<String, MValue>, val ty
                         evalMap += (node.name.binding to nodeVal)
                     }
                 }
-                is DataTypeNode -> {
+                is VariantTypeNode -> {
                     //Don't try to "evaluate" datatype defs i guess?
                     continue
                 }
@@ -42,7 +40,7 @@ class Program(val nodes: List<AstNode>, var evalMap: Map<String, MValue>, val ty
                         typeEnv.addBinding(node.name.binding to scheme)
                     }
                 }
-                is DataTypeNode -> {
+                is VariantTypeNode -> {
                     val nodeCons = node.cons
                     //TODO: change to generalize instead
                     val scheme = ForAll.generalize(nodeType, typeEnv.typeSystem)
@@ -57,7 +55,7 @@ class Program(val nodes: List<AstNode>, var evalMap: Map<String, MValue>, val ty
 
                                 var found = false
                                 //this is a safe cast
-                                for(arg in (scheme.type as MDataType).args) {
+                                for(arg in (scheme.type as MVariantType).args) {
                                     if(conDummyName == arg.first) {
                                         conType = arg.second
                                         found = true
@@ -85,5 +83,4 @@ class Program(val nodes: List<AstNode>, var evalMap: Map<String, MValue>, val ty
             }
         }
     }
-
 }

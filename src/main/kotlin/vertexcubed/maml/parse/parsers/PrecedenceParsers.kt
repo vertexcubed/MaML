@@ -4,7 +4,7 @@ import vertexcubed.maml.ast.*
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.result.ParseResult
-import vertexcubed.maml.type.MBinding
+import vertexcubed.maml.core.MBinding
 import java.util.*
 
 //All the precedence levels.
@@ -25,7 +25,7 @@ class PrecedenceParsers {
                 FalseParser() as Parser<AstNode>,
                 UnitParser() as Parser<AstNode>,
                 ParenthesesParser() as Parser<AstNode>,
-                NonInfixIdentifierParser().map { r -> VariableNode(r, tokens[index].line) },
+                VariableParser() as Parser<AstNode>,
                 KeywordParser("op").rCompose(env.choiceNameParsers()).map { str -> VariableNode(str, tokens[index + 1].line) },
             )).parse(tokens, index, env)
         }

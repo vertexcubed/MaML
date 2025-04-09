@@ -1,4 +1,4 @@
-package vertexcubed.maml.type
+package vertexcubed.maml.core
 
 import vertexcubed.maml.parse.DummyType
 import java.util.*

@@ -1,5 +1,6 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.core.UnifyException
 import vertexcubed.maml.eval.ConValue
@@ -191,7 +192,9 @@ class TuplePatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(lin
 }
 
 
-class ConstructorPatternNode(val constr: String, val expr: Optional<PatternNode>, line: Int): PatternNode(line) {
+class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<PatternNode>, line: Int): PatternNode(line) {
+    constructor(name: String, expr: Optional<PatternNode>, line: Int): this(MIdentifier(name), expr, line)
+
 
     override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
         val constrType = env.lookupBinding(constr).instantiate(env.typeSystem)
@@ -231,6 +234,9 @@ class ConstructorPatternNode(val constr: String, val expr: Optional<PatternNode>
         return Pair(constrType.type, patType.second)
     }
 
+
+    //x = Some 5
+    //match x with | None -> ... | Some a -> ...
     override fun unify(expr: MValue): Optional<Map<String, MValue>> {
         if(expr !is ConValue) return Optional.empty()
         if(expr.name != constr) return Optional.empty()
@@ -260,7 +266,7 @@ class ConstructorPatternNode(val constr: String, val expr: Optional<PatternNode>
     }
 
     override fun pretty(): String {
-        var str = constr
+        var str = constr.toString()
         if(expr.isPresent) {
             var toAdd = expr.get().pretty()
             if(expr.get() is ConstructorPatternNode) {

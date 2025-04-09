@@ -10,7 +10,7 @@ import vertexcubed.maml.parse.preprocess.InfixRule
 
 class ParseEnv() {
 
-    private val infixMap = mutableMapOf<Int, Pair<Associativity, MutableList<String>>>()
+    val infixMap = mutableMapOf<Int, Pair<Associativity, MutableList<String>>>()
 
     //default values
     fun init() {

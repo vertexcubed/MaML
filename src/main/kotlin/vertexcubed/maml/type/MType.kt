@@ -157,8 +157,7 @@ data class MTuple(val types: List<MType>): MType() {
     }
 }
 
-data class MDataType(val name: String, val args: List<Pair<String, MType>>): MType() {
-
+data class MVariantType(val name: String, val args: List<Pair<String, MType>>): MType() {
 
     override fun occurs(other: MType): Boolean {
         for(arg in args) {
@@ -173,7 +172,7 @@ data class MDataType(val name: String, val args: List<Pair<String, MType>>): MTy
         if(otherType is MTypeVar) {
             return otherType.unify(this)
         }
-        if(otherType !is MDataType) throw UnifyException(otherType, this)
+        if(otherType !is MVariantType) throw UnifyException(otherType, this)
         if(otherType.args.size != args.size) throw UnifyException(otherType, this)
         for(i in args.indices) {
             args[i].second.unify(otherType.args[i].second)
@@ -181,7 +180,7 @@ data class MDataType(val name: String, val args: List<Pair<String, MType>>): MTy
     }
 
     override fun substitute(from: MType, to: MType): MType {
-        return MDataType(name, args.map { a -> Pair(a.first, a.second.substitute(from, to)) })
+        return MVariantType(name, args.map { a -> Pair(a.first, a.second.substitute(from, to)) })
     }
 
     override fun toString(): String {
@@ -195,6 +194,12 @@ data class MDataType(val name: String, val args: List<Pair<String, MType>>): MTy
         return str + name
     }
 }
+
+
+
+
+
+
 
 /**
  * Not *type constructors*, but rather a wrapped type for constructors themselves

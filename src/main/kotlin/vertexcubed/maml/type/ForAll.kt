@@ -42,7 +42,7 @@ class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
                     }
                     ret
                 }
-                is MDataType -> real.args.filter { a -> a.second is MTypeVar }.map { a -> a.second as MTypeVar }
+                is MVariantType -> real.args.filter { a -> a.second is MTypeVar }.map { a -> a.second as MTypeVar }
                 is MTypeVar -> listOf(real)
                 else -> emptyList()
             }

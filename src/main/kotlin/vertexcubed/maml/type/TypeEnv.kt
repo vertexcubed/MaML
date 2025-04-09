@@ -1,5 +1,6 @@
 package vertexcubed.maml.type
 
+import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.UnboundTyConException
 import vertexcubed.maml.core.UnboundVarException
 import vertexcubed.maml.parse.DummyType
@@ -20,8 +21,16 @@ class TypeEnv(val typeSystem: TypeSystem) {
         return bindingTypes.getOrElse(binding, { throw UnboundVarException(binding) })
     }
 
+    fun lookupBinding(binding: MIdentifier): ForAll {
+        return lookupBinding(binding.path.last())
+    }
+
     fun lookupType(type: String): ForAll {
         return typeDefs.getOrElse(type, { throw UnboundTyConException(type) })
+    }
+
+    fun lookupType(binding: MIdentifier): ForAll {
+        return lookupType(binding.path.last())
     }
 
     fun addBinding(binding: String, type: ForAll) {

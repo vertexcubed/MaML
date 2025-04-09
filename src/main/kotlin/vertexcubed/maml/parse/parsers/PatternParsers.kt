@@ -42,7 +42,7 @@ class ConstantPatternParser(): Parser<ConstantPatternNode>() {
 
 class ConstrPatternParser(): Parser<ConstructorPatternNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConstructorPatternNode> {
-        return ConstructorParser().bind { constr ->
+        return LongConstructorParser().bind { constr ->
             OptionalParser(PatternPrecedence.Main()).map { pattern ->
                 ConstructorPatternNode(constr, pattern, tokens[index].line)
             }

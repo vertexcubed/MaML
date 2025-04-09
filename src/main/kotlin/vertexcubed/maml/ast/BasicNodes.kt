@@ -1,12 +1,10 @@
 package vertexcubed.maml.ast
 
-import vertexcubed.maml.core.TypeCheckException
+import vertexcubed.maml.core.MBinding
+import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.UnboundVarException
-import vertexcubed.maml.core.UnifyException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
-import java.util.*
-import kotlin.jvm.optionals.getOrElse
 
 class UnitNode(line: Int) : AstNode(line) {
     override fun eval(env: Map<String, MValue>): MValue {
@@ -160,10 +158,11 @@ class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
     }
 }
 
-class VariableNode(val name: String, line: Int): AstNode(line) {
+class VariableNode(val name: MIdentifier, line: Int): AstNode(line) {
+    constructor(name: String, line: Int): this(MIdentifier(name), line)
 
     override fun eval(env: Map<String, MValue>): MValue {
-        return env.getOrElse(name, { throw UnboundVarException(name) })
+        return name.lookupEvalBinding(env)
     }
 
     override fun inferType(env: TypeEnv): MType {
@@ -171,7 +170,7 @@ class VariableNode(val name: String, line: Int): AstNode(line) {
     }
 
     override fun pretty(): String {
-        return name
+        return name.toString()
     }
 
     override fun toString(): String {
@@ -194,7 +193,7 @@ class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
     }
 
     override fun pretty(): String {
-        var out = name.binding
+        var out = name.binding.toString()
         if(name.type.isPresent) {
             out += " of ${name.type.get()}"
         }

@@ -1,5 +1,6 @@
 package vertexcubed.maml.parse
 
+import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.UnboundTyConException
 import vertexcubed.maml.type.*
 
@@ -10,13 +11,15 @@ sealed class DummyType {
     abstract fun lookup(env: TypeEnv): MType
 }
 
-data class SingleDummy(val name: String): DummyType() {
+data class SingleDummy(val name: MIdentifier): DummyType() {
+    constructor(name: String): this(MIdentifier(name))
+
     override fun lookup(env: TypeEnv): MType {
         return env.lookupType(name).instantiate(env.typeSystem)
     }
 
     override fun toString(): String {
-        return name
+        return name.toString()
     }
 }
 
@@ -31,10 +34,12 @@ data class TypeVarDummy(val name: String): DummyType() {
 
 }
 
-data class TypeConDummy(val name: String, val args: List<DummyType>): DummyType() {
+data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): DummyType() {
+    constructor(name: String, args: List<DummyType>): this(MIdentifier(name), args)
+
     override fun lookup(env: TypeEnv): MType {
         val type = env.lookupType(name).instantiate(env.typeSystem)
-        if(type !is MDataType) throw AssertionError("what.")
+        if(type !is MVariantType) throw AssertionError("what.")
         if(type.args.size != args.size) throw UnboundTyConException(this.toString())
         for(i in args.indices) {
             val argType = args[i].lookup(env)

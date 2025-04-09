@@ -2,6 +2,7 @@ package vertexcubed.maml.eval
 
 import vertexcubed.maml.ast.AstNode
 import vertexcubed.maml.ast.ConNode
+import vertexcubed.maml.core.MIdentifier
 import java.util.*
 
 sealed class MValue() {
@@ -67,9 +68,9 @@ data class TupleValue(val values: List<MValue>): MValue() {
     }
 }
 
-data class ConValue(val name: String, val value: Optional<MValue>): MValue() {
+data class ConValue(val name: MIdentifier, val value: Optional<MValue>): MValue() {
     override fun toString(): String {
-        var str = name
+        var str = name.toString()
         if(value.isPresent) {
             var toAdd = value.get().toString()
             if(value.get() is ConValue) {
@@ -78,5 +79,14 @@ data class ConValue(val name: String, val value: Optional<MValue>): MValue() {
             str += " $toAdd"
         }
         return str;
+    }
+}
+
+/**
+ * Module "values." The bindings map is all of the new bindings, while the env map is the environment this module was evaluated in (closure)
+ */
+data class ModuleValue(val name: String, val bindings: Map<String, MValue>, val env: Map<String, MValue>): MValue() {
+    override fun toString(): String {
+        return super.toString()
     }
 }

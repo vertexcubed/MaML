@@ -3,8 +3,9 @@ package vertexcubed.maml.parse.parsers
 import vertexcubed.maml.ast.*
 import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.*
+import vertexcubed.maml.parse.preprocess.Associativity
 import vertexcubed.maml.parse.result.ParseResult
-import vertexcubed.maml.type.MBinding
+import vertexcubed.maml.core.MBinding
 import java.util.*
 import kotlin.jvm.optionals.getOrDefault
 
@@ -22,13 +23,25 @@ class ProgramParser(): Parser<List<AstNode>>() {
             val infixRes = InfixParser().parse(tokens, workingIndex, env)
             when(infixRes) {
                 is ParseResult.Success -> {
-                    env.addInfixRule(infixRes.result)
+                    try {
+                        env.addInfixRule(infixRes.result)
+                    }
+                    catch(e: IllegalArgumentException) {
+                        val precedence = infixRes.result.precedence
+                        val m = env.infixMap[precedence]
+                            ?: return ParseResult.Failure(workingIndex, tokens[workingIndex], "Catastrophic failure registering infix rule ${infixRes.result}")
+                        val expected = m.first
+                        val actual = infixRes.result.assoc
+                        if(expected == Associativity.NONE) {
+                            return ParseResult.Failure(workingIndex, tokens[workingIndex], "Precedence $precedence is non-associative, cannot add additional infix operator!")
+                        }
+                        return ParseResult.Failure(workingIndex, tokens[workingIndex], "Incompatible associativities for precedence $precedence: Expected $expected, Found: $actual ")
+                    }
                     workingIndex = infixRes.newIndex
                     continue
                 }
-
                 is ParseResult.Failure -> {
-                    //Void failure
+                    //Void on failure lol
                 }
             }
 
@@ -81,8 +94,8 @@ class TopLetParser(): Parser<TopLetNode>() {
 }
 
 
-class DataTypeDefParser(): Parser<DataTypeNode>() {
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<DataTypeNode> {
+class DataTypeDefParser(): Parser<VariantTypeNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<VariantTypeNode> {
         val parser = KeywordParser("type").rCompose(
             idenParser()).lCompose(SpecialCharParser("=")).bind { iden ->
             ConDefParser().bind { first ->
@@ -90,7 +103,7 @@ class DataTypeDefParser(): Parser<DataTypeNode>() {
                     val list = ArrayList<ConDefNode>()
                     list.add(first)
                     list.addAll(second)
-                    DataTypeNode(iden.first, iden.second, list, index)
+                    VariantTypeNode(iden.first, iden.second, list, index)
                 }
             }
         }

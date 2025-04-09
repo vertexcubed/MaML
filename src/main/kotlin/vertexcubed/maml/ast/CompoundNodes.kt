@@ -52,6 +52,7 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
             throw TypeCheckException(line, this, e.t2, e.t1)
         }
 
+
         return myType
 
 //        val funcType = func.type(env, types)
@@ -128,6 +129,21 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
 //        val newEnv = env + (name.binding to statementType)
 //        return expression.type(newEnv)
         val statementType = statement.inferType(env)
+
+        if(name.type.isPresent) {
+            val nameType = name.type.get().lookup(env)
+            var lastType = statementType
+            while(true) {
+                if(lastType is MFunction) {
+                    lastType = lastType.ret
+                }
+                else {
+                    break
+                }
+            }
+            nameType.unify(lastType)
+        }
+
         val scheme = ForAll.generalize(statementType, env.typeSystem)
         if(name.binding == "_") return expression.inferType(env)
 
@@ -239,7 +255,9 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
     }
 }
 
-class ConNode(val name: String, val value: Optional<AstNode>, line: Int): AstNode(line) {
+class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): AstNode(line) {
+    constructor(name: String, value: Optional<AstNode>, line: Int): this(MIdentifier(name), value, line)
+
     override fun eval(env: Map<String, MValue>): MValue {
         if(value.isPresent) {
             return ConValue(name, Optional.of(value.get().eval(env)))
@@ -300,7 +318,7 @@ class ConNode(val name: String, val value: Optional<AstNode>, line: Int): AstNod
     }
 
     override fun pretty(): String {
-        var str = name
+        var str = name.toString()
         if(value.isPresent) {
             var toAdd = value.get().pretty()
             if(value.get() is ConNode) {

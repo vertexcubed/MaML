@@ -5,7 +5,7 @@ import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.result.ParseResult
-import vertexcubed.maml.type.MBinding
+import vertexcubed.maml.core.MBinding
 import java.util.*
 import kotlin.math.pow
 
@@ -132,6 +132,13 @@ class UnitParser(): Parser<UnitNode>() {
     }
 }
 
+class VariableParser(): Parser<VariableNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<VariableNode> {
+        return LongIdentifierParser().map { r -> VariableNode(r, tokens[index].line) }.parse(tokens, index, env)
+    }
+
+}
+
 class ParenthesesParser(): Parser<AstNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
         return LParenParser().rCompose(ExprParser()).bind { first ->
@@ -181,7 +188,7 @@ class FunctionParser(): Parser<FunctionNode>() {
 
 class ConNodeParser(): Parser<ConNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConNode> {
-        return ConstructorParser().bind { cons ->
+        return LongConstructorParser().bind { cons ->
             OptionalParser(PrecedenceParsers.ConstLevel()).map { value ->
                 ConNode(cons, value, tokens[index].line)
             }

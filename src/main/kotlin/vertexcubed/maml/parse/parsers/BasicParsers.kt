@@ -1,8 +1,9 @@
 package vertexcubed.maml.parse.parsers
 
+import vertexcubed.maml.core.MBinding
+import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.parse.*
 import vertexcubed.maml.parse.result.ParseResult
-import vertexcubed.maml.type.*
 
 
 private fun simple(tokens: List<Token>, index: Int, type: TokenType): ParseResult<String> {
@@ -121,8 +122,32 @@ class NonInfixIdentifierParser(): Parser<String>() {
             }
         }
     }
+}
+
+class LongIdentifierParser(): Parser<MIdentifier>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MIdentifier> {
+        val parser = ZeroOrMore(ConstructorParser().disjoint(IdentifierParser()).lCompose(SpecialCharParser("."))).bind { first ->
+            NonInfixIdentifierParser().map { i ->
+                MIdentifier(first + i)
+            }
+        }
+        return parser.parse(tokens, index, env)
+    }
 
 }
+
+class LongConstructorParser(): Parser<MIdentifier>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MIdentifier> {
+        val parser = ZeroOrMore(ConstructorParser().disjoint(IdentifierParser()).lCompose(SpecialCharParser("."))).bind { first ->
+            ConstructorParser().map { i ->
+                MIdentifier(first + i)
+            }
+        }
+        return parser.parse(tokens, index, env)
+    }
+
+}
+
 
 class IdentifierParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
@@ -158,7 +183,8 @@ class TypedIdentifierParser(): Parser<MBinding>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MBinding> {
         val parser = IdentifierParser().bind { iden ->
             OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).map {
-                    type -> MBinding(iden, type)}
+                    type -> MBinding(iden, type)
+            }
         }
         return parser.disjoint(LParenParser().rCompose(parser).lCompose(RParenParser())).parse(tokens, index, env)
     }
