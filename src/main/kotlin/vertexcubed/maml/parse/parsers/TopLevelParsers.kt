@@ -10,15 +10,22 @@ import java.util.*
 import kotlin.jvm.optionals.getOrDefault
 
 @Suppress("UNCHECKED_CAST")
-class ProgramParser(): Parser<List<AstNode>>() {
+class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
+    constructor(): this(EOFParser() as Parser<Any>)
+
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<List<AstNode>> {
         val parser = ChoiceParser(listOf(
             TopLetParser() as Parser<AstNode>,
             DataTypeDefParser() as Parser<AstNode>,
+            StructParser() as Parser<AstNode>,
         ))
         var workingIndex = index
         val output = ArrayList<AstNode>()
-        while(workingIndex < tokens.size && tokens[workingIndex].type != TokenType.EOF) {
+        while(workingIndex < tokens.size) {
+            if(terminator.parse(tokens, workingIndex, env) is ParseResult.Success) {
+                workingIndex--
+                break
+            }
 
             val infixRes = InfixParser().parse(tokens, workingIndex, env)
             when(infixRes) {
@@ -57,7 +64,7 @@ class ProgramParser(): Parser<List<AstNode>>() {
                 }
             }
         }
-        return ParseResult.Success(output, index + 1)
+        return ParseResult.Success(output, workingIndex + 1)
     }
 }
 
@@ -129,3 +136,15 @@ class DataTypeDefParser(): Parser<VariantTypeNode>() {
 //        return parser.parse(tokens, index, env)
 //    }
 //}
+
+
+@Suppress("UNCHECKED_CAST")
+class StructParser(): Parser<ModuleStructNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ModuleStructNode> {
+        return KeywordParser("module").rCompose(ConstructorParser()).lCompose(SpecialCharParser("=")).bind { name ->
+            KeywordParser("struct").rCompose(ProgramParser(KeywordParser("end") as Parser<Any>)).lCompose(KeywordParser("end")).map { nodes ->
+                ModuleStructNode(name, nodes, tokens[index].line)
+            }
+        }.parse(tokens, index, env)
+    }
+}

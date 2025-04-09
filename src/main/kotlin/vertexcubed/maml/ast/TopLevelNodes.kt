@@ -1,10 +1,13 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.ast.Program.Companion.typeVariant
 import vertexcubed.maml.core.MBinding
+import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.eval.ModuleValue
 import vertexcubed.maml.parse.TypeVarDummy
 import vertexcubed.maml.type.*
+import java.util.*
 
 
 class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode(line) {
@@ -136,6 +139,13 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
                     //Don't try to "evaluate" datatype defs i guess?
                     continue
                 }
+
+                is ModuleStructNode -> {
+                    val nodeVal = node.eval(newEnv)
+                    println(nodeVal)
+                    newEnv += (node.name to nodeVal)
+                    newBindings += (node.name to nodeVal)
+                }
                 else -> {
                     println(node.eval(newEnv))
                 }
@@ -146,7 +156,42 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
     }
 
     override fun inferType(env: TypeEnv): MType {
-        TODO("Module infer not yet implemented")
+        //TODO: MAKE SURE TO ALWAYS UPDATE THIS!!!! IT SHOULD MATCH PROGRAM LOOP
+        val newEnv = env.copy()
+        val moduleTypes = TypeEnv(env.typeSystem)
+        for(node in nodes) {
+            when (node) {
+                is TopLetNode -> {
+                    val n = node.inferType(newEnv)
+                    val scheme = ForAll.generalize(n, newEnv.typeSystem)
+                    if (node.name.binding != "_") {
+                        newEnv.addBinding(node.name.binding to scheme)
+                        moduleTypes.addBinding(node.name.binding to scheme)
+                    }
+
+                }
+
+                is VariantTypeNode -> {
+                    typeVariant(node, newEnv, Optional.of(moduleTypes))
+                }
+
+                is ModuleStructNode -> {
+                    val n = node.inferType(newEnv)
+                    newEnv.addBinding(node.name to ForAll.empty(n))
+                    moduleTypes.addBinding(node.name to ForAll.empty(n))
+                }
+
+                else -> {
+                    node.inferType(newEnv)
+                }
+            }
+        }
+        return ModuleType(name, moduleTypes)
+    }
+
+
+    override fun toString(): String {
+        return "Module($name, $nodes)"
     }
 
 }

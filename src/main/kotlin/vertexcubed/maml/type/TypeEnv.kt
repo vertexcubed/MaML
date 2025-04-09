@@ -3,6 +3,7 @@ package vertexcubed.maml.type
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.UnboundTyConException
 import vertexcubed.maml.core.UnboundVarException
+import vertexcubed.maml.eval.ModuleValue
 import vertexcubed.maml.parse.DummyType
 
 class TypeEnv(val typeSystem: TypeSystem) {
@@ -22,7 +23,20 @@ class TypeEnv(val typeSystem: TypeSystem) {
     }
 
     fun lookupBinding(binding: MIdentifier): ForAll {
-        return lookupBinding(binding.path.last())
+        var lastEnv = this
+        for(i in binding.path.indices) {
+            val cur = lastEnv.lookupBinding(binding.path[i])
+            if(cur.type is ModuleType) {
+                lastEnv = cur.type.types
+            }
+            else {
+                if(i != binding.path.lastIndex) {
+                    throw UnboundVarException(binding.path[i])
+                }
+                return cur
+            }
+        }
+        throw AssertionError("Should not happen!")
     }
 
     fun lookupType(type: String): ForAll {
@@ -30,7 +44,20 @@ class TypeEnv(val typeSystem: TypeSystem) {
     }
 
     fun lookupType(binding: MIdentifier): ForAll {
-        return lookupType(binding.path.last())
+        var lastEnv = this
+        for(i in binding.path.indices) {
+            val cur = lastEnv.lookupType(binding.path[i])
+            if(cur.type is ModuleType) {
+                lastEnv = cur.type.types
+            }
+            else {
+                if(i != binding.path.lastIndex) {
+                    throw UnboundVarException(binding.path[i])
+                }
+                return cur
+            }
+        }
+        throw AssertionError("Should not happen!")
     }
 
     fun addBinding(binding: String, type: ForAll) {

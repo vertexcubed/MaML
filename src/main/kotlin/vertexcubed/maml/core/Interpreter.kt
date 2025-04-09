@@ -4,6 +4,7 @@ import vertexcubed.maml.ast.*
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.parse.Lexer
 import vertexcubed.maml.parse.ParseEnv
+import vertexcubed.maml.parse.parsers.EOFParser
 import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*

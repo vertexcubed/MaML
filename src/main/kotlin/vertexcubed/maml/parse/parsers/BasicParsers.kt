@@ -34,6 +34,12 @@ class SimpleParser(val type: TokenType): Parser<String>() {
     }
 }
 
+class EOFParser(): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        return simple(tokens, index, TokenType.EOF)
+    }
+}
+
 class StringLitParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.STRING_LITERAL)

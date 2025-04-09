@@ -222,3 +222,20 @@ data class MConstr(val name: String, val type: MType, val argType: Optional<MTyp
         return type.find()
     }
 }
+
+/**
+ * Not reeally a type? Hence why you cannot unify or substitute or do occurs checks
+ */
+data class ModuleType(val name: String, val types: TypeEnv): MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        return this
+    }
+
+    override fun occurs(other: MType): Boolean {
+        return false
+    }
+
+    override fun unify(other: MType) {
+        throw UnifyException(this, other)
+    }
+}
