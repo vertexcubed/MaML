@@ -110,7 +110,7 @@ class DataTypeDefParser(): Parser<VariantTypeNode>() {
                     val list = ArrayList<ConDefNode>()
                     list.add(first)
                     list.addAll(second)
-                    VariantTypeNode(iden.first, iden.second, list, index)
+                    VariantTypeNode(iden.first, iden.second, list, tokens[index].line)
                 }
             }
         }

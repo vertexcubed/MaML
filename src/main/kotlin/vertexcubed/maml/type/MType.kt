@@ -31,58 +31,40 @@ sealed class MType() {
     abstract fun substitute(from: MType, to: MType): MType
 }
 
-data object MInt: MType() {
+open class MBasic: MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        return this
+    }
+}
+
+data object MInt: MBasic() {
     override fun substitute(from: MType, to: MType): MType {
         return MInt
     }
-
-    override fun toString(): String {
-        return "int"
-    }
 }
-data object MFloat: MType() {
+data object MFloat: MBasic() {
     override fun substitute(from: MType, to: MType): MType {
         return MFloat
     }
-
-    override fun toString(): String {
-        return "float"
-    }
 }
-data object MBool: MType() {
+data object MBool: MBasic() {
     override fun substitute(from: MType, to: MType): MType {
         return MBool
     }
-
-    override fun toString(): String {
-        return "bool"
-    }
 }
-data object MString: MType() {
+data object MString: MBasic() {
     override fun substitute(from: MType, to: MType): MType {
         return MString
     }
-
-    override fun toString(): String {
-        return "string"
-    }
 }
-data object MChar: MType() {
+data object MChar: MBasic() {
     override fun substitute(from: MType, to: MType): MType {
         return MChar
     }
-
-    override fun toString(): String {
-        return "int"
-    }
 }
-data object MUnit: MType() {
+data object MUnit: MBasic() {
     override fun substitute(from: MType, to: MType): MType {
         return MUnit
-    }
-
-    override fun toString(): String {
-        return "unit"
     }
 }
 

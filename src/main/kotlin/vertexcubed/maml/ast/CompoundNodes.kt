@@ -125,13 +125,14 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
     }
 
     override fun inferType(env: TypeEnv): MType {
+        val newEnv = env.copy()
 //        val statementType = statement.type(env)
 //        val newEnv = env + (name.binding to statementType)
 //        return expression.type(newEnv)
-        val statementType = statement.inferType(env)
+        val statementType = statement.inferType(newEnv)
 
         if(name.type.isPresent) {
-            val nameType = name.type.get().lookup(env)
+            val nameType = name.type.get().lookupOrMutate(newEnv)
             var lastType = statementType
             while(true) {
                 if(lastType is MFunction) {
@@ -147,7 +148,6 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
         val scheme = ForAll.generalize(statementType, env.typeSystem)
         if(name.binding == "_") return expression.inferType(env)
 
-        val newEnv = env.copy()
         newEnv.addBinding(name.binding, scheme)
 
 //        val newEnv = env + (name.binding to scheme)
@@ -172,24 +172,24 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val myRetType = env.typeSystem.newTypeVar()
+        var newEnv = env.copy()
+        val myRetType = newEnv.typeSystem.newTypeVar()
         if(name.type.isPresent) {
-            val expectedType = name.type.get().lookup(env)
+            val expectedType = name.type.get().lookupOrMutate(newEnv)
             //This should never throw an exception
             myRetType.unify(expectedType)
 
         }
         if(name.binding == "_") throw TypeCheckException(line, this, "Only variables are allowed as left-hand side of let rec")
 
-        val argType = env.typeSystem.newTypeVar()
+        val argType = newEnv.typeSystem.newTypeVar()
         if(node.arg.type.isPresent) {
-            val expectedType = node.arg.type.get().lookup(env)
+            val expectedType = node.arg.type.get().lookupOrMutate(newEnv)
             //This should never throw an exception
             argType.unify(expectedType)
 
         }
         val myType = MFunction(argType, myRetType)
-        var newEnv = env.copy()
         newEnv.addBinding(name.binding to ForAll.empty(myType))
 
         if(node.arg.binding == "_") {
@@ -225,18 +225,19 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val argType = env.typeSystem.newTypeVar()
+        val newEnv = env.copy()
+        val argType = newEnv.typeSystem.newTypeVar()
+
         if(arg.type.isPresent) {
-            val expectedType = arg.type.get().lookup(env)
+            val expectedType = arg.type.get().lookupOrMutate(newEnv)
             //This should never throw an exception
             argType.unify(expectedType)
         }
         if(arg.binding == "_") {
-            val bodyType = body.inferType(env)
+            val bodyType = body.inferType(newEnv)
             return MFunction(argType, bodyType)
         }
 
-        val newEnv = env.copy()
         newEnv.addBinding(arg.binding to ForAll.empty(argType))
         val bodyType = body.inferType(newEnv)
 

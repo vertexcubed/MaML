@@ -1,6 +1,6 @@
 package vertexcubed.maml.type
 
-class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
+data class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
 
     companion object {
         fun generalize(type: MType, types: TypeSystem): ForAll {

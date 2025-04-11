@@ -2,7 +2,6 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.ast.Program.Companion.typeVariant
 import vertexcubed.maml.core.MBinding
-import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.eval.ModuleValue
 import vertexcubed.maml.parse.TypeVarDummy
@@ -16,9 +15,10 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val statementType =  statement.inferType(env)
+        val newEnv = env.copy()
+        val statementType =  statement.inferType(newEnv)
         if(name.type.isPresent) {
-            val nameType = name.type.get().lookup(env)
+            val nameType = name.type.get().lookupOrMutate(newEnv)
             var lastType = statementType
             while(true) {
                 if(lastType is MFunction) {
@@ -56,7 +56,7 @@ class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val c
     }
 
     override fun inferType(env: TypeEnv): MVariantType {
-        val myType = MVariantType(name, arguments.map { a -> Pair(a.name, a.lookup(env)) })
+        val myType = MVariantType(name, arguments.map { a -> Pair(a.name, a.lookupOrMutate(env)) })
         val newEnv = env.copy()
         newEnv.addType(name to ForAll.generalize(myType, env.typeSystem))
         for(con in cons) {
@@ -82,38 +82,29 @@ class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val c
     }
 }
 
+class TypeAliasNode(val name: String, val type: MType, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        TODO("Not yet implemented")
+    }
 
+    override fun inferType(env: TypeEnv): MType {
+        TODO("Not yet implemented")
+    }
 
+}
 
 /**
  * Represents an extensible variant type, such as exn
  */
 class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, line: Int): AstNode(line) {
+
     override fun eval(env: Map<String, MValue>): MValue {
         throw AssertionError("Probably shouldn't be evaluated")
     }
-
     override fun inferType(env: TypeEnv): MType {
-        val myType = MVariantType(name, arguments.map { a -> Pair(a.name, a.lookup(env)) })
+        val myType = MVariantType(name, arguments.map { a -> Pair(a.name, a.lookupOrMutate(env)) })
         return myType
     }
-}
-
-
-
-class TypeAliasNode(val name: String, val type: MType, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
-        TODO("NYI")
-    }
-
-    override fun inferType(env: TypeEnv): MType {
-        TODO("NYI")
-    }
-
-    override fun pretty(): String {
-        return "type $name = $type"
-    }
-
 }
 
 /**

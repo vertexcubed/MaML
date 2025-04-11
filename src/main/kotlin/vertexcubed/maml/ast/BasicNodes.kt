@@ -2,7 +2,6 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
-import vertexcubed.maml.core.UnboundVarException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 
@@ -184,9 +183,10 @@ class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
     }
 
     override fun inferType(env: TypeEnv): MType {
+        val newEnv = env.copy()
         if(name.type.isPresent) {
             //purposely discard return type?
-            name.type.get().lookup(env)
+            name.type.get().lookupOrMutate(newEnv)
         }
         //Uhhhh figure out what to do here cuz this is definitely wrong
         return MUnit

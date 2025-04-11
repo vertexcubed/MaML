@@ -2,19 +2,23 @@ package vertexcubed.maml.parse
 
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.UnboundTyConException
+import vertexcubed.maml.core.UnboundTypeLabelException
 import vertexcubed.maml.type.*
 
 /**
  * Represents a type that may or may not exist. Used at parse time only.
  */
 sealed class DummyType {
-    abstract fun lookup(env: TypeEnv): MType
+    abstract fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType
+    fun lookupOrMutate(env: TypeEnv): MType {
+        return lookupOrMutate(env, true)
+    }
 }
 
 data class SingleDummy(val name: MIdentifier): DummyType() {
     constructor(name: String): this(MIdentifier(name))
 
-    override fun lookup(env: TypeEnv): MType {
+    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
         return env.lookupType(name).instantiate(env.typeSystem)
     }
 
@@ -24,8 +28,15 @@ data class SingleDummy(val name: MIdentifier): DummyType() {
 }
 
 data class TypeVarDummy(val name: String): DummyType() {
-    override fun lookup(env: TypeEnv): MType {
-        return env.typeSystem.newTypeVar()
+    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+        return env.lookupVarLabel(name, {
+            if(makeNew) {
+                env.typeSystem.newTypeVar()
+            }
+            else {
+                throw UnboundTypeLabelException(this)
+            }
+        })
     }
 
     override fun toString(): String {
@@ -37,12 +48,12 @@ data class TypeVarDummy(val name: String): DummyType() {
 data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): DummyType() {
     constructor(name: String, args: List<DummyType>): this(MIdentifier(name), args)
 
-    override fun lookup(env: TypeEnv): MType {
+    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
         val type = env.lookupType(name).instantiate(env.typeSystem)
         if(type !is MVariantType) throw AssertionError("what.")
         if(type.args.size != args.size) throw UnboundTyConException(this.toString())
         for(i in args.indices) {
-            val argType = args[i].lookup(env)
+            val argType = args[i].lookupOrMutate(env, makeNew)
             type.args[i].second.unify(argType)
         }
         return type
@@ -58,8 +69,8 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
 }
 
 data class FunctionDummy(val first: DummyType, val second: DummyType) : DummyType() {
-    override fun lookup(env: TypeEnv): MType {
-        return MFunction(first.lookup(env), second.lookup(env))
+    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+        return MFunction(first.lookupOrMutate(env, makeNew), second.lookupOrMutate(env, makeNew))
     }
 
     override fun toString(): String {
@@ -72,8 +83,8 @@ data class FunctionDummy(val first: DummyType, val second: DummyType) : DummyTyp
 }
 
 data class TupleDummy(val types: List<DummyType>): DummyType() {
-    override fun lookup(env: TypeEnv): MType {
-        return MTuple(types.map { t -> t.lookup(env) })
+    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+        return MTuple(types.map { t -> t.lookupOrMutate(env, makeNew) })
     }
 
     override fun toString(): String {

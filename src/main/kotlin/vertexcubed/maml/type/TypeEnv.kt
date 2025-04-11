@@ -3,18 +3,18 @@ package vertexcubed.maml.type
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.UnboundTyConException
 import vertexcubed.maml.core.UnboundVarException
-import vertexcubed.maml.eval.ModuleValue
-import vertexcubed.maml.parse.DummyType
 
 class TypeEnv(val typeSystem: TypeSystem) {
 
     private var bindingTypes: MutableMap<String, ForAll> = mutableMapOf()
     private var typeDefs: MutableMap<String, ForAll> = mutableMapOf()
+    private var varLabelBindings: MutableMap<String, MType> = mutableMapOf()
 
     fun copy(): TypeEnv {
         val ret = TypeEnv(typeSystem)
         ret.bindingTypes.putAll(bindingTypes)
         ret.typeDefs.putAll(typeDefs)
+        ret.varLabelBindings.putAll(varLabelBindings)
         return ret
     }
 
@@ -59,6 +59,26 @@ class TypeEnv(val typeSystem: TypeSystem) {
         }
         throw AssertionError("Should not happen!")
     }
+
+    fun lookupVarLabel(binding: String, orElse: () -> MType): MType {
+        return varLabelBindings.getOrElse(binding, {
+            val value = orElse()
+            varLabelBindings[binding] = value
+            value
+        })
+    }
+
+    /**
+     * Represents var labels -> vars. For type dummies. E.g. x: 'a -> find the type of "a" in the context.
+     */
+    fun addVarLabel(binding: String, type: MType) {
+        varLabelBindings[binding] = type
+    }
+
+    fun addVarLabel(pair: Pair<String, MType>) {
+        varLabelBindings += pair
+    }
+
 
     fun addBinding(binding: String, type: ForAll) {
         bindingTypes[binding] = type
