@@ -1,6 +1,7 @@
 package vertexcubed.maml.parse
 
 import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.core.TypeConException
 import vertexcubed.maml.core.UnboundTyConException
 import vertexcubed.maml.core.UnboundTypeLabelException
 import vertexcubed.maml.type.*
@@ -10,16 +11,32 @@ import vertexcubed.maml.type.*
  */
 sealed class DummyType {
     abstract fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType
-    fun lookupOrMutate(env: TypeEnv): MType {
-        return lookupOrMutate(env, true)
-    }
+
 }
 
 data class SingleDummy(val name: MIdentifier): DummyType() {
     constructor(name: String): this(MIdentifier(name))
 
     override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
-        return env.lookupType(name).instantiate(env.typeSystem)
+        val type = env.lookupType(name).instantiate(env.typeSystem).find()
+        when(type) {
+            is MVariantType -> {
+                var expected = 0
+                for(arg in type.args) {
+                    val t = arg.second.find()
+                    if(t is MTypeVar) {
+                        expected++
+                    }
+                }
+                if(expected > 0) {
+                    throw TypeConException(env, type, expected, 0)
+                }
+                return type
+            }
+            else -> {
+                return type
+            }
+        }
     }
 
     override fun toString(): String {
@@ -31,13 +48,17 @@ data class TypeVarDummy(val name: String): DummyType() {
     override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
         return env.lookupVarLabel(name, {
             if(makeNew) {
-                env.typeSystem.newTypeVar()
+                val type = env.typeSystem.newTypeVar()
+                env.addVarLabel(name to type)
+                type
             }
             else {
                 throw UnboundTypeLabelException(this)
             }
         })
     }
+
+
 
     override fun toString(): String {
         return "'$name"
@@ -50,13 +71,43 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
 
     override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
         val type = env.lookupType(name).instantiate(env.typeSystem)
-        if(type !is MVariantType) throw AssertionError("what.")
-        if(type.args.size != args.size) throw UnboundTyConException(this.toString())
+        if(type is MTypeAlias) {
+            if(unboundArgs(type) != args.size) throw UnboundTyConException(this.toString())
+            for(i in args.indices) {
+                val argType = args[i].lookupOrMutate(env, makeNew)
+                type.args[i].second.unify(argType)
+            }
+            return type
+        }
+
+
+        if(type !is MVariantType) throw TypeConException(env, type, 0, args.size)
+        if(unboundArgs(type) != args.size) throw UnboundTyConException(this.toString())
         for(i in args.indices) {
             val argType = args[i].lookupOrMutate(env, makeNew)
             type.args[i].second.unify(argType)
         }
         return type
+    }
+
+    private fun unboundArgs(type: MVariantType): Int {
+        var i = 0
+        for(arg in type.args) {
+            if(arg.second is MTypeVar) {
+                i++
+            }
+        }
+        return i
+    }
+
+    private fun unboundArgs(type: MTypeAlias): Int {
+        var i = 0
+        for(arg in type.args) {
+            if(arg.second is MTypeVar) {
+                i++
+            }
+        }
+        return i
     }
 
     override fun toString(): String {

@@ -6,9 +6,9 @@ import vertexcubed.maml.core.UnboundVarException
 
 class TypeEnv(val typeSystem: TypeSystem) {
 
-    private var bindingTypes: MutableMap<String, ForAll> = mutableMapOf()
-    private var typeDefs: MutableMap<String, ForAll> = mutableMapOf()
-    private var varLabelBindings: MutableMap<String, MType> = mutableMapOf()
+    val bindingTypes: MutableMap<String, ForAll> = mutableMapOf()
+    val typeDefs: MutableMap<String, ForAll> = mutableMapOf()
+    val varLabelBindings: MutableMap<String, MType> = mutableMapOf()
 
     fun copy(): TypeEnv {
         val ret = TypeEnv(typeSystem)
@@ -61,11 +61,7 @@ class TypeEnv(val typeSystem: TypeSystem) {
     }
 
     fun lookupVarLabel(binding: String, orElse: () -> MType): MType {
-        return varLabelBindings.getOrElse(binding, {
-            val value = orElse()
-            varLabelBindings[binding] = value
-            value
-        })
+        return varLabelBindings.getOrElse(binding, orElse)
     }
 
     /**

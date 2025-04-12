@@ -1,17 +1,8 @@
-type 'a option = Some of 'a | None
-
-type ('a, 'b) either = First of 'a | Second of 'b
+type ('a, 'b, 'c) triple = First of 'a | Second of 'b | Third of 'c
 
 
+type ('a, 'b) other_test = ('b, bool, 'a) triple
 
-let a = First (5)
-let b = Second (7)
+let f (x: (int, string) other_test) = x
 
-let f x =
-    match x with
-    | First f -> "First!"
-    | Second g -> "Second!"
-    end
-
-let _ = f a
-let _ = f b
+let _ = f (First "true")

@@ -18,6 +18,7 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
             TopLetParser() as Parser<AstNode>,
             DataTypeDefParser() as Parser<AstNode>,
             StructParser() as Parser<AstNode>,
+            TypeAliasParser() as Parser<AstNode>
         ))
         var workingIndex = index
         val output = ArrayList<AstNode>()
@@ -126,16 +127,24 @@ class DataTypeDefParser(): Parser<VariantTypeNode>() {
     }
 }
 
-//class TypeAliasParser(): Parser<TypeAliasNode>() {
-//    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TypeAliasNode> {
-//        val parser = KeywordParser("type").rCompose(IdentifierParser()).lCompose(SpecialCharParser("=")).bind { iden ->
-//            TypeParser().map { type ->
-//                TypeAliasNode(iden, type, index)
-//            }
-//        }
-//        return parser.parse(tokens, index, env)
-//    }
-//}
+class TypeAliasParser(): Parser<TypeAliasNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TypeAliasNode> {
+        val parser = KeywordParser("type").rCompose(idenParser()).lCompose(SpecialCharParser("=")).bind { iden ->
+            TypeParser().map { type ->
+                TypeAliasNode(iden.first, iden.second, type, index)
+            }
+        }
+        return parser.parse(tokens, index, env)
+    }
+
+    private fun idenParser(): Parser<Pair<String, List<TypeVarDummy>>> {
+        return OptionalParser(MultiTypeVarTypeParser()).bind { args ->
+            IdentifierParser().map { name ->
+                Pair(name, args.getOrDefault(emptyList()))
+            }
+        }
+    }
+}
 
 
 @Suppress("UNCHECKED_CAST")

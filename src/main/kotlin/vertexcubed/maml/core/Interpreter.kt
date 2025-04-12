@@ -132,11 +132,11 @@ class Interpreter {
         }
 
 
-        val program = Program(result.result, dynEnv, typeEnv)
+        val program = ModuleStructNode("Program", result.result, 1)
         println(program.nodes)
         println("Parse successful. Type checking...")
         try {
-            program.inferTypes()
+            program.inferType(typeEnv)
         }
         catch(e: TypeCheckException) {
             println(strList[e.line - 1].trim())
@@ -147,7 +147,7 @@ class Interpreter {
 
         println("Type checked. Evaluating...")
         try {
-            program.eval()
+            program.eval(dynEnv)
         }
         catch(e: Exception) {
             println("Runtime Error: $e")

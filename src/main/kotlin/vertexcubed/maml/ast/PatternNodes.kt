@@ -26,9 +26,9 @@ sealed class PatternNode(line: Int): AstNode(line) {
 
     abstract fun unify(expr: MValue): Optional<Map<String, MValue>>
 
-    fun patException(actualType: MType, expectedType: MType): TypeCheckException {
-        return TypeCheckException(line, this, "This pattern matches values of type $actualType\n" +
-                "but a pattern was expected which matches values of type $expectedType")
+    fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
+        return TypeCheckException(line, this, env, "This pattern matches values of type ${actualType.asString(env)}\n" +
+                "but a pattern was expected which matches values of type ${expectedType.asString(env)}")
     }
 }
 
@@ -69,17 +69,17 @@ class OrPatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) 
                 lastType.unify(curType)
             }
             catch(e: UnifyException) {
-                throw patException(curType, lastType)
+                throw patException(env, curType, lastType)
             }
             lastType = curType
 
             for((b, bType) in lastBindings) {
-                val cType = curBindings.getOrElse(b, { throw sideException(b) })
+                val cType = curBindings.getOrElse(b, { throw sideException(env, b) })
                 bType.unify(cType)
             }
             for((c, _) in curBindings) {
                 if(!lastBindings.containsKey(c)) {
-                    throw sideException(c)
+                    throw sideException(env, c)
                 }
             }
 
@@ -97,8 +97,8 @@ class OrPatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) 
         return Optional.empty()
     }
 
-    private fun sideException(binding: String): TypeCheckException {
-        return TypeCheckException(line, this, "Variable $binding must occur on all sides of this | pattern")
+    private fun sideException(env: TypeEnv, binding: String): TypeCheckException {
+        return TypeCheckException(line, this, env, "Variable $binding must occur on all sides of this | pattern")
     }
 
     override fun pretty(): String {
@@ -156,7 +156,7 @@ class TuplePatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(lin
             val (nType, nBindings) = node.inferPatternType(env)
             for(n in nBindings.keys) {
                 if(n in bindings) {
-                    throw multibound(n)
+                    throw multibound(env, n)
                 }
             }
             types.add(nType)
@@ -177,8 +177,8 @@ class TuplePatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(lin
         return Optional.of(bindings)
     }
 
-    private fun multibound(binding: String): TypeCheckException {
-        return TypeCheckException(line, this, "Variable $binding is bound several times in this matching")
+    private fun multibound(env: TypeEnv, binding: String): TypeCheckException {
+        return TypeCheckException(line, this, env, "Variable $binding is bound several times in this matching")
     }
 
     override fun pretty(): String {
@@ -202,13 +202,13 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
         if(constrType !is MConstr) throw IllegalArgumentException("This should never happen?")
         if(expr.isEmpty) {
             if(constrType.argType.isPresent)
-                throw conException(getArgSize(constrType.argType), 0)
+                throw conException(env, getArgSize(constrType.argType), 0)
             return Pair(constrType.type, emptyMap())
         }
         val patType = expr.get().inferPatternType(env)
         val valueType = patType.first
         if(constrType.argType.isEmpty)
-            throw conException(0, getArgSize(valueType))
+            throw conException(env, 0, getArgSize(valueType))
         val expectedType = constrType.argType.get()
         try {
             expectedType.unify(valueType)
@@ -218,16 +218,16 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
             if(expectedType is MTuple && valueType is MTuple) {
                 //Different sizes
                 if(expectedType.types.size != valueType.types.size)
-                    throw conException(getArgSize(expectedType), getArgSize(valueType))
+                    throw conException(env, getArgSize(expectedType), getArgSize(valueType))
 
                 //Technically i should do per tuple type checking but idc lmao
-                throw TypeCheckException(line, this, valueType, expectedType)
+                throw TypeCheckException(line, this, env, valueType, expectedType)
             }
             //Only one of them are tuples, aka different size args
             if(expectedType is MTuple || valueType is MTuple) {
-                throw conException(getArgSize(expectedType), getArgSize(valueType))
+                throw conException(env, getArgSize(expectedType), getArgSize(valueType))
             }
-            throw patException(valueType, expectedType)
+            throw patException(env, valueType, expectedType)
         }
 
 
@@ -249,8 +249,8 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
         return Optional.of(emptyMap())
     }
 
-    private fun conException(expectedSize: Int, actualSize: Int): TypeCheckException {
-        return TypeCheckException(line, this, "The constructor $constr expects $expectedSize argument(s),\n" +
+    private fun conException(env: TypeEnv, expectedSize: Int, actualSize: Int): TypeCheckException {
+        return TypeCheckException(line, this, env, "The constructor $constr expects $expectedSize argument(s),\n" +
                 "but is applied here to $actualSize argument(s)")
     }
 

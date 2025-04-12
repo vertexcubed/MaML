@@ -186,7 +186,7 @@ class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
         val newEnv = env.copy()
         if(name.type.isPresent) {
             //purposely discard return type?
-            name.type.get().lookupOrMutate(newEnv)
+            name.type.get().lookupOrMutate(newEnv, true)
         }
         //Uhhhh figure out what to do here cuz this is definitely wrong
         return MUnit

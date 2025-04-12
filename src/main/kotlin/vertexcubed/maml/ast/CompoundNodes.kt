@@ -49,7 +49,7 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
             funcType.unify(other)
         }
         catch(e: UnifyException) {
-            throw TypeCheckException(line, this, e.t2, e.t1)
+            throw TypeCheckException(line, this, env, e.t2, e.t1)
         }
 
 
@@ -91,7 +91,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
             condType.unify(MBool)
         }
         catch(e: UnifyException) {
-            throw TypeCheckException(condition.line, this, condType, MBool)
+            throw TypeCheckException(condition.line, this, env, condType, MBool)
         }
         val thenType = thenBranch.inferType(env)
         val elseType = elseBranch.inferType(env)
@@ -99,7 +99,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
             thenType.unify(elseType)
         }
         catch(e: UnifyException) {
-            throw TypeCheckException(elseBranch.line, this, elseType, thenType)
+            throw TypeCheckException(elseBranch.line, this, env, elseType, thenType)
         }
         return thenType
     }
@@ -132,7 +132,7 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
         val statementType = statement.inferType(newEnv)
 
         if(name.type.isPresent) {
-            val nameType = name.type.get().lookupOrMutate(newEnv)
+            val nameType = name.type.get().lookupOrMutate(newEnv, true)
             var lastType = statementType
             while(true) {
                 if(lastType is MFunction) {
@@ -175,16 +175,16 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         var newEnv = env.copy()
         val myRetType = newEnv.typeSystem.newTypeVar()
         if(name.type.isPresent) {
-            val expectedType = name.type.get().lookupOrMutate(newEnv)
+            val expectedType = name.type.get().lookupOrMutate(newEnv, true)
             //This should never throw an exception
             myRetType.unify(expectedType)
 
         }
-        if(name.binding == "_") throw TypeCheckException(line, this, "Only variables are allowed as left-hand side of let rec")
+        if(name.binding == "_") throw TypeCheckException(line, this, env, "Only variables are allowed as left-hand side of let rec")
 
         val argType = newEnv.typeSystem.newTypeVar()
         if(node.arg.type.isPresent) {
-            val expectedType = node.arg.type.get().lookupOrMutate(newEnv)
+            val expectedType = node.arg.type.get().lookupOrMutate(newEnv, true)
             //This should never throw an exception
             argType.unify(expectedType)
 
@@ -229,7 +229,7 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
         val argType = newEnv.typeSystem.newTypeVar()
 
         if(arg.type.isPresent) {
-            val expectedType = arg.type.get().lookupOrMutate(newEnv)
+            val expectedType = arg.type.get().lookupOrMutate(newEnv, true)
             //This should never throw an exception
             argType.unify(expectedType)
         }
@@ -271,12 +271,12 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
         if(myType !is MConstr) throw IllegalArgumentException("This should never happen?")
         if(value.isEmpty) {
             if(myType.argType.isPresent)
-                throw conException(getArgSize(myType.argType), 0)
+                throw conException(env, getArgSize(myType.argType), 0)
             return myType.type
         }
         val valueType = value.get().inferType(env)
         if(myType.argType.isEmpty)
-            throw conException(0, getArgSize(valueType))
+            throw conException(env, 0, getArgSize(valueType))
         val expectedType = myType.argType.get()
         try {
             expectedType.unify(valueType)
@@ -286,24 +286,24 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
             if(expectedType is MTuple && valueType is MTuple) {
                 //Different sizes
                 if(expectedType.types.size != valueType.types.size)
-                    throw conException(getArgSize(expectedType), getArgSize(valueType))
+                    throw conException(env, getArgSize(expectedType), getArgSize(valueType))
 
                 //Technically i should do per tuple type checking but idc lmao
-                throw TypeCheckException(line, this, valueType, expectedType)
+                throw TypeCheckException(line, this, env, valueType, expectedType)
             }
             //Only one of them are tuples, aka different size args
             if(expectedType is MTuple || valueType is MTuple) {
-                throw conException(getArgSize(expectedType), getArgSize(valueType))
+                throw conException(env, getArgSize(expectedType), getArgSize(valueType))
             }
-            throw TypeCheckException(line, this, valueType, expectedType)
+            throw TypeCheckException(line, this, env, valueType, expectedType)
         }
 
 
         return myType.type
     }
 
-    private fun conException(expectedSize: Int, actualSize: Int): TypeCheckException {
-        return TypeCheckException(line, this, "The constructor $name expects $expectedSize argument(s),\n" +
+    private fun conException(env: TypeEnv, expectedSize: Int, actualSize: Int): TypeCheckException {
+        return TypeCheckException(line, this, env,"The constructor $name expects $expectedSize argument(s),\n" +
                 "but is applied here to $actualSize argument(s)")
     }
 
@@ -386,7 +386,7 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
                 exprType.unify(pType)
             }
             catch(e: UnifyException) {
-                throw patException(pType, exprType)
+                throw patException(env, pType, exprType)
             }
             val newEnv = env.copy()
             newEnv.addAllBindings(pBindings.mapValues { t -> ForAll.empty(t.value) })
@@ -395,15 +395,15 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
                 retType.unify(eType)
             }
             catch(e: UnifyException) {
-                throw TypeCheckException(line, this, eType, retType)
+                throw TypeCheckException(line, this, env, eType, retType)
             }
         }
         return retType
     }
 
-    fun patException(actualType: MType, expectedType: MType): TypeCheckException {
-        return TypeCheckException(line, this, "This pattern matches values of type $actualType\n" +
-                "but a pattern was expected which matches values of type $expectedType")
+    fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
+        return TypeCheckException(line, this, env, "This pattern matches values of type ${actualType.asString(env)}\n" +
+                "but a pattern was expected which matches values of type ${expectedType.asString(env)}")
     }
 
     override fun pretty(): String {
