@@ -56,7 +56,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
                 )
             }
         }
-        println("Type of $node : ${nodeType.asString(newEnv)}")
+        println("Type of $node : ${nodeType.asString(typeEnv)}")
     }
 
     private fun typeAlias(node: TypeAliasNode, typeEnv: TypeEnv, toWrite: TypeEnv) {
@@ -117,13 +117,13 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
         for(node in nodes) {
             when (node) {
                 is TopLetNode -> {
-                    val n = node.inferType(newEnv)
-                    val scheme = ForAll.generalize(n, newEnv.typeSystem)
+                    val nodeType = node.inferType(newEnv)
+                    val scheme = ForAll.generalize(nodeType, newEnv.typeSystem)
                     if (node.name.binding != "_") {
                         newEnv.addBinding(node.name.binding to scheme)
                         moduleTypes.addBinding(node.name.binding to scheme)
                     }
-                    println("Type of $node : ${n.asString(newEnv)}")
+                    println("Type of $node : ${nodeType.asString(newEnv)}")
 
                 }
 

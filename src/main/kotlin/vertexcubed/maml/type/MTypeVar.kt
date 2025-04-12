@@ -73,6 +73,14 @@ class MTypeVar(val id: Int): MType() {
     }
 
 
+    override fun asString(env: TypeEnv): String {
+        val end = find()
+        if(end is MTypeVar) {
+            return end.toString()
+        }
+        return end.asString(env)
+    }
+
 }
 
 data class MGeneralTypeVar(val id: Int): MType() {

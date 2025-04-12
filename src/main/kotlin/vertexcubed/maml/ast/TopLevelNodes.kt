@@ -56,7 +56,7 @@ class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val c
     }
 
     override fun inferType(env: TypeEnv): MVariantType {
-        val myType = MVariantType(name, arguments.map { a -> Pair(a.name, env.typeSystem.newTypeVar()) })
+        val myType = MVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, env.typeSystem.newTypeVar()) })
         val newEnv = env.copy()
         newEnv.addType(name to ForAll.generalize(myType, env.typeSystem))
         for(con in cons) {
@@ -88,7 +88,9 @@ class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: Du
     }
 
     override fun inferType(env: TypeEnv): MType {
-        return MTypeAlias(name, args.map{ a -> Pair(a.name, a.lookupOrMutate(env, false))}, type.lookupOrMutate(env, false))
+        val original = type.lookupOrMutate(env, false)
+        val id = UUID.randomUUID()
+        return MTypeAlias(id, args.map{ a -> Pair(a.name, a.lookupOrMutate(env, false))}, original)
     }
 
     override fun toString(): String {
@@ -106,7 +108,7 @@ class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDum
         throw AssertionError("Probably shouldn't be evaluated")
     }
     override fun inferType(env: TypeEnv): MType {
-        val myType = MVariantType(name, arguments.map { a -> Pair(a.name, a.lookupOrMutate(env, false)) })
+        val myType = MVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, a.lookupOrMutate(env, false)) })
         return myType
     }
 }

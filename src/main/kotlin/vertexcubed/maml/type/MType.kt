@@ -33,6 +33,7 @@ sealed class MType() {
     open fun asString(env: TypeEnv): String {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val t = v.type.find()
+            if(t is MTypeAlias && t.real == this.find()) return k
             if(t == this.find()) return k
         }
         return this.toString()
@@ -155,7 +156,10 @@ data class MTuple(val types: List<MType>): MType() {
     }
 }
 
-data class MVariantType(val name: String, val args: List<Pair<String, MType>>): MType() {
+
+
+
+data class MVariantType(val id: UUID, val args: List<Pair<String, MType>>): MType() {
 
     override fun occurs(other: MType): Boolean {
         for(arg in args) {
@@ -178,47 +182,66 @@ data class MVariantType(val name: String, val args: List<Pair<String, MType>>): 
     }
 
     override fun substitute(from: MType, to: MType): MType {
-        return MVariantType(name, args.map { a -> Pair(a.first, a.second.substitute(from, to)) })
+        return MVariantType(id, args.map { a -> Pair(a.first, a.second.substitute(from, to)) })
     }
 
     override fun asString(env: TypeEnv): String {
-        var str = ""
-        if(args.size > 1) {
-            str += args.map { p -> p.second.asString(env) }.joinToString(separator = ", ", prefix = "(", postfix = ")") + " "
+        for((k, v) in env.typeDefs.entries.reversed()) {
+            val otherType = v.type.find()
+            if(otherType is MVariantType && otherType.id == this.id) {
+                var str = ""
+                if(args.isNotEmpty()) {
+                    str += args.map { p -> p.second.asString(env) }.joinToString(" , ", "(" , ") ")
+                }
+                return str + k
+            }
         }
-        else {
-            if(args.isNotEmpty()) str += "${args[0].second} "
-        }
-        return str + name
+        return this.toString()
     }
 
-    override fun toString(): String {
-        var str = ""
-        if(args.size > 1) {
-            str += args.map { p -> p.second.toString() }.joinToString(separator = ", ", prefix = "(", postfix = ")") + " "
-        }
-        else {
-            if(args.isNotEmpty()) str += "${args[0].second} "
-        }
-        return str + name
-    }
+
 }
 
-data class MTypeAlias(val name: String, val args: List<Pair<String, MType>>, val real: MType): MType() {
+data class MTypeAlias(val id: UUID, val args: List<Pair<String, MType>>, val real: MType): MType() {
     override fun occurs(other: MType): Boolean {
         return real.occurs(other)
     }
 
     override fun substitute(from: MType, to: MType): MType {
-        return MTypeAlias(name, args.map { p -> Pair(p.first, p.second.substitute(from, to)) }, real.substitute(from, to))
+        return MTypeAlias(id, args.map { p -> Pair(p.first, p.second.substitute(from, to)) }, real.substitute(from, to))
     }
 
-    override fun find(): MType {
-        return real.find()
-    }
+//    override fun find(): MType {
+//        return real.find()
+//    }
 
     override fun unify(other: MType) {
-        return real.unify(other)
+        val otherType = other.find()
+        when(otherType) {
+            is MTypeVar -> {
+                return otherType.unify(this)
+            }
+            is MTypeAlias -> {
+                return real.unify(otherType.real)
+            }
+            else -> {
+                return real.unify(other)
+            }
+        }
+    }
+
+    override fun asString(env: TypeEnv): String {
+        for((k, v) in env.typeDefs.entries.reversed()) {
+            val otherType = v.type.find()
+            if(otherType is MTypeAlias && otherType.id == this.id) {
+                var str = ""
+                if(args.isNotEmpty()) {
+                    str += args.map { p -> p.second.asString(env) }.joinToString(" , ", "(" , ") ")
+                }
+                return str + k
+            }
+        }
+        return this.toString()
     }
 
 }
