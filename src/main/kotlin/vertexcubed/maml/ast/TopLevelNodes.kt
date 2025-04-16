@@ -1,6 +1,7 @@
 package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MBinding
+import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.eval.ModuleValue
 import vertexcubed.maml.parse.DummyType
@@ -95,6 +96,17 @@ class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: Du
 
     override fun toString(): String {
         return "TypeAlias($name, $args, $type)"
+    }
+
+}
+
+class TopOpenNode(val name: MIdentifier, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        throw AssertionError("Do not eval open nodes!")
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        throw AssertionError("Do not typecheck open nodes!")
     }
 
 }

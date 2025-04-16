@@ -2,6 +2,7 @@ package vertexcubed.maml.type
 
 import vertexcubed.maml.core.UnifyException
 import java.util.*
+import kotlin.jvm.optionals.getOrElse
 
 sealed class MType() {
 
@@ -31,12 +32,23 @@ sealed class MType() {
     abstract fun substitute(from: MType, to: MType): MType
 
     open fun asString(env: TypeEnv): String {
+        return stringOpt(env).getOrElse { toString() }
+    }
+
+    private fun stringOpt(env: TypeEnv): Optional<String> {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val t = v.type.find()
-            if(t is MTypeAlias && t.real == this.find()) return k
-            if(t == this.find()) return k
+            if(t is ModuleType) {
+                val modString = stringOpt(t.types)
+                if(modString.isPresent) return Optional.of("${t.name}.${modString.get()}")
+            }
+
+            if(t is MTypeAlias && t.real == this.find()) return Optional.of(k)
+            if(t == this.find()) {
+                return Optional.of(k)
+            }
         }
-        return this.toString()
+        return Optional.empty()
     }
 }
 
@@ -174,8 +186,9 @@ data class MVariantType(val id: UUID, val args: List<Pair<String, MType>>): MTyp
         if(otherType is MTypeVar) {
             return otherType.unify(this)
         }
-        if(otherType !is MVariantType) throw UnifyException(otherType, this)
-        if(otherType.args.size != args.size) throw UnifyException(otherType, this)
+        if(otherType !is MVariantType) throw UnifyException(this, otherType)
+        if(otherType.id != this.id) throw UnifyException(this, otherType)
+        if(otherType.args.size != args.size) throw UnifyException(this, otherType)
         for(i in args.indices) {
             args[i].second.unify(otherType.args[i].second)
         }
@@ -186,20 +199,29 @@ data class MVariantType(val id: UUID, val args: List<Pair<String, MType>>): MTyp
     }
 
     override fun asString(env: TypeEnv): String {
-        for((k, v) in env.typeDefs.entries.reversed()) {
-            val otherType = v.type.find()
-            if(otherType is MVariantType && otherType.id == this.id) {
-                var str = ""
-                if(args.isNotEmpty()) {
-                    str += args.map { p -> p.second.asString(env) }.joinToString(" , ", "(" , ") ")
-                }
-                return str + k
-            }
-        }
-        return this.toString()
+        return stringOpt(env, env, "").getOrElse { this.toString() }
     }
 
-
+    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<String> {
+        for((k, v) in env.typeDefs.entries.reversed()) {
+            val otherType = v.type.find()
+            if(otherType is ModuleType) {
+                val modString = stringOpt(otherType.types, parentEnv, "$module${otherType.name}.")
+                if(modString.isPresent) return modString
+            }
+            if(otherType is MVariantType && otherType.id == this.id) {
+                var str = ""
+                if(args.size == 1) {
+                    str += args[0].second.asString(parentEnv) + " "
+                }
+                else if(args.isNotEmpty()) {
+                    str += args.map { p -> p.second.asString(parentEnv) }.joinToString(", ", "(" , ") ")
+                }
+                return Optional.of(str + module + k)
+            }
+        }
+        return Optional.empty()
+    }
 }
 
 data class MTypeAlias(val id: UUID, val args: List<Pair<String, MType>>, val real: MType): MType() {
@@ -231,17 +253,28 @@ data class MTypeAlias(val id: UUID, val args: List<Pair<String, MType>>, val rea
     }
 
     override fun asString(env: TypeEnv): String {
+        return stringOpt(env, env, "").getOrElse { toString() }
+    }
+
+    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<String> {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val otherType = v.type.find()
+            if(otherType is ModuleType) {
+                val modString = stringOpt(otherType.types, parentEnv, "$module${otherType.name}.")
+                if(modString.isPresent) return modString
+            }
             if(otherType is MTypeAlias && otherType.id == this.id) {
                 var str = ""
-                if(args.isNotEmpty()) {
-                    str += args.map { p -> p.second.asString(env) }.joinToString(" , ", "(" , ") ")
+                if(args.size == 1) {
+                    str += args[0].second.asString(parentEnv) + " "
                 }
-                return str + k
+                else if(args.isNotEmpty()) {
+                    str += args.map { p -> p.second.asString(parentEnv) }.joinToString(", ", "(" , ") ")
+                }
+                return Optional.of(str + module + k)
             }
         }
-        return this.toString()
+        return Optional.empty()
     }
 
 }

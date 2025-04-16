@@ -87,6 +87,6 @@ data class ConValue(val name: MIdentifier, val value: Optional<MValue>): MValue(
  */
 data class ModuleValue(val name: String, val bindings: Map<String, MValue>, val env: Map<String, MValue>): MValue() {
     override fun toString(): String {
-        return super.toString()
+        return "<module>"
     }
 }

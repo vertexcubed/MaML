@@ -1,8 +1,10 @@
 package vertexcubed.maml.type
 
 import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.core.UnboundModuleException
 import vertexcubed.maml.core.UnboundTyConException
 import vertexcubed.maml.core.UnboundVarException
+import java.util.*
 
 class TypeEnv(val typeSystem: TypeSystem) {
 
@@ -19,21 +21,29 @@ class TypeEnv(val typeSystem: TypeSystem) {
     }
 
     fun lookupBinding(binding: String): ForAll {
-        return bindingTypes.getOrElse(binding, { throw UnboundVarException(binding) })
+        return bindingTypes.getOrElse(binding, {
+            throw UnboundVarException(binding) })
     }
 
     fun lookupBinding(binding: MIdentifier): ForAll {
         var lastEnv = this
-        for(i in binding.path.indices) {
-            val cur = lastEnv.lookupBinding(binding.path[i])
-            if(cur.type is ModuleType) {
-                lastEnv = cur.type.types
-            }
-            else {
-                if(i != binding.path.lastIndex) {
+        for (i in binding.path.indices) {
+            try {
+                val cur = lastEnv.lookupBinding(binding.path[i])
+                if (cur.type is ModuleType) {
+                    lastEnv = cur.type.types
+                } else if (i != binding.path.lastIndex) {
                     throw UnboundVarException(binding.path[i])
                 }
-                return cur
+                if(i == binding.path.lastIndex) {
+                    return cur
+                }
+            }
+            catch(e: UnboundVarException) {
+                if(e.name[0].isUpperCase() && i != binding.path.lastIndex) {
+                    throw UnboundModuleException(e.name)
+                }
+                throw e
             }
         }
         throw AssertionError("Should not happen!")
@@ -44,20 +54,30 @@ class TypeEnv(val typeSystem: TypeSystem) {
     }
 
     fun lookupType(binding: MIdentifier): ForAll {
+
         var lastEnv = this
         for(i in binding.path.indices) {
-            val cur = lastEnv.lookupType(binding.path[i])
-            if(cur.type is ModuleType) {
-                lastEnv = cur.type.types
-            }
-            else {
-                if(i != binding.path.lastIndex) {
-                    throw UnboundVarException(binding.path[i])
+            try {
+                val cur = lastEnv.lookupType(binding.path[i])
+                if(cur.type is ModuleType) {
+                    lastEnv = cur.type.types
                 }
-                return cur
+                else {
+                    if(i != binding.path.lastIndex) {
+                        throw UnboundTyConException(binding.path[i])
+                    }
+                    return cur
+                }
+            }
+            catch(e: UnboundTyConException) {
+                if(e.name[0].isUpperCase() && i != binding.path.lastIndex) {
+                    throw UnboundModuleException(e.name)
+                }
+                throw e
             }
         }
         throw AssertionError("Should not happen!")
+
     }
 
     fun lookupVarLabel(binding: String, orElse: () -> MType): MType {

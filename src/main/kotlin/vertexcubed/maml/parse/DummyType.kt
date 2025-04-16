@@ -18,7 +18,11 @@ data class SingleDummy(val name: MIdentifier): DummyType() {
     constructor(name: String): this(MIdentifier(name))
 
     override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+
+
         val type = env.lookupType(name).instantiate(env.typeSystem).find()
+
+
         when(type) {
             is MVariantType -> {
                 var expected = 0

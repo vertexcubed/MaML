@@ -20,10 +20,10 @@ data class MIdentifier(val path: List<String>) {
             if(cur is ModuleValue) {
                 lastEnv = cur.bindings
             }
-            else {
-                if(i != path.lastIndex) {
-                    throw UnboundVarException(path[i])
-                }
+            else if(i != path.lastIndex) {
+                throw UnboundVarException(path[i])
+            }
+            if(i == path.lastIndex) {
                 return cur
             }
         }

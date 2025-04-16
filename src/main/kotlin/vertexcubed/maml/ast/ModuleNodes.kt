@@ -1,9 +1,12 @@
 package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.TypeCheckException
+import vertexcubed.maml.core.UnboundModuleException
 import vertexcubed.maml.core.UnboundTypeLabelException
+import vertexcubed.maml.core.UnboundVarException
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.eval.ModuleValue
+import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.type.*
 import java.util.*
 
@@ -21,6 +24,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
 
         val scheme = ForAll.generalize(nodeType, typeEnv.typeSystem)
         typeEnv.addType(node.name to scheme)
+        newEnv.addType(node.name to scheme)
         toWrite.addType(node.name to scheme)
 
         for(arg in (scheme.type as MVariantType).args) {
@@ -77,7 +81,6 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
 
 
     override fun eval(env: Map<String, MValue>): ModuleValue {
-        //TODO: MAKE SURE TO ALWAYS UPDATE THIS!!!! IT SHOULD MATCH PROGRAM LOOP
         val newBindings = mutableMapOf<String, MValue>()
         val newEnv = env.toMutableMap()
         for(node in nodes) {
@@ -101,6 +104,17 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
                     newEnv += (node.name to nodeVal)
                     newBindings += (node.name to nodeVal)
                 }
+
+                is TopOpenNode -> {
+                    try {
+                        val module = node.name.lookupEvalBinding(newEnv)
+                        if(module !is ModuleValue) throw UnboundModuleException(node.name.toString())
+                        newEnv.putAll(module.bindings)
+                    }
+                    catch(e: UnboundVarException) {
+                        throw UnboundModuleException(e.name)
+                    }
+                }
                 else -> {
                     println(node.eval(newEnv))
                 }
@@ -111,7 +125,6 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
     }
 
     override fun inferType(env: TypeEnv): MType {
-        //TODO: MAKE SURE TO ALWAYS UPDATE THIS!!!! IT SHOULD MATCH PROGRAM LOOP
         val newEnv = env.copy()
         val moduleTypes = TypeEnv(env.typeSystem)
         for(node in nodes) {
@@ -136,10 +149,26 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
                 }
 
                 is ModuleStructNode -> {
-                    val n = node.inferType(newEnv)
-                    newEnv.addBinding(node.name to ForAll.empty(n))
-                    moduleTypes.addBinding(node.name to ForAll.empty(n))
-                    println("Type of $node : ${n.asString(newEnv)}")
+                    val nodeType = node.inferType(newEnv)
+                    newEnv.addBinding(node.name to ForAll.empty(nodeType))
+                    newEnv.addType(node.name to ForAll.empty(nodeType))
+                    moduleTypes.addBinding(node.name to ForAll.empty(nodeType))
+                    moduleTypes.addType(node.name to ForAll.empty(nodeType))
+                    println("Type of $node : ${nodeType.asString(newEnv)}")
+
+                }
+
+                is TopOpenNode -> {
+                    try {
+                        val module = newEnv.lookupBinding(node.name).instantiate(newEnv.typeSystem)
+                        if(module !is ModuleType) throw UnboundModuleException(node.name.toString())
+                        newEnv.addAllBindings(module.types.bindingTypes)
+                        newEnv.addAllTypes(module.types.typeDefs)
+
+                    }
+                    catch(e: UnboundVarException) {
+                        throw UnboundModuleException(e.name)
+                    }
 
                 }
 

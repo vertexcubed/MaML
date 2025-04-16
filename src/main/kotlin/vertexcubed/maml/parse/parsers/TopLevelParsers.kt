@@ -16,9 +16,10 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<List<AstNode>> {
         val parser = ChoiceParser(listOf(
             TopLetParser() as Parser<AstNode>,
+            TypeAliasParser() as Parser<AstNode>,
             DataTypeDefParser() as Parser<AstNode>,
             StructParser() as Parser<AstNode>,
-            TypeAliasParser() as Parser<AstNode>
+            TopOpenParser() as Parser<AstNode>,
         ))
         var workingIndex = index
         val output = ArrayList<AstNode>()
@@ -146,14 +147,24 @@ class TypeAliasParser(): Parser<TypeAliasNode>() {
     }
 }
 
+class TopOpenParser(): Parser<TopOpenNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TopOpenNode> {
+        val parseRes = KeywordParser("open").rCompose(LongConstructorParser()).map { iden ->
+            TopOpenNode(iden, tokens[index].line)
+        }
+        return parseRes.parse(tokens, index, env)
+    }
+}
+
 
 @Suppress("UNCHECKED_CAST")
 class StructParser(): Parser<ModuleStructNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ModuleStructNode> {
+        val newEnv = env.copy()
         return KeywordParser("module").rCompose(ConstructorParser()).lCompose(SpecialCharParser("=")).bind { name ->
             KeywordParser("struct").rCompose(ProgramParser(KeywordParser("end") as Parser<Any>)).lCompose(KeywordParser("end")).map { nodes ->
                 ModuleStructNode(name, nodes, tokens[index].line)
             }
-        }.parse(tokens, index, env)
+        }.parse(tokens, index, newEnv)
     }
 }

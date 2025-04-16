@@ -14,7 +14,14 @@ class ParseException(line: Int, message: String) : Exception("Error on line $lin
 /**
  * Thrown when trying to lookup a variable in the environment, but none was found.
  */
-class UnboundVarException(name: String) : Exception("Unbound Variable: $name")
+class UnboundVarException(val name: String) : Exception("Unbound Variable: $name")
+
+/**
+ * Thrown when trying to lookup a variable in the environment, but none was found.
+ */
+class UnboundModuleException(val name: String) : Exception("Unbound Module: $name")
+
+
 
 /**
  * Thrown when trying to lookup a type label, but none was found. For example: in 'a option, 'b is unbound.
@@ -24,7 +31,7 @@ class UnboundTypeLabelException(val type: DummyType): Exception("The type of var
 /**
  * Thrown when trying to lookup a type constructor in the environment, but none was found.
  */
-class UnboundTyConException(name: String) : Exception("Unbound Type Constructor: $name")
+class UnboundTyConException(val name: String) : Exception("Unbound Type Constructor: $name")
 
 /**
  * Runtime Exception thrown when trying to apply a non-function value.

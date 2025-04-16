@@ -16,6 +16,7 @@ class Interpreter {
     var typeEnv: TypeEnv
     val typeSystem: TypeSystem = TypeSystem()
 
+    //TODO: IMPLEMENT AND/OR SHORT CIRCUITING
     init {
         typeEnv = TypeEnv(typeSystem)
         typeEnv.addAllBindings(mapOf(

@@ -188,13 +188,6 @@ class TypeVarParser(): Parser<TypeVarDummy>() {
 
 class RealTypeParser(): Parser<SingleDummy>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<SingleDummy> {
-        if(index < tokens.size) {
-            val first = tokens[index]
-            if(first.type == TokenType.IDENTIFIER) {
-                return ParseResult.Success(SingleDummy(first.lexeme), index + 1)
-            }
-            return ParseResult.Failure(index, first, "Expected token of type ${TokenType.IDENTIFIER} but found ${first.type} (${first.lexeme})")
-        }
-        return ParseResult.Failure(index, tokens.last(), "Expected token of type ${TokenType.IDENTIFIER}, but End of File reached.")
+        return LongIdentifierParser().map { iden -> SingleDummy(iden) }.parse(tokens, index, env)
     }
 }
