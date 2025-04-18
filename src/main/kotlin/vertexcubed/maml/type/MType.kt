@@ -1,5 +1,6 @@
 package vertexcubed.maml.type
 
+import vertexcubed.maml.core.BindException
 import vertexcubed.maml.core.UnifyException
 import java.util.*
 import kotlin.jvm.optionals.getOrElse
@@ -35,7 +36,7 @@ sealed class MType() {
         return stringOpt(env).getOrElse { toString() }
     }
 
-    private fun stringOpt(env: TypeEnv): Optional<String> {
+    fun stringOpt(env: TypeEnv): Optional<String> {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val t = v.type.find()
             if(t is ModuleType) {
@@ -43,47 +44,45 @@ sealed class MType() {
                 if(modString.isPresent) return Optional.of("${t.name}.${modString.get()}")
             }
 
-            if(t is MTypeAlias && t.real == this.find()) return Optional.of(k)
-            if(t == this.find()) {
+            if(t is MTypeAlias && t.real.isSame(this.find())) return Optional.of(k)
+            if(t.isSame(this.find())) {
                 return Optional.of(k)
             }
         }
         return Optional.empty()
     }
-}
 
-open class MBasic: MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        return this
+    open fun isSame(other: MType): Boolean {
+        return this.find() == other.find()
     }
 }
 
-data object MInt: MBasic() {
+data object MInt: MType() {
     override fun substitute(from: MType, to: MType): MType {
         return MInt
     }
 }
-data object MFloat: MBasic() {
+data object MFloat: MType() {
     override fun substitute(from: MType, to: MType): MType {
         return MFloat
     }
 }
-data object MBool: MBasic() {
+data object MBool: MType() {
     override fun substitute(from: MType, to: MType): MType {
         return MBool
     }
 }
-data object MString: MBasic() {
+data object MString: MType() {
     override fun substitute(from: MType, to: MType): MType {
         return MString
     }
 }
-data object MChar: MBasic() {
+data object MChar: MType() {
     override fun substitute(from: MType, to: MType): MType {
         return MChar
     }
 }
-data object MUnit: MBasic() {
+data object MUnit: MType() {
     override fun substitute(from: MType, to: MType): MType {
         return MUnit
     }
@@ -121,7 +120,251 @@ data class MFunction(val arg: MType, val ret: MType): MType() {
     }
 
     override fun asString(env: TypeEnv): String {
+        val opt = stringOpt(env)
+        if(opt.isPresent) {
+            return opt.get()
+        }
         return "${arg.asString(env)} -> ${ret.asString(env)}"
+    }
+
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType !is MFunction) return false
+        return arg.isSame(otherType.arg) && ret.isSame(otherType.ret)
+    }
+
+}
+
+
+data class MStaticRecord(val fields: Map<String, MType>): MType() {
+
+    override fun occurs(other: MType): Boolean {
+        for(f in fields.values) {
+            if(f.occurs(other)) return true
+        }
+        return false
+    }
+
+    override fun toString(): String {
+        return fields.toList().joinToString("; ", "{", "}") { (k, v) -> "$k:$v" }
+    }
+
+    override fun asString(env: TypeEnv): String {
+        val opt = stringOpt(env)
+        if(opt.isPresent) {
+            return opt.get()
+        }
+        return fields.toList().joinToString("; ", "{", "}") { (k, v) -> "$k:${v.asString(env)}" }
+    }
+
+    override fun unify(other: MType) {
+        val otherType = other.find()
+        if(otherType is MTypeVar) {
+            return otherType.unify(this)
+        }
+        if(otherType is MPolyRecord) {
+            return otherType.unify(this)
+        }
+        if(otherType !is MStaticRecord) {
+            throw UnifyException(this, otherType)
+        }
+
+        for((k, v) in fields) {
+            //TODO: more detailed error?
+            v.unify(otherType.fields.getOrElse(k, {throw UnifyException(this, otherType)}))
+        }
+        for(k in fields.keys) {
+            if(k !in fields) {
+                throw UnifyException(this, otherType)
+            }
+        }
+
+    }
+
+    override fun substitute(from: MType, to: MType): MType {
+        return MStaticRecord(fields.mapValues { (_, v) -> v.substitute(from, to) })
+    }
+
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType !is MStaticRecord) return false
+        for((k, v) in fields) {
+            if(k !in otherType.fields) return false
+            if(!v.isSame(otherType.fields[k]!!)) return false
+        }
+        for(k in otherType.fields.keys) {
+            if(k !in fields) return false
+        }
+        return true
+    }
+}
+
+/**
+ * Polymorphic record types.
+ * These are MUTABLE internally, meaning a lot of special logic needs to be done to prevent unecessary cloning! See substitute
+ */
+data class MPolyRecord(val fields: Map<String, MType>, val rowVar: MType): MType() {
+
+    private var binding = Optional.empty<MType>()
+
+    init {
+        if(fields.isEmpty()) throw IllegalArgumentException("Cannot create record with no fields!")
+    }
+
+    override fun find(): MType {
+        return if(binding.isPresent) binding.get().find() else this
+    }
+
+    fun isBound(): Boolean {
+        return binding.isPresent
+    }
+
+    fun bind(other: MType) {
+        val last = other.find()
+        if(binding.isPresent) {
+            val sub = binding.get()
+            if(sub is MPolyRecord) {
+                sub.bind(last)
+                return
+            }
+            if(sub == last) {
+                return
+            }
+            else throw BindException(this, sub)
+        }
+        if(other is MStaticRecord || other is MPolyRecord) {
+            binding = Optional.of(last)
+        }
+        else throw BindException(this, last)
+    }
+
+
+    override fun occurs(other: MType): Boolean {
+        if(binding.isPresent) {
+            return binding.get().occurs(other)
+        }
+        for(f in fields.values) {
+            if(f.occurs(other)) return true
+        }
+        return false
+    }
+
+    override fun unify(other: MType) {
+        if(binding.isPresent) {
+            return binding.get().unify(other)
+        }
+
+        val otherType = other.find()
+        when(otherType) {
+            is MTypeVar -> {
+                return otherType.unify(this)
+            }
+            is MStaticRecord -> {
+                val map = mutableMapOf<String, MType>()
+                for((k, v) in fields) {
+                    //If I contain explicit fields that are not in static record
+                    v.unify(otherType.fields.getOrElse(k, {throw UnifyException(this, otherType)}))
+
+                    map += k to v
+                }
+
+                for((k, v) in otherType.fields) {
+                    //TODO: more detailed errors?
+                    if(k !in fields) {
+                        map += k to v
+                    }
+                }
+                this.bind(MStaticRecord(map))
+
+            }
+            is MPolyRecord -> {
+
+                if(rowVar is MTypeVar &&
+                    otherType.rowVar is MTypeVar &&
+                    rowVar.id == otherType.rowVar.id) return
+
+
+                val myMap = mutableMapOf<String, MType>()
+                val otherMap = mutableMapOf<String, MType>()
+
+                for((k, v) in fields) {
+                    if(k in otherType.fields) {
+                        v.unify(otherType.fields[k]!!)
+                    }
+                    myMap += k to v
+                    otherMap += k to v
+
+                }
+                for((k, v) in otherType.fields) {
+                    if(k in fields) {
+                        continue
+                    }
+                    myMap += k to v
+                    otherMap += k to v
+                }
+
+                //Uh this should be fine? I can't make a new typevar but yeagh
+                this.rowVar.unify(otherType.rowVar)
+
+                this.bind(MPolyRecord(myMap, rowVar))
+                otherType.bind(MPolyRecord(myMap, otherType.rowVar))
+
+            }
+            else -> {
+                throw UnifyException(this, otherType)
+            }
+        }
+    }
+
+    override fun asString(env: TypeEnv): String {
+        if(binding.isPresent) return binding.get().asString(env)
+        if(fields.isEmpty()) {
+            return "{..}"
+        }
+        return fields.toList().joinToString("; ", "{", "; ..${rowVar.asString(env)}}") { (k, v) -> "$k: ${v.asString(env)}" }
+    }
+
+    override fun toString(): String {
+        if(binding.isPresent) return binding.get().toString()
+        return fields.toList().joinToString("; ", "{", "; ..$rowVar}") { (k, v) -> "$k: $v}" }
+    }
+
+    override fun substitute(from: MType, to: MType): MType {
+        if(isSame(from)) return to
+
+
+        if(binding.isPresent) {
+            return binding.get().substitute(from, to)
+        }
+
+        //Since this is kind of mutable, we should check if we need to actually do any substitutions first to avoid the constructor call. Fixes issues in ForAll#substitute
+        var makeNew = false
+        val map = mutableMapOf<String, MType>()
+        for((k, v) in fields) {
+            val nv = v.substitute(from, to)
+            if(!v.isSame(nv)) makeNew = true
+            map += k to v
+        }
+
+        if(makeNew) {
+            return MPolyRecord(map, rowVar)
+        }
+        return this
+    }
+
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType !is MPolyRecord) return false
+        if(!rowVar.isSame(otherType.rowVar)) return false
+
+        for((k, v) in fields) {
+            if(k !in otherType.fields) return false
+            if(!v.isSame(otherType.fields[k]!!)) return false
+        }
+        for(k in otherType.fields.keys) {
+            if(k !in fields) return false
+        }
+        return true
     }
 
 }
@@ -164,7 +407,21 @@ data class MTuple(val types: List<MType>): MType() {
     }
 
     override fun asString(env: TypeEnv): String {
+        val opt = stringOpt(env)
+        if(opt.isPresent) {
+            return opt.get()
+        }
         return types.map { t -> t.asString(env) }.joinToString(" * ")
+    }
+
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType !is MTuple) return false
+        if(otherType.types.size != this.types.size) return false
+        for(i in types.indices) {
+            if(!types[i].isSame(otherType.types[i])) return false
+        }
+        return true
     }
 }
 
@@ -222,6 +479,12 @@ data class MVariantType(val id: UUID, val args: List<Pair<String, MType>>): MTyp
         }
         return Optional.empty()
     }
+
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType !is MVariantType) return false
+        return id == otherType.id
+    }
 }
 
 data class MTypeAlias(val id: UUID, val args: List<Pair<String, MType>>, val real: MType): MType() {
@@ -277,6 +540,14 @@ data class MTypeAlias(val id: UUID, val args: List<Pair<String, MType>>, val rea
         return Optional.empty()
     }
 
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType is MTypeAlias) {
+            return real.isSame(otherType.real)
+        }
+        return real.isSame(otherType)
+    }
+
 }
 
 
@@ -304,6 +575,20 @@ data class MConstr(val name: String, val type: MType, val argType: Optional<MTyp
 
     override fun find(): MType {
         return type.find()
+    }
+
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType !is MConstr) return false
+        if(argType.isPresent) {
+            val at = argType.get()
+            if(otherType.argType.isEmpty) return false
+            if(!at.isSame(otherType.argType.get())) return false
+        }
+        else if(otherType.argType.isPresent) {
+            return false
+        }
+        return name == otherType.name && type.isSame(otherType.type)
     }
 }
 

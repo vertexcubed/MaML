@@ -173,6 +173,7 @@ class SingleTypeParser(): Parser<DummyType>() {
         return ChoiceParser(listOf(
             TypeVarParser() as Parser<DummyType>,
             RealTypeParser() as Parser<DummyType>,
+            RecordTypeParser() as Parser<DummyType>,
             LParenParser().rCompose(FunctionTypeParser()).lCompose(RParenParser())
         )).parse(tokens, index, env)
     }
@@ -190,4 +191,20 @@ class RealTypeParser(): Parser<SingleDummy>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<SingleDummy> {
         return LongIdentifierParser().map { iden -> SingleDummy(iden) }.parse(tokens, index, env)
     }
+}
+
+class RecordTypeParser(): Parser<StaticRecordDummy>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<StaticRecordDummy> {
+        val entry = AndParser(IdentifierParser().lCompose(SpecialCharParser(":")), FunctionTypeParser())
+        return LCurlParser().rCompose(entry).bind { first ->
+            ZeroOrMore(SpecialCharParser(";").rCompose(entry))
+                .lCompose(OptionalParser(SpecialCharParser(";"))).lCompose(RCurlParser())
+                .map { rest ->
+                    val list = arrayListOf(first)
+                    list.addAll(rest)
+                    StaticRecordDummy(list)
+                }
+        }.parse(tokens, index, env)
+    }
+
 }

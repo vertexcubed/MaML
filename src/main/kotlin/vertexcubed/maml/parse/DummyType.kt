@@ -1,9 +1,6 @@
 package vertexcubed.maml.parse
 
-import vertexcubed.maml.core.MIdentifier
-import vertexcubed.maml.core.TypeConException
-import vertexcubed.maml.core.UnboundTyConException
-import vertexcubed.maml.core.UnboundTypeLabelException
+import vertexcubed.maml.core.*
 import vertexcubed.maml.type.*
 
 /**
@@ -156,5 +153,20 @@ data class TupleDummy(val types: List<DummyType>): DummyType() {
             }
         }
         return str
+    }
+}
+
+data class StaticRecordDummy(val types: List<Pair<String, DummyType>>): DummyType() {
+    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+        val map = mutableMapOf<String, MType>()
+        for((k, v) in types) {
+            if(k in map) throw BadRecordException(k)
+            map.put(k, v.lookupOrMutate(env, makeNew))
+        }
+        return MStaticRecord(map)
+    }
+
+    override fun toString(): String {
+        return types.map { (k, v) -> "$k: $v" }.joinToString("; ", "{ ", " }")
     }
 }

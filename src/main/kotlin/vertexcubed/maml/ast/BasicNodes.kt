@@ -2,6 +2,7 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.core.RecordException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 
@@ -149,13 +150,57 @@ class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
     }
 
     override fun pretty(): String {
-        return "(${nodes.joinToString()})"
+        return nodes.joinToString(", ", "(", ")") { n -> n.pretty() }
     }
 
     override fun toString(): String {
         return "Tuple($nodes)"
     }
 }
+
+class RecordLiteralNode(val fields: Map<String, AstNode>, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        return RecordValue(fields.mapValues { (_, v) -> v.eval(env) })
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        return MStaticRecord(fields.mapValues { (_, v) -> v.inferType(env) })
+    }
+
+    override fun pretty(): String {
+        return fields.toList().joinToString("; ", "{ ", " }") { (k, v) -> "$k=${v.pretty()}" }
+    }
+
+    override fun toString(): String {
+        return "Record($fields)"
+    }
+
+}
+
+class RecordLookupNode(val record: AstNode, val field: String, line: Int): AstNode(line) {
+
+    override fun eval(env: Map<String, MValue>): MValue {
+        val recordVal = record.eval(env)
+        if(recordVal !is RecordValue) {
+            throw RecordException("Cannot access record field of non-record value!")
+        }
+        return recordVal.values.getOrElse(field, { throw RecordException("Record ${record.pretty()} does not contain field $field!")})
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        val recordType = record.inferType(env)
+        val retType = env.typeSystem.newTypeVar()
+        val polyRecord = MPolyRecord(mapOf(field to retType), env.typeSystem.newTypeVar())
+        recordType.unify(polyRecord)
+        return retType
+
+    }
+
+    override fun toString(): String {
+        return "Lookup($record, $field)"
+    }
+}
+
 
 class VariableNode(val name: MIdentifier, line: Int): AstNode(line) {
     constructor(name: String, line: Int): this(MIdentifier(name), line)

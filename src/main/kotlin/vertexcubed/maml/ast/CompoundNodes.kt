@@ -114,6 +114,34 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
 
 }
 
+class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>, line: Int): AstNode(line) {
+    override fun eval(env: Map<String, MValue>): MValue {
+        val oldRecord = original.eval(env)
+        if(oldRecord !is RecordValue) throw RecordException("Cannot expand non-record value!")
+        val map = mutableMapOf<String, MValue>()
+        map += oldRecord.values
+        map += newPairs.mapValues { (_, v) -> v.eval(env) }
+        return RecordValue(map)
+
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        val originalType = original.inferType(env)
+        val oldType = ForAll.generalize(originalType, env.typeSystem).instantiate(env.typeSystem)
+        val newStuff = MPolyRecord(newPairs.mapValues { (_, v) -> v.inferType(env) }, env.typeSystem.newTypeVar())
+
+        oldType.unify(newStuff)
+
+        return newStuff
+    }
+
+    override fun toString(): String {
+        return "Expand($original, $newPairs)"
+    }
+}
+
+
+
 //TODO: explicit type for let not actually used!
 class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNode, line: Int) : AstNode(line) {
 
@@ -145,8 +173,8 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
             nameType.unify(lastType)
         }
 
-        val scheme = ForAll.generalize(statementType, env.typeSystem)
         if(name.binding == "_") return expression.inferType(env)
+        val scheme = ForAll.generalize(statementType, env.typeSystem)
 
         newEnv.addBinding(name.binding, scheme)
 

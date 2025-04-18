@@ -6,6 +6,7 @@ import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.core.MBinding
+import vertexcubed.maml.core.BadRecordException
 import java.util.*
 import kotlin.math.pow
 
@@ -136,8 +137,26 @@ class VariableParser(): Parser<VariableNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<VariableNode> {
         return LongIdentifierParser().map { r -> VariableNode(r, tokens[index].line) }.parse(tokens, index, env)
     }
+}
+
+class RecordLookupParser(): Parser<AstNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
+        return VariableParser().bind { first ->
+            ZeroOrMore(SpecialCharParser(".").rCompose(IdentifierParser())).map { rest ->
+                if(rest.isEmpty()) {
+                    first
+                }
+                else {
+                    rest.fold(first as AstNode) { acc, field -> RecordLookupNode(acc, field, acc.line) }
+                }
+            }
+        }.parse(tokens, index, env)
+    }
 
 }
+
+
+
 
 class ParenthesesParser(): Parser<AstNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
@@ -155,6 +174,50 @@ class ParenthesesParser(): Parser<AstNode>() {
             }
         }.parse(tokens, index, env)
     }
+}
+
+class RecordExpandParser(): Parser<RecordExpandNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<RecordExpandNode> {
+        val entry = AndParser(IdentifierParser().lCompose(SpecialCharParser("=")), PrecedenceParsers.ConstLevel())
+
+        return LCurlParser().rCompose(PrecedenceParsers.ConstLevel()).bind { original ->
+            KeywordParser("with").rCompose(entry).bind { first ->
+                ZeroOrMore(SpecialCharParser(";").rCompose(entry))
+                    .lCompose(OptionalParser(SpecialCharParser(";"))).lCompose(RCurlParser())
+                    .map { rest ->
+                        val list = listOf(first) + rest
+                        val map = mutableMapOf<String, AstNode>()
+                        for((k, v) in list) {
+                            if(k in map) throw BadRecordException(k)
+                            map.put(k, v)
+                        }
+                        RecordExpandNode(original, map, tokens[index].line)
+                    }
+            }
+        }.parse(tokens, index, env)
+    }
+
+}
+
+class RecordLiteralParser(): Parser<RecordLiteralNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<RecordLiteralNode> {
+        val entry = AndParser(IdentifierParser().lCompose(SpecialCharParser("=")), PrecedenceParsers.ConstLevel())
+        return LCurlParser().rCompose(entry).bind { first ->
+            ZeroOrMore(SpecialCharParser(";").rCompose(entry))
+                .lCompose(OptionalParser(SpecialCharParser(";"))).lCompose(RCurlParser())
+                .map { rest ->
+                    val list = listOf(first) + rest
+                    val map = mutableMapOf<String, AstNode>()
+                    for((k, v) in list) {
+                        if(k in map) throw BadRecordException(k)
+                        map.put(k, v)
+                    }
+
+                    RecordLiteralNode(map, tokens[index].line)
+                }
+        }.parse(tokens, index, env)
+    }
+
 }
 
 class ApplicationParser(): Parser<AstNode>() {
@@ -233,4 +296,15 @@ class MatchParser(): Parser<Pair<PatternNode, AstNode>>() {
         }
         return parser.parse(tokens, index, env)
     }
+}
+
+class LocalOpenParser(): Parser<LocalOpenNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<LocalOpenNode> {
+        return KeywordParser("let").rCompose(KeywordParser("open")).rCompose(LongConstructorParser()).bind { iden ->
+            KeywordParser("in").rCompose(ExprParser()).map { expr ->
+                LocalOpenNode(iden, expr, tokens[index].line)
+            }
+        }.parse(tokens, index, env)
+    }
+
 }

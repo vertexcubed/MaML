@@ -132,19 +132,18 @@ class NonInfixIdentifierParser(): Parser<String>() {
 
 class LongIdentifierParser(): Parser<MIdentifier>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MIdentifier> {
-        val parser = ZeroOrMore(ConstructorParser().disjoint(IdentifierParser()).lCompose(SpecialCharParser("."))).bind { first ->
+        val parser = ZeroOrMore(ConstructorParser().lCompose(SpecialCharParser("."))).bind { first ->
             NonInfixIdentifierParser().map { i ->
                 MIdentifier(first + i)
             }
         }
         return parser.parse(tokens, index, env)
     }
-
 }
 
 class LongConstructorParser(): Parser<MIdentifier>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<MIdentifier> {
-        val parser = ZeroOrMore(ConstructorParser().disjoint(IdentifierParser()).lCompose(SpecialCharParser("."))).bind { first ->
+        val parser = ZeroOrMore(ConstructorParser().lCompose(SpecialCharParser("."))).bind { first ->
             ConstructorParser().map { i ->
                 MIdentifier(first + i)
             }
@@ -214,6 +213,19 @@ class LParenParser(): Parser<String>() {
 class RParenParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.RPAREN)
+    }
+}
+
+class LCurlParser(): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+//        print("$index ")
+        return simple(tokens, index, TokenType.LCURL)
+    }
+}
+
+class RCurlParser(): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        return simple(tokens, index, TokenType.RCURL)
     }
 }
 

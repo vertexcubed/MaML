@@ -40,6 +40,8 @@ class UnboundTyConException(val name: String) : Exception("Unbound Type Construc
  */
 class ApplicationException(message: String) : Exception(message)
 
+class RecordException(message: String): Exception(message)
+
 /**
  * Runtime Exception thrown when no pattern was able to be matched.
  * Only thrown if pattern matching is not exhaustive.
@@ -79,6 +81,7 @@ class TypeConException(env: TypeEnv, val constr: MType, val expectedArgs: Int, v
  */
 class UnifyException(val t1: MType, val t2: MType): Exception("Cannot unify type $t1 with type $t2")
 
+class BadRecordException(val label: String): Exception("The record field label $label is defined several times")
 /**
  * Thrown when trying to bind a type variable when it's already been bound.
  * Report as a bug if this is thrown!

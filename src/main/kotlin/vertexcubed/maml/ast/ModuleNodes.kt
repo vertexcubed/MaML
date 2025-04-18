@@ -1,9 +1,6 @@
 package vertexcubed.maml.ast
 
-import vertexcubed.maml.core.TypeCheckException
-import vertexcubed.maml.core.UnboundModuleException
-import vertexcubed.maml.core.UnboundTypeLabelException
-import vertexcubed.maml.core.UnboundVarException
+import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.eval.ModuleValue
 import vertexcubed.maml.parse.ParseEnv
@@ -185,6 +182,36 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
 
     override fun toString(): String {
         return "Module($name, $nodes)"
+    }
+
+}
+
+class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNode(line) {
+
+    override fun eval(env: Map<String, MValue>): MValue {
+        try {
+            val module = name.lookupEvalBinding(env)
+            if(module !is ModuleValue) throw UnboundModuleException(name.toString())
+            val newEnv = env + module.bindings
+            return body.eval(newEnv)
+        }
+        catch(e: UnboundVarException) {
+            throw UnboundModuleException(e.name)
+        }
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        try {
+            val module = env.lookupBinding(name).instantiate(env.typeSystem)
+            if(module !is ModuleType) throw UnboundModuleException(name.toString())
+            val newEnv = env.copy()
+            newEnv.addAllBindings(module.types.bindingTypes)
+            newEnv.addAllTypes(module.types.typeDefs)
+            return body.inferType(newEnv)
+        }
+        catch(e: UnboundVarException) {
+            throw UnboundModuleException(e.name)
+        }
     }
 
 }

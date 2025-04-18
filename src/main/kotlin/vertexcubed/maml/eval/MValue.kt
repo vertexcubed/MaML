@@ -68,6 +68,14 @@ data class TupleValue(val values: List<MValue>): MValue() {
     }
 }
 
+data class RecordValue(val values: Map<String, MValue>): MValue() {
+    override fun toString(): String {
+        return values.toList().map { (k, v) -> "$k=$v" }.joinToString("; ", "{ ", " }")
+    }
+}
+
+
+
 data class ConValue(val name: MIdentifier, val value: Optional<MValue>): MValue() {
     override fun toString(): String {
         var str = name.toString()

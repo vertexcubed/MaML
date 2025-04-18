@@ -16,6 +16,7 @@ class PrecedenceParsers {
     class ConstLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
             return ChoiceParser(listOf(
+                RecordLiteralParser() as Parser<AstNode>,
                 ConNodeParser() as Parser<AstNode>,
                 FloatParser() as Parser<AstNode>,
                 IntegerParser() as Parser<AstNode>,
@@ -25,7 +26,7 @@ class PrecedenceParsers {
                 FalseParser() as Parser<AstNode>,
                 UnitParser() as Parser<AstNode>,
                 ParenthesesParser() as Parser<AstNode>,
-                VariableParser() as Parser<AstNode>,
+                RecordLookupParser(),
                 KeywordParser("op").rCompose(env.choiceNameParsers()).map { str -> VariableNode(str, tokens[index + 1].line) },
             )).parse(tokens, index, env)
         }
@@ -35,6 +36,12 @@ class PrecedenceParsers {
     class AppLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
             return (ApplicationParser() as Parser<AstNode>).parse(tokens, index, env)
+        }
+    }
+
+    class RecordExpandLevel(): Parser<AstNode>() {
+        override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
+            return (RecordExpandParser() as Parser<AstNode>).disjoint(AppLevel()).parse(tokens, index, env)
         }
     }
 
@@ -48,7 +55,7 @@ class PrecedenceParsers {
                     .disjoint(SpecialCharParser("!"))
                     .disjoint(CompoundSpecialCharParser("~-."))
                     .disjoint(CompoundSpecialCharParser("~-"))
-            return (AppLevel() as Parser<AstNode>).disjoint(opParser.bind { op ->
+            return (RecordExpandLevel() as Parser<AstNode>).disjoint(opParser.bind { op ->
                 AppLevel().map { second ->
                     var oper = op
                     //Syntax sugar: - (float) -> ~-. float, - -> ~-, -. -> ~-.
@@ -151,7 +158,7 @@ class PrecedenceParsers {
     @Suppress("UNCHECKED_CAST")
     class LetLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
-            return FunctionLevel().disjoint(LetParser() as Parser<AstNode>).parse(tokens, index, env)
+            return FunctionLevel().disjoint(LocalOpenParser() as Parser<AstNode>).disjoint(LetParser() as Parser<AstNode>).parse(tokens, index, env)
         }
     }
 }
