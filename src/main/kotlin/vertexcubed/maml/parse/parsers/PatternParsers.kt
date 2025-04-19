@@ -1,6 +1,7 @@
 package vertexcubed.maml.parse.parsers
 
 import vertexcubed.maml.ast.*
+import vertexcubed.maml.core.BadRecordException
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.result.ParseResult
@@ -13,6 +14,7 @@ class PatternPrecedence {
                 IdentifierPatternParser(),
                 ConstantPatternParser() as Parser<PatternNode>,
                 TuplePatternParser(),
+                RecordPatternParser() as Parser<PatternNode>,
             )).parse(tokens, index, env)
         }
     }
@@ -94,6 +96,37 @@ class TuplePatternParser(): Parser<PatternNode>() {
                 }
             }
         }.parse(tokens, index, env)
+    }
+}
+
+
+class RecordPatternParser(): Parser<RecordPatternNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<RecordPatternNode> {
+        val entry = AndParser(IdentifierParser().lCompose(SpecialCharParser("=")), PatternPrecedence.Main())
+        val parser = LCurlParser().rCompose(entry).bind { first ->
+            ZeroOrMore(SpecialCharParser(";").rCompose(entry)).bind { rest ->
+                SpecialCharParser(";").rCompose(CompoundSpecialCharParser("..")).map { _ ->
+                    val list = listOf(first) + rest
+                    val map = mutableMapOf<String, PatternNode>()
+                    for((k, v) in list) {
+                        if(k in map) throw BadRecordException(k)
+                        map.put(k, v)
+                    }
+                    RecordPatternNode(map, true, tokens[index].line)
+                }.disjoint(
+                    OptionalParser(SpecialCharParser(";")).map { _ ->
+                        val list = listOf(first) + rest
+                        val map = mutableMapOf<String, PatternNode>()
+                        for((k, v) in list) {
+                            if(k in map) throw BadRecordException(k)
+                            map.put(k, v)
+                        }
+                        RecordPatternNode(map, false, tokens[index].line)
+                    }
+                ).lCompose(RCurlParser())
+            }
+        }
+        return parser.parse(tokens, index, env)
     }
 
 }

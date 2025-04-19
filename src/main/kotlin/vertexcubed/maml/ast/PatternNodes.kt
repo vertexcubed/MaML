@@ -5,11 +5,9 @@ import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.core.UnifyException
 import vertexcubed.maml.eval.ConValue
 import vertexcubed.maml.eval.MValue
+import vertexcubed.maml.eval.RecordValue
 import vertexcubed.maml.eval.TupleValue
-import vertexcubed.maml.type.MConstr
-import vertexcubed.maml.type.MTuple
-import vertexcubed.maml.type.MType
-import vertexcubed.maml.type.TypeEnv
+import vertexcubed.maml.type.*
 import java.util.*
 import kotlin.collections.ArrayList
 
@@ -22,7 +20,7 @@ sealed class PatternNode(line: Int): AstNode(line) {
         throw AssertionError("Patterns should never be evaluated!")
     }
 
-    abstract fun inferPatternType(emv: TypeEnv): Pair<MType, Map<String, MType>>
+    abstract fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>>
 
     abstract fun unify(expr: MValue): Optional<Map<String, MValue>>
 
@@ -283,3 +281,31 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
 
 }
 
+class RecordPatternNode(val fields: Map<String, PatternNode>, val poly: Boolean, line: Int): PatternNode(line) {
+    override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
+        val bindings = mutableMapOf<String, MType>()
+        for((k, v) in fields) {
+            val (_, fBindings) = v.inferPatternType(env)
+            bindings.putAll(fBindings)
+        }
+        return MRecord(emptyMap(), env.typeSystem.newTypeVar()) to bindings
+    }
+
+    override fun unify(expr: MValue): Optional<Map<String, MValue>> {
+        if(expr !is RecordValue) return Optional.empty()
+        val bindings = mutableMapOf<String, MValue>()
+        for((k, v) in fields) {
+            val exprValue = expr.values[k] ?: return Optional.empty()
+            val nodeBindings = v.unify(exprValue)
+            if(nodeBindings.isEmpty) return Optional.empty()
+            bindings.putAll(nodeBindings.get())
+        }
+        if(!poly) {
+            for(k in expr.values.keys) {
+                if(k !in fields) return Optional.empty()
+            }
+        }
+        return Optional.of(bindings)
+    }
+
+}

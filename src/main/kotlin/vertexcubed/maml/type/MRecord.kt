@@ -114,7 +114,7 @@ data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
         if(fields.isNotEmpty()) {
             str += ";"
         }
-        return "$str ... }"
+        return "$str .. }"
     }
 }
 

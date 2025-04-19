@@ -1,7 +1,10 @@
 let f x =
-    {x with size=10}
+    match x with
+    | {age=y; ..} ->
+        {x with size=(y*10)}
+    | _ -> {x with size=0}
+    end
 
 
 let _ =
-    let b = f {name="Hi"; age=12; color="meow"} in
-    b
+    f {name="Hi"; age=12; color="meow"}

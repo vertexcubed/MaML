@@ -161,12 +161,12 @@ data class StaticRecordDummy(val types: List<Pair<String, DummyType>>): DummyTyp
         val map = mutableMapOf<String, MType>()
         for((k, v) in types) {
             if(k in map) throw BadRecordException(k)
-            map.put(k, v.lookupOrMutate(env, makeNew))
+            map[k] = v.lookupOrMutate(env, makeNew)
         }
         return MRecord(map, MEmptyRow)
     }
 
     override fun toString(): String {
-        return types.map { (k, v) -> "$k: $v" }.joinToString("; ", "{ ", " }")
+        return types.joinToString("; ", "{ ", " }") { (k, v) -> "$k: $v" }
     }
 }
