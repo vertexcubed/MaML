@@ -1,8 +1,7 @@
 let f x =
-    let s = x.age * 10 in
-    {x with size=s}
+    {x with size=10}
 
 
-
-
-let b = f {name="Hi"; age=12}
+let _ =
+    let b = f {name="Hi"; age=12; color="meow"} in
+    b

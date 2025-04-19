@@ -164,7 +164,7 @@ class RecordLiteralNode(val fields: Map<String, AstNode>, line: Int): AstNode(li
     }
 
     override fun inferType(env: TypeEnv): MType {
-        return MStaticRecord(fields.mapValues { (_, v) -> v.inferType(env) })
+        return MRecord(fields.mapValues { (_, v) -> v.inferType(env) }, MEmptyRow)
     }
 
     override fun pretty(): String {
@@ -176,31 +176,6 @@ class RecordLiteralNode(val fields: Map<String, AstNode>, line: Int): AstNode(li
     }
 
 }
-
-class RecordLookupNode(val record: AstNode, val field: String, line: Int): AstNode(line) {
-
-    override fun eval(env: Map<String, MValue>): MValue {
-        val recordVal = record.eval(env)
-        if(recordVal !is RecordValue) {
-            throw RecordException("Cannot access record field of non-record value!")
-        }
-        return recordVal.values.getOrElse(field, { throw RecordException("Record ${record.pretty()} does not contain field $field!")})
-    }
-
-    override fun inferType(env: TypeEnv): MType {
-        val recordType = record.inferType(env)
-        val retType = env.typeSystem.newTypeVar()
-        val polyRecord = MPolyRecord(mapOf(field to retType), env.typeSystem.newTypeVar())
-        recordType.unify(polyRecord)
-        return retType
-
-    }
-
-    override fun toString(): String {
-        return "Lookup($record, $field)"
-    }
-}
-
 
 class VariableNode(val name: MIdentifier, line: Int): AstNode(line) {
     constructor(name: String, line: Int): this(MIdentifier(name), line)

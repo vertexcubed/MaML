@@ -45,9 +45,9 @@ class MTypeVar(val id: Int): MType() {
         substitute = Optional.of(last)
     }
 
-    override fun unify(other: MType) {
+    override fun unify(other: MType, typeSystem: TypeSystem) {
         if(substitute.isPresent) {
-            substitute.get().unify(other)
+            substitute.get().unify(other, typeSystem)
             return
         }
         val otherType = other.find()
@@ -89,7 +89,7 @@ data class MGeneralTypeVar(val id: Int): MType() {
         return this == other
     }
 
-    override fun unify(other: MType) {
+    override fun unify(other: MType, typeSystem: TypeSystem) {
         throw UnifyException(this, other)
     }
 

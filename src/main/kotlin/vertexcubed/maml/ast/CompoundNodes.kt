@@ -46,7 +46,7 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
 
         val other = MFunction(argType, myType)
         try {
-            funcType.unify(other)
+            funcType.unify(other, env.typeSystem)
         }
         catch(e: UnifyException) {
             throw TypeCheckException(line, this, env, e.t2, e.t1)
@@ -88,7 +88,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
 
         val condType = condition.inferType(env)
         try {
-            condType.unify(MBool)
+            condType.unify(MBool, env.typeSystem)
         }
         catch(e: UnifyException) {
             throw TypeCheckException(condition.line, this, env, condType, MBool)
@@ -96,7 +96,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
         val thenType = thenBranch.inferType(env)
         val elseType = elseBranch.inferType(env)
         try {
-            thenType.unify(elseType)
+            thenType.unify(elseType, env.typeSystem)
         }
         catch(e: UnifyException) {
             throw TypeCheckException(elseBranch.line, this, env, elseType, thenType)
@@ -126,19 +126,61 @@ class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val originalType = original.inferType(env)
-        val oldType = ForAll.generalize(originalType, env.typeSystem).instantiate(env.typeSystem)
-        val newStuff = MPolyRecord(newPairs.mapValues { (_, v) -> v.inferType(env) }, env.typeSystem.newTypeVar())
+        var originalType = original.inferType(env)
 
-        oldType.unify(newStuff)
+        val empty = MRecord(emptyMap(), env.typeSystem.newTypeVar())
 
-        return newStuff
+
+        var ogFind = originalType.find()
+        if(ogFind is MTypeVar) {
+            try {
+                ogFind.unify(empty, env.typeSystem)
+            }
+            catch(e: UnifyException) {
+                throw TypeCheckException(line, this, env, ogFind, empty)
+            }
+            ogFind = ogFind.find()
+        }
+        if(ogFind !is MRecord) {
+            throw TypeCheckException(line, this, env, "An expression was expected of type record\n" +
+                    "but type ${ogFind.asString(env)} was found.")
+        }
+        val (ogFields, ogRest) = ogFind.flatten()
+
+        originalType = MRecord(ogFields + newPairs.mapValues { (_, v) -> v.inferType(env) }, ogRest)
+
+        return originalType
     }
 
     override fun toString(): String {
         return "Expand($original, $newPairs)"
     }
 }
+
+class RecordLookupNode(val record: AstNode, val field: String, line: Int): AstNode(line) {
+
+    override fun eval(env: Map<String, MValue>): MValue {
+        val recordVal = record.eval(env)
+        if(recordVal !is RecordValue) {
+            throw RecordException("Cannot access record field of non-record value!")
+        }
+        return recordVal.values.getOrElse(field, { throw RecordException("Record ${record.pretty()} does not contain field $field!")})
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        val recordType = record.inferType(env)
+        val retType = env.typeSystem.newTypeVar()
+        val polyRecord = MRecord(mapOf(field to retType), env.typeSystem.newTypeVar())
+        recordType.unify(polyRecord, env.typeSystem)
+        return retType
+
+    }
+
+    override fun toString(): String {
+        return "Lookup($record, $field)"
+    }
+}
+
 
 
 
@@ -170,7 +212,7 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
                     break
                 }
             }
-            nameType.unify(lastType)
+            nameType.unify(lastType, env.typeSystem)
         }
 
         if(name.binding == "_") return expression.inferType(env)
@@ -205,7 +247,7 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         if(name.type.isPresent) {
             val expectedType = name.type.get().lookupOrMutate(newEnv, true)
             //This should never throw an exception
-            myRetType.unify(expectedType)
+            myRetType.unify(expectedType, env.typeSystem)
 
         }
         if(name.binding == "_") throw TypeCheckException(line, this, env, "Only variables are allowed as left-hand side of let rec")
@@ -214,7 +256,7 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         if(node.arg.type.isPresent) {
             val expectedType = node.arg.type.get().lookupOrMutate(newEnv, true)
             //This should never throw an exception
-            argType.unify(expectedType)
+            argType.unify(expectedType, env.typeSystem)
 
         }
         val myType = MFunction(argType, myRetType)
@@ -229,7 +271,7 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         val bodyType = node.body.inferType(newEnv)
 
         //This should never throw an exception?
-        myRetType.unify(bodyType)
+        myRetType.unify(bodyType, env.typeSystem)
 
         return MFunction(argType, bodyType)
 
@@ -259,7 +301,7 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
         if(arg.type.isPresent) {
             val expectedType = arg.type.get().lookupOrMutate(newEnv, true)
             //This should never throw an exception
-            argType.unify(expectedType)
+            argType.unify(expectedType, env.typeSystem)
         }
         if(arg.binding == "_") {
             val bodyType = body.inferType(newEnv)
@@ -307,7 +349,7 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
             throw conException(env, 0, getArgSize(valueType))
         val expectedType = myType.argType.get()
         try {
-            expectedType.unify(valueType)
+            expectedType.unify(valueType, env.typeSystem)
         }
         catch(e: UnifyException) {
             //Both are tuples, aka multi arg constructors
@@ -411,7 +453,7 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
         for((p, e) in nodes) {
             val (pType, pBindings) = p.inferPatternType(env)
             try {
-                exprType.unify(pType)
+                exprType.unify(pType, env.typeSystem)
             }
             catch(e: UnifyException) {
                 throw patException(env, pType, exprType)
@@ -420,7 +462,7 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
             newEnv.addAllBindings(pBindings.mapValues { t -> ForAll.empty(t.value) })
             val eType = e.inferType(newEnv)
             try {
-                retType.unify(eType)
+                retType.unify(eType, env.typeSystem)
             }
             catch(e: UnifyException) {
                 throw TypeCheckException(line, this, env, eType, retType)

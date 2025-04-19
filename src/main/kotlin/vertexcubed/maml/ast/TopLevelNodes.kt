@@ -3,7 +3,6 @@ package vertexcubed.maml.ast
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.eval.MValue
-import vertexcubed.maml.eval.ModuleValue
 import vertexcubed.maml.parse.DummyType
 import vertexcubed.maml.parse.TypeVarDummy
 import vertexcubed.maml.type.*
@@ -29,7 +28,7 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
                     break
                 }
             }
-            nameType.unify(lastType)
+            nameType.unify(lastType, env.typeSystem)
         }
 
 

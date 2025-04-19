@@ -76,7 +76,7 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
             if(unboundArgs(type) != args.size) throw UnboundTyConException(this.toString())
             for(i in args.indices) {
                 val argType = args[i].lookupOrMutate(env, makeNew)
-                type.args[i].second.unify(argType)
+                type.args[i].second.unify(argType, env.typeSystem)
             }
             return type
         }
@@ -86,7 +86,7 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
         if(unboundArgs(type) != args.size) throw UnboundTyConException(this.toString())
         for(i in args.indices) {
             val argType = args[i].lookupOrMutate(env, makeNew)
-            type.args[i].second.unify(argType)
+            type.args[i].second.unify(argType, env.typeSystem)
         }
         return type
     }
@@ -163,7 +163,7 @@ data class StaticRecordDummy(val types: List<Pair<String, DummyType>>): DummyTyp
             if(k in map) throw BadRecordException(k)
             map.put(k, v.lookupOrMutate(env, makeNew))
         }
-        return MStaticRecord(map)
+        return MRecord(map, MEmptyRow)
     }
 
     override fun toString(): String {

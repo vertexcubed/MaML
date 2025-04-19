@@ -66,7 +66,7 @@ class OrPatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) 
         for(i in 1 until nodes.size) {
             val (curType, curBindings) = nodes[i].inferPatternType(env)
             try {
-                lastType.unify(curType)
+                lastType.unify(curType, env.typeSystem)
             }
             catch(e: UnifyException) {
                 throw patException(env, curType, lastType)
@@ -75,7 +75,7 @@ class OrPatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) 
 
             for((b, bType) in lastBindings) {
                 val cType = curBindings.getOrElse(b, { throw sideException(env, b) })
-                bType.unify(cType)
+                bType.unify(cType, env.typeSystem)
             }
             for((c, _) in curBindings) {
                 if(!lastBindings.containsKey(c)) {
@@ -211,7 +211,7 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
             throw conException(env, 0, getArgSize(valueType))
         val expectedType = constrType.argType.get()
         try {
-            expectedType.unify(valueType)
+            expectedType.unify(valueType, env.typeSystem)
         }
         catch(e: UnifyException) {
             //Both are tuples, aka multi arg constructors
