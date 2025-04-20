@@ -1,16 +1,12 @@
-
+(* I haven't implemented conversion functions yet so these have type 'a -> unit for now *)
 external print: 'a -> unit = "maml_core_print"
 external println: 'a -> unit = "maml_core_println"
 
-(*  Legacy functions: I got this code from Selene Wu, whose slamda langauge doesn't have tuple matching
-    In addition, in her language tuples are all 2-tuples. *)
-external fst: 'a -> 'b = "maml_8queens_fst"
-external snd: 'a -> 'b = "maml_8queens_snd"
 
+(*  N Queens solver, I believe originally by Hongwei Xi? Modified for use in MaML *)
+(*  Essentially just like my main testing script since it covers many features in the language *)
 
-
-
-
+type board = int * int * int * int * int * int * int * int
 
 let n = 8
 
@@ -51,15 +47,18 @@ let print_row (i : int) : unit =
         else ~1
 *)
 let board_get bd (i : int) : int =
-  if i = 0 then fst (bd)
-  else if i = 1 then fst (snd (bd))
-  else if i = 2 then fst (snd (snd (bd)))
-  else if i = 3 then fst (snd (snd (snd (bd))))
-  else if i = 4 then fst (snd (snd (snd (snd (bd)))))
-  else if i = 5 then fst (snd (snd (snd (snd (snd (bd))))))
-  else if i = 6 then fst (snd (snd (snd (snd (snd (snd (bd)))))))
-  else if i = 7 then snd (snd (snd (snd (snd (snd (snd (bd)))))))
-  else -1
+  match bd with
+  | (x0, x1, x2, x3, x4, x5, x6, x7) ->
+    if i = 0 then x0
+    else if i = 1 then x1
+    else if i = 2 then x2
+    else if i = 3 then x3
+    else if i = 4 then x4
+    else if i = 5 then x5
+    else if i = 6 then x6
+    else if i = 7 then x7
+    else -1
+  end
 
 (*
     fun print_board (bd: int8): void =
@@ -104,39 +103,34 @@ let print_board (bd) : unit =
     end
 *)
 let board_set bd (i : int) (j : int) =
-  let x0 = board_get bd 0 in
-  let x1 = board_get bd 1 in
-  let x2 = board_get bd 2 in
-  let x3 = board_get bd 3 in
-  let x4 = board_get bd 4 in
-  let x5 = board_get bd 5 in
-  let x6 = board_get bd 6 in
-  let x7 = board_get bd 7 in
-  if i = 0 then
-    let x0 = j in
-    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
-  else if i = 1 then
-    let x1 = j in
-    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
-  else if i = 2 then
-    let x2 = j in
-    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
-  else if i = 3 then
-    let x3 = j in
-    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
-  else if i = 4 then
-    let x4 = j in
-    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
-  else if i = 5 then
-    let x5 = j in
-    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
-  else if i = 6 then
-    let x6 = j in
-    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
-  else if i = 7 then
-    let x7 = j in
-    (x0, (x1, (x2, (x3, (x4, (x5, (x6, x7)))))))
-  else bd
+  match bd with
+  | (x0, x1, x2, x3, x4, x5, x6, x7) ->
+    if i = 0 then
+      let x0 = j in
+      (x0, x1, x2, x3, x4, x5, x6, x7)
+    else if i = 1 then
+      let x1 = j in
+      (x0, x1, x2, x3, x4, x5, x6, x7)
+    else if i = 2 then
+      let x2 = j in
+      (x0, x1, x2, x3, x4, x5, x6, x7)
+    else if i = 3 then
+      let x3 = j in
+      (x0, x1, x2, x3, x4, x5, x6, x7)
+    else if i = 4 then
+      let x4 = j in
+      (x0, x1, x2, x3, x4, x5, x6, x7)
+    else if i = 5 then
+      let x5 = j in
+      (x0, x1, x2, x3, x4, x5, x6, x7)
+    else if i = 6 then
+      let x6 = j in
+      (x0, x1, x2, x3, x4, x5, x6, x7)
+    else if i = 7 then
+      let x7 = j in
+      (x0, x1, x2, x3, x4, x5, x6, x7)
+    else bd
+  end
 
 (*
     fun safety_test1
@@ -217,7 +211,4 @@ let rec search bd (i : int) (j : int) (nsol : int) : int =
     if i > 0 then search bd (i - 1) ((board_get bd (i - 1)) + 1) nsol else nsol
 
 
-
-let _ = println "Hi!"
-
-let _ = println (search (0, (0, (0, (0, (0, (0, (0, 0))))))) 0 0 0)
+let _ = println (search (0, 0, 0, 0, 0, 0, 0, 0) 0 0 0)

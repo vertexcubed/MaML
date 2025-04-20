@@ -54,19 +54,21 @@ MaML is in active development, and bugs and issues are expected. Please report b
 - [x] Algebraic Data Types
 - [x] Pattern Matching
 - [x] Custom infix functions
-- [ ] Multi argument builtin functions
+- [x] Multi argument builtin functions
 - [x] Multi argument Type Constructors
 - [x] Type aliases
 - [ ] Pattern exhaustiveness checking
-- [ ] Lists
+- [ ] List Sugar (`[]`, `x :: xs`, etc.)
 - [x] Records
-- [ ] Modules
+- [x] Modules
+  - [ ] Module Signatures / Interfaces
+  - [ ] Module Functors
 - [ ] Exceptions
 
 ### Future Additions
 
 - [ ] Asynchronous values?
-- [ ] Better Java integration
+- [ ] Callbacks
 - [ ] REPL environment for command-line
 - [ ] **Standard Library**
   - [ ] Either
@@ -94,6 +96,8 @@ MaML is in active development, and bugs and issues are expected. Please report b
 - Side effects / mutable values*
   - Lazy values *might* be the exception to this
 - Classes and objects
-- Polymorphic variants
+- Polymorphic variants*
+  - I might change my mind on this depending on how hard it is to implement.
 - Named function arguments
 - Garbage Collector
+  - Out of scope for this project - let the JVM GC handle it.

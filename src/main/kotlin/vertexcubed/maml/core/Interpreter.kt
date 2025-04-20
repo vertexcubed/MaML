@@ -1,13 +1,14 @@
 package vertexcubed.maml.core
 
-import vertexcubed.maml.ast.*
+import vertexcubed.maml.ast.AstNode
+import vertexcubed.maml.ast.FunctionNode
+import vertexcubed.maml.ast.ModuleStructNode
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.parse.Lexer
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
-import java.util.*
 
 class Interpreter {
 
@@ -153,12 +154,11 @@ class Interpreter {
         if(result is ParseResult.Failure) {
             val line = result.token.line
             println(strList[line - 1].trim())
-//            println("Syntax Error: ${result.logMessage}")
             println(result)
             return
         }
         if(result !is ParseResult.Success) {
-            println("Catastrophic failure: parse result isn't a success OR failure.")
+            println("Catastrophic failure: parse result isn't a success OR failure (This will never happen).")
             return
         }
 
@@ -174,6 +174,7 @@ class Interpreter {
             println("Error on line ${e.line} (${e.node.pretty()})\n${e.log}")
             return
         }
+        //TODO: this is broken. Fix.
         typeSystem.normalizeTypeNames()
 
         println("Type checked. Evaluating...")
