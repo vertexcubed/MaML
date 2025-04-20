@@ -2,6 +2,7 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
 import vertexcubed.maml.parse.TypeVarDummy
@@ -10,7 +11,7 @@ import java.util.*
 
 
 class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return statement.eval(env)
     }
 
@@ -51,7 +52,7 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
  */
 class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val cons: List<ConDefNode>, line: Int): AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
     }
 
@@ -83,7 +84,7 @@ class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val c
 }
 
 class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: DummyType, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
     }
 
@@ -100,7 +101,7 @@ class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: Du
 }
 
 class TopOpenNode(val name: MIdentifier, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         throw AssertionError("Do not eval open nodes!")
     }
 
@@ -115,7 +116,7 @@ class TopOpenNode(val name: MIdentifier, line: Int): AstNode(line) {
  */
 class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, line: Int): AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated")
     }
     override fun inferType(env: TypeEnv): MType {
@@ -124,3 +125,23 @@ class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDum
     }
 }
 
+
+class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: String, line: Int): AstNode(line) {
+
+    override fun eval(env: DynEnv): MValue {
+        throw AssertionError("Probably shouldn't be evaluated")
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        val newEnv = env.copy()
+        return type.lookupOrMutate(newEnv, true)
+    }
+
+    override fun toString(): String {
+        return "External($name, $type, $javaFunc)"
+    }
+
+    override fun pretty(): String {
+        return "external $name: $type = $javaFunc"
+    }
+}

@@ -2,12 +2,11 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
-import vertexcubed.maml.core.RecordException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 
 class UnitNode(line: Int) : AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return UnitValue
     }
 
@@ -25,7 +24,7 @@ class UnitNode(line: Int) : AstNode(line) {
 }
 
 class TrueNode(line: Int) : AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return BooleanValue(true)
     }
 
@@ -44,7 +43,7 @@ class TrueNode(line: Int) : AstNode(line) {
 
 class FalseNode(line: Int) : AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return BooleanValue(false)
     }
 
@@ -63,7 +62,7 @@ class FalseNode(line: Int) : AstNode(line) {
 
 class StringNode(val text: String, line: Int) : AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return StringValue(text)
     }
 
@@ -81,7 +80,7 @@ class StringNode(val text: String, line: Int) : AstNode(line) {
 }
 
 class CharNode(val text: Char, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return CharValue(text)
     }
 
@@ -104,7 +103,7 @@ class CharNode(val text: Char, line: Int): AstNode(line) {
  */
 class IntegerNode(val number: Long, line: Int) : AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return IntegerValue(number)
     }
 
@@ -123,7 +122,7 @@ class IntegerNode(val number: Long, line: Int) : AstNode(line) {
 
 class FloatNode(val number: Float, line: Int): AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return FloatValue(number)
     }
 
@@ -141,7 +140,7 @@ class FloatNode(val number: Float, line: Int): AstNode(line) {
 }
 
 class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return TupleValue(nodes.map { node -> node.eval(env) })
     }
 
@@ -159,7 +158,7 @@ class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
 }
 
 class RecordLiteralNode(val fields: Map<String, AstNode>, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         return RecordValue(fields.mapValues { (_, v) -> v.eval(env) })
     }
 
@@ -180,8 +179,8 @@ class RecordLiteralNode(val fields: Map<String, AstNode>, line: Int): AstNode(li
 class VariableNode(val name: MIdentifier, line: Int): AstNode(line) {
     constructor(name: String, line: Int): this(MIdentifier(name), line)
 
-    override fun eval(env: Map<String, MValue>): MValue {
-        return name.lookupEvalBinding(env)
+    override fun eval(env: DynEnv): MValue {
+        return env.lookupBinding(name)
     }
 
     override fun inferType(env: TypeEnv): MType {
@@ -198,7 +197,7 @@ class VariableNode(val name: MIdentifier, line: Int): AstNode(line) {
 }
 
 class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
     }
 

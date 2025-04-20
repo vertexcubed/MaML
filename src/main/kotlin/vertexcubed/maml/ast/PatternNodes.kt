@@ -3,10 +3,7 @@ package vertexcubed.maml.ast
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.core.UnifyException
-import vertexcubed.maml.eval.ConValue
-import vertexcubed.maml.eval.MValue
-import vertexcubed.maml.eval.RecordValue
-import vertexcubed.maml.eval.TupleValue
+import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 import java.util.*
 import kotlin.collections.ArrayList
@@ -16,7 +13,7 @@ sealed class PatternNode(line: Int): AstNode(line) {
         throw AssertionError("Do not inferType of a pattern, use inferPatternType instead.")
     }
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         throw AssertionError("Patterns should never be evaluated!")
     }
 
@@ -37,7 +34,7 @@ class ConstantPatternNode(val value: AstNode, line: Int): PatternNode(line) {
     }
 
     override fun unify(expr: MValue): Optional<Map<String, MValue>> {
-        val myVal = value.eval(emptyMap())
+        val myVal = value.eval(DynEnv())
         if(myVal == expr) {
             return Optional.of(emptyMap())
         }

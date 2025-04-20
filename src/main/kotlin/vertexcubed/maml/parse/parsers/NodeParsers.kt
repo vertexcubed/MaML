@@ -7,6 +7,8 @@ import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.BadRecordException
+import vertexcubed.maml.core.UnboundVarException
+import vertexcubed.maml.eval.ModuleValue
 import java.util.*
 import kotlin.math.pow
 
@@ -223,15 +225,24 @@ class RecordLiteralParser(): Parser<RecordLiteralNode>() {
 class ApplicationParser(): Parser<AstNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
         return PrecedenceParsers.ConstLevel().bind {first ->
-            ZeroOrMore(PrecedenceParsers.ConstLevel()).map(fun(second: List<AstNode>): AstNode {
-                if(second.isEmpty()) return first
+            ZeroOrMore(PrecedenceParsers.ConstLevel()).map { second: List<AstNode> ->
+                if (second.isEmpty()) return@map first
+
+                //TODO: fix that last() call
+                if(first is VariableNode && first.name in env.allExternalFuncs()) {
+
+
+                    return@map ExternalAppNode(first.name, second, first.line)
+                }
+
+
 
                 var app = AppNode(first, second[0], tokens[index].line)
-                for(i in 1..<second.size) {
+                for (i in 1..<second.size) {
                     app = AppNode(app, second[i], tokens[index].line)
                 }
-                return app
-            })
+                app
+            }
         }.parse(tokens, index, env)
     }
 }

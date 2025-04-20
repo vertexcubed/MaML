@@ -8,28 +8,21 @@ import java.util.*
 
 class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
-
-
-        //Special logic for builtins: The actual builtin takes one argument, but they can get combined into a tuple ig
-        if(func is BuiltinNode) {
-            val argEval = arg.eval(env)
-            val newEnv = env + (BuiltinNode.argBinding to argEval)
-            return func.eval(newEnv)
-        }
-
-
+    override fun eval(env: DynEnv): MValue {
 
         val funcVal = func.eval(env)
         when(funcVal) {
             is FunctionValue -> {
                 val argEval = arg.eval(env)
-                val newEnv = funcVal.env + (funcVal.arg to argEval)
+                val newEnv = funcVal.env.copy()
+                newEnv.addBinding(funcVal.arg to argEval)
                 return funcVal.expr.eval(newEnv)
             }
             is RecursiveFunctionValue -> {
                 val argEval = arg.eval(env)
-                val newEnv = funcVal.func.env + (funcVal.func.arg to argEval) + (funcVal.name to funcVal)
+                val newEnv = funcVal.func.env.copy()
+                newEnv.addBinding(funcVal.func.arg to argEval)
+                newEnv.addBinding(funcVal.name to funcVal)
                 return funcVal.func.expr.eval(newEnv)
             }
             else -> throw ApplicationException("Cannot apply non-function value")
@@ -75,7 +68,7 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
 
 class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: AstNode, line: Int) : AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         val conditionValue = condition.eval(env)
         if(conditionValue !is BooleanValue) throw IfException()
         if(conditionValue.value) {
@@ -115,7 +108,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
 }
 
 class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         val oldRecord = original.eval(env)
         if(oldRecord !is RecordValue) throw RecordException("Cannot expand non-record value!")
         val map = mutableMapOf<String, MValue>()
@@ -159,7 +152,7 @@ class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>
 
 class RecordLookupNode(val record: AstNode, val field: String, line: Int): AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         val recordVal = record.eval(env)
         if(recordVal !is RecordValue) {
             throw RecordException("Cannot access record field of non-record value!")
@@ -187,10 +180,11 @@ class RecordLookupNode(val record: AstNode, val field: String, line: Int): AstNo
 //TODO: explicit type for let not actually used!
 class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNode, line: Int) : AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         val statementVal = statement.eval(env)
         if(name.binding == "_") return expression.eval(env)
-        val newEnv = env + (name.binding to statementVal)
+        val newEnv = env.copy()
+        newEnv.addBinding(name.binding to statementVal)
         return expression.eval(newEnv)
     }
 
@@ -236,7 +230,7 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
 }
 
 class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         val nodeVal = node.eval(env)
         return RecursiveFunctionValue(name.binding, nodeVal)
     }
@@ -290,7 +284,7 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
 
 class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): FunctionValue {
+    override fun eval(env: DynEnv): FunctionValue {
         return FunctionValue(arg.binding, body, env)
     }
 
@@ -329,7 +323,7 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
 class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): AstNode(line) {
     constructor(name: String, value: Optional<AstNode>, line: Int): this(MIdentifier(name), value, line)
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         if(value.isPresent) {
             return ConValue(name, Optional.of(value.get().eval(env)))
         }
@@ -405,42 +399,56 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
     }
 }
 
-class BuiltinNode(val name: MBinding, line: Int, val function: (MValue) -> MValue): AstNode(line) {
-
-    companion object {
-        const val argBinding = "b0"
-    }
-
-    override fun eval(env: Map<String, MValue>): MValue {
-        val argVal = env.getOrElse(argBinding, { throw UnboundVarException(argBinding) })
-        return function(argVal)
+class ExternalAppNode(val name: MIdentifier, val args: List<AstNode>, line: Int): AstNode(line) {
+    override fun eval(env: DynEnv): MValue {
+        val javaFunc = env.lookupBinding(name)
+        if(javaFunc !is ExternalValue) throw ApplicationException("Cannot apply non-function value $name!")
+        val argValues = args.map { n -> n.eval(env) }
+        return env.callJavaFunc(javaFunc.javaFunc, argValues.toTypedArray())
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val argType = env.typeSystem.newTypeVar()
+        val funcType = env.lookupBinding(name).instantiate(env.typeSystem)
+
+        val argTypes = args.map { n -> n.inferType(env) }
+
         val myType = env.typeSystem.newTypeVar()
-        return MFunction(argType, myType)
+
+        val other = argTypes.foldRight(myType as MType, {arg, acc -> MFunction(arg, acc)})
+        try {
+            funcType.unify(other, env.typeSystem)
+        }
+        catch(e: UnifyException) {
+            throw TypeCheckException(line, this, env, e.t2, e.t1)
+        }
+
+        return myType
     }
 
     override fun pretty(): String {
-        return name.binding
+        return "$name ${args.joinToString(" ") {n -> n.pretty()}}"
     }
 
     override fun toString(): String {
-        return "Builtin(${name.binding})"
+        return "ExternalApp($name, $args)"
     }
+
 }
 
 
 
 
+
+
+
 class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode>>, line: Int): AstNode(line) {
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         val exprVal = expr.eval(env)
         for((pat, newExpr) in nodes) {
             val patBindings = pat.unify(exprVal)
             if(patBindings.isPresent) {
-                val newEnv = env + patBindings.get()
+                val newEnv = env.copy()
+                newEnv.addAllBindings(patBindings.get())
                 return newExpr.eval(newEnv)
             }
         }

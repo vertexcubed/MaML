@@ -56,16 +56,16 @@ MaML is in active development, and bugs and issues are expected. Please report b
 - [x] Custom infix functions
 - [ ] Multi argument builtin functions
 - [x] Multi argument Type Constructors
-- [ ] Type aliases
+- [x] Type aliases
 - [ ] Pattern exhaustiveness checking
 - [ ] Lists
-- [ ] Records
+- [x] Records
 - [ ] Modules
 - [ ] Exceptions
 
 ### Future Additions
 
-- [ ] Binding Operators (let*)  
+- [ ] Asynchronous values?
 - [ ] Better Java integration
 - [ ] REPL environment for command-line
 - [ ] **Standard Library**
@@ -91,7 +91,6 @@ MaML is in active development, and bugs and issues are expected. Please report b
 ### Not Planned
 
 - Iteration
-- Asynchronous values
 - Side effects / mutable values*
   - Lazy values *might* be the exception to this
 - Classes and objects

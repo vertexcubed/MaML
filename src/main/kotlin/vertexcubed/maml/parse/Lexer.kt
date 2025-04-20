@@ -25,6 +25,7 @@ class Lexer(val source: String) {
                 "else",
                 "end",
                 "exception",
+                "external",
                 "fn",
                 "fun",
                 "handle",

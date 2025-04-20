@@ -1,3 +1,17 @@
+
+external print: 'a -> unit = "maml_core_print"
+external println: 'a -> unit = "maml_core_println"
+
+(*  Legacy functions: I got this code from Selene Wu, whose slamda langauge doesn't have tuple matching
+    In addition, in her language tuples are all 2-tuples. *)
+external fst: 'a -> 'b = "maml_8queens_fst"
+external snd: 'a -> 'b = "maml_8queens_snd"
+
+
+
+
+
+
 let n = 8
 
 (*

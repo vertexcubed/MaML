@@ -174,7 +174,12 @@ class SpecificIdentifierParser(val name: String): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.IDENTIFIER, name)
     }
+}
 
+class SpecificConstructorParser(val name: String): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        return simple(tokens, index, TokenType.IDENTIFIER, name)
+    }
 }
 
 class ConstructorParser(): Parser<String>() {

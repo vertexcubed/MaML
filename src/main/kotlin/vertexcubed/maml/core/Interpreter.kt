@@ -4,7 +4,6 @@ import vertexcubed.maml.ast.*
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.parse.Lexer
 import vertexcubed.maml.parse.ParseEnv
-import vertexcubed.maml.parse.parsers.EOFParser
 import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
@@ -12,7 +11,7 @@ import java.util.*
 
 class Interpreter {
 
-    var dynEnv: Map<String, MValue>
+    var dynEnv: DynEnv
     var typeEnv: TypeEnv
     val typeSystem: TypeSystem = TypeSystem()
 
@@ -52,8 +51,8 @@ class Interpreter {
             "char" to ForAll.empty(MChar),
             "string" to ForAll.empty(MString),
         ))
-        dynEnv = emptyMap()
-        dynEnv = mapOf(
+        dynEnv = DynEnv()
+        dynEnv.addAllBindings(mapOf(
             "||" to BuiltinOperators.or(dynEnv),
             "&&" to BuiltinOperators.and(dynEnv),
             "=" to BuiltinOperators.eq(dynEnv),
@@ -77,7 +76,7 @@ class Interpreter {
             "~-" to BuiltinOperators.negate(dynEnv),
             "~-." to BuiltinOperators.negatef(dynEnv),
             "!" to BuiltinOperators.not(dynEnv),
-        )
+        ))
 
     }
 
@@ -93,16 +92,46 @@ class Interpreter {
     }
 
 
-    fun registerBuiltin(name: String, function: (MValue) -> MValue) {
-        val builtin = BuiltinNode(MBinding(name + "_builtin", Optional.empty()), 1, function)
-        val wrapBuiltin = FunctionNode(MBinding("p0", Optional.empty()), AppNode(builtin, VariableNode("p0", 1), 1), 1)
 
-        val wrapType = wrapBuiltin.inferType(typeEnv)
-        val scheme = ForAll.generalize(wrapType, typeSystem)
 
-        typeEnv = typeEnv.copy()
-        typeEnv.addBinding(name to scheme)
-        dynEnv = dynEnv + (name to wrapBuiltin.eval(dynEnv))
+
+    fun registerExternal(name: String, function: (MValue) -> MValue) {
+        registerExternalArr(name) { args: Array<MValue> ->
+            function(args[0])
+        }
+    }
+    fun registerExternal(name: String, function: (MValue, MValue) -> MValue) {
+        registerExternalArr(name) { args: Array<MValue> ->
+            function(args[0], args[1])
+        }
+    }
+
+    fun registerExternal(name: String, function: (MValue, MValue, MValue) -> MValue) {
+        registerExternalArr(name) { args: Array<MValue> ->
+            function(args[0], args[1], args[2])
+        }
+    }
+
+    fun registerExternal(name: String, function: (MValue, MValue, MValue, MValue) -> MValue) {
+        registerExternalArr(name) { args: Array<MValue> ->
+            function(args[0], args[1], args[2], args[3])
+        }
+    }
+
+    fun registerExternal(name: String, function: (MValue, MValue, MValue, MValue, MValue) -> MValue) {
+        registerExternalArr(name) { args: Array<MValue> ->
+            function(args[0], args[1], args[2], args[3], args[4])
+        }
+    }
+
+    fun registerExternal(name: String, function: (MValue, MValue, MValue, MValue, MValue, MValue) -> MValue) {
+        registerExternalArr(name) { args: Array<MValue> ->
+            function(args[0], args[1], args[2], args[3], args[4], args[5])
+        }
+    }
+
+    fun registerExternalArr(name: String, function: (Array<MValue>) -> MValue) {
+        dynEnv.addJavaFunc(name, function)
     }
 
 
@@ -119,7 +148,8 @@ class Interpreter {
         println(tokens)
         val parseEnv = ParseEnv()
         parseEnv.init()
-        val result = parser.parse(tokens, parseEnv)
+        var result = parser.parse(tokens, parseEnv)
+
         if(result is ParseResult.Failure) {
             val line = result.token.line
             println(strList[line - 1].trim())
@@ -132,8 +162,8 @@ class Interpreter {
             return
         }
 
-
-        val program = ModuleStructNode("Program", result.result, 1)
+        println("All externals: ${parseEnv.allExternalFuncs()}")
+        val program = ModuleStructNode("Program", result.result, parseEnv, 1)
         println(program.nodes)
         println("Parse successful. Type checking...")
         try {
@@ -159,15 +189,15 @@ class Interpreter {
 class BuiltinOperators {
     companion object {
 
-        fun eq(env: Map<String, MValue>): MValue {
+        fun eq(env: DynEnv): MValue {
             return bop(env, { x, y -> BooleanValue(x == y)})
         }
 
-        fun neq(env: Map<String, MValue>): MValue {
+        fun neq(env: DynEnv): MValue {
             return bop(env, { x, y -> BooleanValue(x != y)})
         }
 
-        fun lt(env: Map<String, MValue>): MValue {
+        fun lt(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -175,7 +205,7 @@ class BuiltinOperators {
             })
         }
 
-        fun lte(env: Map<String, MValue>): MValue {
+        fun lte(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -183,7 +213,7 @@ class BuiltinOperators {
             })
         }
 
-        fun gt(env: Map<String, MValue>): MValue {
+        fun gt(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -191,7 +221,7 @@ class BuiltinOperators {
             })
         }
 
-        fun gte(env: Map<String, MValue>): MValue {
+        fun gte(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -199,7 +229,7 @@ class BuiltinOperators {
             })
         }
 
-        fun add(env: Map<String, MValue>): MValue {
+        fun add(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -207,7 +237,7 @@ class BuiltinOperators {
             })
         }
 
-        fun sub(env: Map<String, MValue>): MValue {
+        fun sub(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -215,7 +245,7 @@ class BuiltinOperators {
             })
         }
 
-        fun mul(env: Map<String, MValue>): MValue {
+        fun mul(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -223,7 +253,7 @@ class BuiltinOperators {
             })
         }
 
-        fun div(env: Map<String, MValue>): MValue {
+        fun div(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -231,7 +261,7 @@ class BuiltinOperators {
             })
         }
 
-        fun mod(env: Map<String, MValue>): MValue {
+        fun mod(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 if(y !is IntegerValue) throw AssertionError("Should not happen")
@@ -239,14 +269,14 @@ class BuiltinOperators {
             })
         }
 
-        fun negate(env: Map<String, MValue>): MValue {
+        fun negate(env: DynEnv): MValue {
             return uop(env, { x ->
                 if(x !is IntegerValue) throw AssertionError("Should not happen")
                 IntegerValue(-x.value)
             })
         }
 
-        fun addf(env: Map<String, MValue>): MValue {
+        fun addf(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is FloatValue) throw AssertionError("Should not happen")
                 if(y !is FloatValue) throw AssertionError("Should not happen")
@@ -254,7 +284,7 @@ class BuiltinOperators {
             })
         }
 
-        fun subf(env: Map<String, MValue>): MValue {
+        fun subf(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is FloatValue) throw AssertionError("Should not happen")
                 if(y !is FloatValue) throw AssertionError("Should not happen")
@@ -262,7 +292,7 @@ class BuiltinOperators {
             })
         }
 
-        fun mulf(env: Map<String, MValue>): MValue {
+        fun mulf(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is FloatValue) throw AssertionError("Should not happen")
                 if(y !is FloatValue) throw AssertionError("Should not happen")
@@ -270,7 +300,7 @@ class BuiltinOperators {
             })
         }
 
-        fun divf(env: Map<String, MValue>): MValue {
+        fun divf(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is FloatValue) throw AssertionError("Should not happen")
                 if(y !is FloatValue) throw AssertionError("Should not happen")
@@ -278,7 +308,7 @@ class BuiltinOperators {
             })
         }
 
-        fun modf(env: Map<String, MValue>): MValue {
+        fun modf(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is FloatValue) throw AssertionError("Should not happen")
                 if(y !is FloatValue) throw AssertionError("Should not happen")
@@ -286,14 +316,14 @@ class BuiltinOperators {
             })
         }
 
-        fun negatef(env: Map<String, MValue>): MValue {
+        fun negatef(env: DynEnv): MValue {
             return uop(env, { x ->
                 if(x !is FloatValue) throw AssertionError("Should not happen")
                 FloatValue(-x.value)
             })
         }
 
-        fun and(env: Map<String, MValue>): MValue {
+        fun and(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is BooleanValue) throw AssertionError("Should not happen")
                 if(y !is BooleanValue) throw AssertionError("Should not happen")
@@ -301,7 +331,7 @@ class BuiltinOperators {
             })
         }
 
-        fun or(env: Map<String, MValue>): MValue {
+        fun or(env: DynEnv): MValue {
             return bop(env, { x, y ->
                 if(x !is BooleanValue) throw AssertionError("Should not happen")
                 if(y !is BooleanValue) throw AssertionError("Should not happen")
@@ -309,26 +339,26 @@ class BuiltinOperators {
             })
         }
 
-        fun not(env: Map<String, MValue>): MValue {
+        fun not(env: DynEnv): MValue {
             return uop(env, { x ->
                 if(x !is BooleanValue) throw AssertionError("Should not happen")
                 BooleanValue(!x.value)
             })
         }
 
-        private fun uop(env: Map<String, MValue>, func: (MValue) -> MValue): MValue {
+        private fun uop(env: DynEnv, func: (MValue) -> MValue): MValue {
             return FunctionValue("x", BuiltinOpNode({ e ->
-                val x = e.getOrElse("x", {throw UnboundVarException("x")})
+                val x = e.lookupBinding("x")
                 func(x)
             }, 1), env)
         }
 
 
 
-        private fun bop(env: Map<String, MValue>, func: (MValue, MValue) -> MValue): MValue {
+        private fun bop(env: DynEnv, func: (MValue, MValue) -> MValue): MValue {
             return FunctionValue("x", FunctionNode(MBinding("y"), BuiltinOpNode({ e ->
-                val x = e.getOrElse("x", {throw UnboundVarException("x")})
-                val y = e.getOrElse("y", {throw UnboundVarException("y")})
+                val x = e.lookupBinding("x")
+                val y = e.lookupBinding("y")
                 func(x, y)
             }, 1), 1), env)
         }
@@ -336,8 +366,8 @@ class BuiltinOperators {
 
 
     //TODO: this is very fragile and unsafe. Replace with much more stable version.
-    class BuiltinOpNode(val evalFunc: (Map<String, MValue>) -> MValue, line: Int): AstNode(line) {
-        override fun eval(env: Map<String, MValue>): MValue {
+    class BuiltinOpNode(val evalFunc: (DynEnv) -> MValue, line: Int): AstNode(line) {
+        override fun eval(env: DynEnv): MValue {
             return evalFunc(env)
         }
 

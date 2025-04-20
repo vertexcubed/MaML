@@ -1,9 +1,20 @@
-type 'a option = Some of 'a * 'a | None
+module A = struct
 
 
+    module B = struct
 
-let f x =
-    match x with
-    | Some (a, b) -> "Meow"
-    | None -> "Oh"
+        let meow = 3
+
     end
+
+    let bark = 2
+
+end
+
+module C = struct
+    let longMeow = A.B.meow * 2
+
+end
+
+
+let _ = C.longMeow + A.bark

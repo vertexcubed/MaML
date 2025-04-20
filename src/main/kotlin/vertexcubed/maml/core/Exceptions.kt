@@ -19,6 +19,14 @@ class UnboundVarException(val name: String) : Exception("Unbound Variable: $name
 /**
  * Thrown when trying to lookup a variable in the environment, but none was found.
  */
+class UnboundExternalException(val name: String) : Exception("Java function $name not implemented.")
+
+
+
+
+/**
+ * Thrown when trying to lookup a variable in the environment, but none was found.
+ */
 class UnboundModuleException(val name: String) : Exception("Unbound Module: $name")
 
 

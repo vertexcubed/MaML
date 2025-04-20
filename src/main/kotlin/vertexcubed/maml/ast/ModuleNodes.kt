@@ -1,8 +1,7 @@
 package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.*
-import vertexcubed.maml.eval.MValue
-import vertexcubed.maml.eval.ModuleValue
+import vertexcubed.maml.eval.*
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.type.*
 import java.util.*
@@ -11,7 +10,8 @@ import java.util.*
 /**
  * module m = struct ... end
  */
-class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): AstNode(line) {
+//TODO: THIS NEEDS ONLY NEW STUFF, NOT THE WHOLE ENV
+class ModuleStructNode(val name: String, val nodes: List<AstNode>, val parseEnv: ParseEnv, line: Int): AstNode(line) {
 
     private fun typeVariant(node: VariantTypeNode, typeEnv: TypeEnv, toWrite: TypeEnv) {
         val newEnv = typeEnv.copy()
@@ -77,17 +77,17 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
     }
 
 
-    override fun eval(env: Map<String, MValue>): ModuleValue {
-        val newBindings = mutableMapOf<String, MValue>()
-        val newEnv = env.toMutableMap()
+    override fun eval(env: DynEnv): ModuleValue {
+        val newBindings = DynEnv()
+        val newEnv = env.copy()
         for(node in nodes) {
             when(node) {
                 is TopLetNode -> {
                     val nodeVal = node.eval(newEnv)
                     println(nodeVal)
                     if(node.name.binding != "_") {
-                        newEnv += (node.name.binding to nodeVal)
-                        newBindings += (node.name.binding to nodeVal)
+                        newEnv.addBinding(node.name.binding to nodeVal)
+                        newBindings.addBinding(node.name.binding to nodeVal)
                     }
                 }
                 is VariantTypeNode, is TypeAliasNode -> {
@@ -98,27 +98,32 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
                 is ModuleStructNode -> {
                     val nodeVal = node.eval(newEnv)
                     println(nodeVal)
-                    newEnv += (node.name to nodeVal)
-                    newBindings += (node.name to nodeVal)
+                    newEnv.addBinding(node.name to nodeVal)
+                    newBindings.addBinding(node.name to nodeVal)
                 }
 
                 is TopOpenNode -> {
                     try {
-                        val module = node.name.lookupEvalBinding(newEnv)
+                        val module = newEnv.lookupBinding(node.name)
                         if(module !is ModuleValue) throw UnboundModuleException(node.name.toString())
-                        newEnv.putAll(module.bindings)
+                        newEnv.addAllBindings(module.bindings.bindings)
                     }
                     catch(e: UnboundVarException) {
                         throw UnboundModuleException(e.name)
                     }
+                }
+
+                is ExternalDefNode -> {
+                    newEnv.addBinding(node.name to ExternalValue(node.javaFunc))
+                    newBindings.addBinding(node.name to ExternalValue(node.javaFunc))
                 }
                 else -> {
                     println(node.eval(newEnv))
                 }
             }
         }
-        newBindings.keys.map { k -> "$name.$k" }
-        return ModuleValue(name, newBindings, newEnv)
+        newBindings.bindings.keys.map { k -> "$name.$k" }
+        return ModuleValue(name, newBindings)
     }
 
     override fun inferType(env: TypeEnv): MType {
@@ -168,6 +173,14 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
                     }
 
                 }
+                is ExternalDefNode -> {
+                    val t = node.inferType(newEnv)
+                    val scheme = ForAll.generalize(t, newEnv.typeSystem)
+                    newEnv.addBinding(node.name to scheme)
+                    moduleTypes.addBinding(node.name to scheme)
+                    println("Type of $node : ${t.asString(newEnv)}")
+
+                }
 
                 else -> {
                     val t = node.inferType(newEnv)
@@ -188,11 +201,12 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, line: Int): A
 
 class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNode(line) {
 
-    override fun eval(env: Map<String, MValue>): MValue {
+    override fun eval(env: DynEnv): MValue {
         try {
-            val module = name.lookupEvalBinding(env)
+            val module = env.lookupBinding(name)
             if(module !is ModuleValue) throw UnboundModuleException(name.toString())
-            val newEnv = env + module.bindings
+            val newEnv = env.copy()
+            newEnv.addAllBindings(module.bindings.bindings)
             return body.eval(newEnv)
         }
         catch(e: UnboundVarException) {

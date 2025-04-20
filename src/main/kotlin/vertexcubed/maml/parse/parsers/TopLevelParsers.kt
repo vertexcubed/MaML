@@ -20,6 +20,7 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
             DataTypeDefParser() as Parser<AstNode>,
             StructParser() as Parser<AstNode>,
             TopOpenParser() as Parser<AstNode>,
+            ExternalDefParser() as Parser<AstNode>,
         ))
         var workingIndex = index
         val output = ArrayList<AstNode>()
@@ -58,6 +59,22 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
             val res = parser.parse(tokens, workingIndex, env)
             when(res) {
                 is ParseResult.Success -> {
+
+                    if(res.result is TopOpenNode) {
+                        val module = env.lookupModule(res.result.name)
+                        if(module.isPresent) {
+                            env.addAllFrom(module.get().parseEnv)
+                        }
+                    }
+
+                    if(res.result is ExternalDefNode) {
+                        env.addExternalFunc(res.result.name)
+                    }
+                    if(res.result is ModuleStructNode) {
+                        env.addModule(res.result)
+                    }
+
+
                     workingIndex = res.newIndex
                     output.add(res.result)
                 }
@@ -163,8 +180,21 @@ class StructParser(): Parser<ModuleStructNode>() {
         val newEnv = env.copy()
         return KeywordParser("module").rCompose(ConstructorParser()).lCompose(SpecialCharParser("=")).bind { name ->
             KeywordParser("struct").rCompose(ProgramParser(KeywordParser("end") as Parser<Any>)).lCompose(KeywordParser("end")).map { nodes ->
-                ModuleStructNode(name, nodes, tokens[index].line)
+                ModuleStructNode(name, nodes, newEnv, tokens[index].line)
             }
         }.parse(tokens, index, newEnv)
     }
+}
+
+class ExternalDefParser(): Parser<ExternalDefNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ExternalDefNode> {
+        return KeywordParser("external").rCompose(IdentifierParser()).bind { name ->
+            SpecialCharParser(":").rCompose(TypeParser()).bind { type ->
+                SpecialCharParser("=").rCompose(StringLitParser()).map { lit ->
+                    ExternalDefNode(name, type, lit, tokens[index].line)
+                }
+            }
+        }.parse(tokens, index, env)
+    }
+
 }

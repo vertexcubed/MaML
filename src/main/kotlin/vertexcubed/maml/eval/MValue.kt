@@ -33,7 +33,7 @@ data object UnitValue : MValue() {
     }
 }
 
-data class FunctionValue(val arg: String, val expr: AstNode, val env: Map<String, MValue>) : MValue() {
+data class FunctionValue(val arg: String, val expr: AstNode, val env: DynEnv) : MValue() {
     override fun toString(): String {
         return "<fun>"
     }
@@ -74,7 +74,11 @@ data class RecordValue(val values: Map<String, MValue>): MValue() {
     }
 }
 
-
+data class ExternalValue(val javaFunc: String): MValue() {
+    override fun toString(): String {
+        return "<extern-fun>"
+    }
+}
 
 data class ConValue(val name: MIdentifier, val value: Optional<MValue>): MValue() {
     override fun toString(): String {
@@ -93,7 +97,7 @@ data class ConValue(val name: MIdentifier, val value: Optional<MValue>): MValue(
 /**
  * Module "values." The bindings map is all of the new bindings, while the env map is the environment this module was evaluated in (closure)
  */
-data class ModuleValue(val name: String, val bindings: Map<String, MValue>, val env: Map<String, MValue>): MValue() {
+data class ModuleValue(val name: String, val bindings: DynEnv): MValue() {
     override fun toString(): String {
         return "<module>"
     }

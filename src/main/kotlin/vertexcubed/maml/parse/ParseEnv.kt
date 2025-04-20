@@ -2,15 +2,23 @@ package vertexcubed.maml.parse
 
 import vertexcubed.maml.ast.AppNode
 import vertexcubed.maml.ast.AstNode
+import vertexcubed.maml.ast.ModuleStructNode
 import vertexcubed.maml.ast.VariableNode
+import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.ParseException
+import vertexcubed.maml.core.UnboundVarException
+import vertexcubed.maml.eval.ModuleValue
 import vertexcubed.maml.parse.parsers.*
 import vertexcubed.maml.parse.preprocess.Associativity
 import vertexcubed.maml.parse.preprocess.InfixRule
+import java.util.*
+import kotlin.collections.ArrayList
 
 class ParseEnv() {
 
     val infixMap = mutableMapOf<Int, Pair<Associativity, MutableList<String>>>()
+    val externalFuncs = arrayListOf<String>()
+    val modules = mutableMapOf<String, ModuleStructNode>()
 
     //default values
     fun init() {
@@ -22,11 +30,53 @@ class ParseEnv() {
     }
 
 
+    fun addAllFrom(other: ParseEnv) {
+        infixMap.putAll(other.infixMap)
+        externalFuncs.addAll(other.externalFuncs)
+        modules.putAll(other.modules)
+    }
 
     fun copy(): ParseEnv {
         val ret = ParseEnv()
         ret.infixMap.putAll(infixMap)
+        ret.externalFuncs.addAll(externalFuncs)
+        ret.modules.putAll(modules)
         return ret
+    }
+
+    fun addModule(module: ModuleStructNode) {
+        modules[module.name] = module
+    }
+
+    fun lookupModule(binding: MIdentifier): Optional<ModuleStructNode> {
+        var lastEnv = this
+        for(i in binding.path.indices) {
+            val cur = lastEnv.modules[binding.path[i]]
+            if(cur != null) {
+                lastEnv = cur.parseEnv
+            }
+            else {
+                return Optional.empty()
+            }
+            if(i == binding.path.lastIndex) {
+                return Optional.of(cur)
+            }
+        }
+        throw AssertionError("Should not happen!")
+    }
+
+    fun allExternalFuncs(): List<MIdentifier> {
+        val ret = arrayListOf<MIdentifier>()
+        for((name, mod) in modules) {
+            val modFuncs = mod.parseEnv.allExternalFuncs()
+            ret.addAll(modFuncs.map { iden -> MIdentifier(listOf(name) + iden.path) })
+        }
+        ret.addAll(externalFuncs.map { s -> MIdentifier(s) })
+        return ret
+    }
+
+    fun addExternalFunc(name: String) {
+        externalFuncs.add(name)
     }
 
     fun addInfixRule(rule: InfixRule) {
@@ -44,17 +94,27 @@ class ParseEnv() {
         return out
     }
 
-    fun choiceNameParsers(): Parser<String> {
+    fun choiceNameParsers(): Parser<MIdentifier> {
+        val list = ArrayList<Parser<MIdentifier>>()
+        for((name, mod) in modules) {
+            list.add(SpecificConstructorParser(name).lCompose(SpecialCharParser(".")).bind { first ->
+                mod.parseEnv.choiceNameParsers().map { second ->
+                    MIdentifier(listOf(first) + second.path)
+                }
+            })
+        }
         val sortedMap = infixMap.toSortedMap().reversed()
-        val list = ArrayList<ChoiceParser<String>>()
+
+
         for((_, v) in sortedMap) {
             val (_, names) = v
             val nameParser = ChoiceParser(names.map { name ->
                 CompoundSpecialCharParser(name).disjoint(SpecificIdentifierParser(name))
             })
-            list.add(nameParser)
+            list.add(nameParser.map { str -> MIdentifier(str) })
         }
         return ChoiceParser(list)
+
     }
 
     fun infixParser(base: Parser<AstNode>): Parser<AstNode> {

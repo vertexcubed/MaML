@@ -44,23 +44,23 @@ fun main(args: Array<String>) {
     println("Starting execution of file ${args[0]}")
     val interp = Interpreter()
 
-    interp.registerBuiltin("print", { arg ->
+    interp.registerExternal("maml_core_print", { arg ->
         print(arg)
         UnitValue
     })
 
-    interp.registerBuiltin("println", { arg ->
+    interp.registerExternal("maml_core_println", { arg ->
         println(arg)
         UnitValue
     })
 
-    interp.registerBuiltin("fst", { arg ->
+    interp.registerExternal("maml_8queens_fst") {arg ->
         (arg as TupleValue).values[0]
-    })
+    }
 
-    interp.registerBuiltin("snd", { arg ->
+    interp.registerExternal("maml_8queens_snd") {arg ->
         (arg as TupleValue).values[1]
-    })
+    }
 
     interp.run(code)
 
