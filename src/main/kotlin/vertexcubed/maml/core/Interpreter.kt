@@ -12,12 +12,17 @@ import vertexcubed.maml.type.*
 
 class Interpreter {
 
+    private val namedValues: MutableMap<String, MValue>
     var dynEnv: DynEnv
     var typeEnv: TypeEnv
+
     val typeSystem: TypeSystem = TypeSystem()
+
 
     //TODO: IMPLEMENT AND/OR SHORT CIRCUITING
     init {
+        namedValues = mutableMapOf()
+
         typeEnv = TypeEnv(typeSystem)
         typeEnv.addAllBindings(mapOf(
             "||" to infixType(MBool, MBool),
@@ -79,6 +84,14 @@ class Interpreter {
             "!" to BuiltinOperators.not(dynEnv),
         ))
 
+
+
+
+        registerExternal("maml_register_named_value") { vname, value ->
+            val name = stringOf(vname)!!
+            namedValues[name] = value
+            UnitValue
+        }
     }
 
 
@@ -92,8 +105,25 @@ class Interpreter {
         return ForAll.generalize(rawType, typeSystem)
     }
 
+    fun namedValue(name: String): MValue? {
+        return namedValues[name]
+    }
 
+    fun callback(vfunc: MValue, vararg args: MValue): MValue? {
+        if(args.isEmpty()) return null
 
+        var last = toFunction(vfunc)?.invoke(args[0])
+        for(i in 1 until args.size) {
+            if(last == null) return null
+            last = toFunction(last)?.invoke(args[i])
+        }
+        return last
+    }
+
+    fun callback(name: String, vararg args: MValue): MValue? {
+        val func = namedValue(name) ?: return null
+        return callback(func, *args)
+    }
 
 
     fun registerExternal(name: String, function: (MValue) -> MValue) {

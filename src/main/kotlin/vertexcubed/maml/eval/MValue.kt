@@ -33,18 +33,6 @@ data object UnitValue : MValue() {
     }
 }
 
-data class FunctionValue(val arg: String, val expr: AstNode, val env: DynEnv) : MValue() {
-    override fun toString(): String {
-        return "<fun>"
-    }
-}
-
-data class RecursiveFunctionValue(val name: String, val func: FunctionValue): MValue() {
-    override fun toString(): String {
-        return "<fun>"
-    }
-}
-
 data class BooleanValue(val value: Boolean) : MValue() {
     override fun toString(): String {
         return value.toString()
@@ -54,6 +42,18 @@ data class BooleanValue(val value: Boolean) : MValue() {
 data class StringValue(val value: String): MValue() {
     override fun toString(): String {
         return value
+    }
+}
+
+data class FunctionValue(val arg: String, val expr: AstNode, val env: DynEnv) : MValue() {
+    override fun toString(): String {
+        return "<fun>"
+    }
+}
+
+data class RecursiveFunctionValue(val name: String, val func: FunctionValue): MValue() {
+    override fun toString(): String {
+        return "<fun>"
     }
 }
 

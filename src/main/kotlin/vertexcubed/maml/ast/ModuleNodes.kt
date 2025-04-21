@@ -199,33 +199,13 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val parseEnv:
 
 }
 
-class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNode(line) {
-
+class ModuleSigNode(val name: String, val node: List<AstNode>, val parseEnv: ParseEnv, line: Int): AstNode(line) {
     override fun eval(env: DynEnv): MValue {
-        try {
-            val module = env.lookupBinding(name)
-            if(module !is ModuleValue) throw UnboundModuleException(name.toString())
-            val newEnv = env.copy()
-            newEnv.addAllBindings(module.bindings.bindings)
-            return body.eval(newEnv)
-        }
-        catch(e: UnboundVarException) {
-            throw UnboundModuleException(e.name)
-        }
+        TODO("Not yet implemented")
     }
 
     override fun inferType(env: TypeEnv): MType {
-        try {
-            val module = env.lookupBinding(name).instantiate(env.typeSystem)
-            if(module !is ModuleType) throw UnboundModuleException(name.toString())
-            val newEnv = env.copy()
-            newEnv.addAllBindings(module.types.bindingTypes)
-            newEnv.addAllTypes(module.types.typeDefs)
-            return body.inferType(newEnv)
-        }
-        catch(e: UnboundVarException) {
-            throw UnboundModuleException(e.name)
-        }
+        TODO("Not yet implemented")
     }
 
 }
