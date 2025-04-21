@@ -146,6 +146,10 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val parseEnv:
                     typeVariant(node, newEnv, moduleTypes)
                 }
 
+                is ExtensibleVariantTypeNode -> {
+
+                }
+
                 is TypeAliasNode -> {
                     typeAlias(node, newEnv, moduleTypes)
                 }

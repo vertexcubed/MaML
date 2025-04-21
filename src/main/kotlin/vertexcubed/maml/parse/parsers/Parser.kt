@@ -28,22 +28,16 @@ abstract class Parser<T>() {
     }
 
     fun <V> bind(function: (T) -> Parser<V>): Parser<V> {
-        return staticBind(this, function)
-    }
-
-    companion object {
-
-        fun <T, V> staticBind(first: Parser<T>, function: (T) -> Parser<V>): Parser<V> {
-            return FuncParser(fun(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<V> {
-                return when(val result = first.parse(tokens, index, env)) {
-                    is ParseResult.Success -> {
-                        function(result.result).parse(tokens, result.newIndex, env)
-                    }
-                    is ParseResult.Failure -> {
-                        result.newResult()
-                    }
+        return FuncParser { tokens, index, env ->
+            when (val result = this.parse(tokens, index, env)) {
+                is ParseResult.Success -> {
+                    function(result.result).parse(tokens, result.newIndex, env)
                 }
-            })
+
+                is ParseResult.Failure -> {
+                    result.newResult()
+                }
+            }
         }
     }
 }

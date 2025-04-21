@@ -83,6 +83,21 @@ class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val c
     }
 }
 
+/**
+ * Represents an extensible variant type, such as exn
+ */
+class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, line: Int): AstNode(line) {
+    override fun eval(env: DynEnv): MValue {
+        throw AssertionError("Probably shouldn't be evaluated")
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        val myType = MVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, a.lookupOrMutate(env, false)) })
+        return myType
+    }
+}
+
+
 class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: DummyType, line: Int): AstNode(line) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
@@ -110,21 +125,6 @@ class TopOpenNode(val name: MIdentifier, line: Int): AstNode(line) {
     }
 
 }
-
-/**
- * Represents an extensible variant type, such as exn
- */
-class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, line: Int): AstNode(line) {
-
-    override fun eval(env: DynEnv): MValue {
-        throw AssertionError("Probably shouldn't be evaluated")
-    }
-    override fun inferType(env: TypeEnv): MType {
-        val myType = MVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, a.lookupOrMutate(env, false)) })
-        return myType
-    }
-}
-
 
 class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: String, line: Int): AstNode(line) {
 

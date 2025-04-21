@@ -9,9 +9,9 @@ class RComposeParser<T, V>(val first: Parser<T>, val second: Parser<V>) : Parser
 
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<V> {
 
-        return staticBind(first, fun(_: T): Parser<V> {
-            return staticBind(second, { second -> PureParser(second)})
-        }).parse(tokens, index, env)
+        return first.bind { _: T ->
+            second
+        }.parse(tokens, index, env)
 
     }
 }
@@ -20,11 +20,9 @@ class LComposeParser<T, V>(val first: Parser<T>, val second: Parser<V>) : Parser
 
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<T> {
 
-        return staticBind(first, fun(firstResult: T): Parser<T> {
-            return staticBind(second, fun(_: V): Parser<T> {
-                return PureParser(firstResult)
-            })
-        }).parse(tokens, index, env)
+        return first.bind { firstResult ->
+            second.map { _ -> firstResult }
+        }.parse(tokens, index, env)
     }
 }
 
@@ -41,7 +39,7 @@ class MapParser<T, V>(val first: Parser<T>, val mapFunction: (T) -> V) : Parser<
 
 class AndParser<T, V>(val first: Parser<T>, val second: Parser<V>): Parser<Pair<T, V>>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Pair<T, V>> {
-        val parser = staticBind(first, {firstResult ->
+        val parser = first.bind({firstResult ->
             second.map { secondResult ->
                 Pair(firstResult, secondResult)
             }
