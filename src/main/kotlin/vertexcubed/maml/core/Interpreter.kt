@@ -197,7 +197,7 @@ class Interpreter {
         println(program.nodes)
         println("Parse successful. Type checking...")
         try {
-            program.inferType(typeEnv)
+            program.exportTypes(typeEnv)
         }
         catch(e: TypeCheckException) {
             println(strList[e.line - 1].trim())
@@ -209,7 +209,7 @@ class Interpreter {
 
         println("Type checked. Evaluating...")
         try {
-            program.eval(dynEnv)
+            program.exportValues(dynEnv)
         }
         catch(e: Exception) {
             println("Runtime Error: $e")

@@ -61,7 +61,6 @@ data class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
                 is MTypeAlias -> {
                     recursiveFind(real.real)
                 }
-                is ModuleType -> emptyList()
                 is MRecord -> {
                     val ret = HashSet<MTypeVar>()
                     for(v in real.fields.values) {

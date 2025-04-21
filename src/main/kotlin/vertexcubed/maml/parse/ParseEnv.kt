@@ -6,13 +6,10 @@ import vertexcubed.maml.ast.ModuleStructNode
 import vertexcubed.maml.ast.VariableNode
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.ParseException
-import vertexcubed.maml.core.UnboundVarException
-import vertexcubed.maml.eval.ModuleValue
 import vertexcubed.maml.parse.parsers.*
 import vertexcubed.maml.parse.preprocess.Associativity
 import vertexcubed.maml.parse.preprocess.InfixRule
 import java.util.*
-import kotlin.collections.ArrayList
 
 class ParseEnv() {
 

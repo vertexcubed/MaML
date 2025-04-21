@@ -1,9 +1,7 @@
 package vertexcubed.maml
 
 import vertexcubed.maml.core.Interpreter
-import vertexcubed.maml.eval.IntegerValue
 import vertexcubed.maml.eval.UnitValue
-import vertexcubed.maml.eval.longOf
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.IOException

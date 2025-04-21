@@ -498,8 +498,7 @@ class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNod
 
     override fun eval(env: DynEnv): MValue {
         try {
-            val module = env.lookupBinding(name)
-            if(module !is ModuleValue) throw UnboundModuleException(name.toString())
+            val module = env.lookupModule(name)
             val newEnv = env.copy()
             newEnv.addAllBindings(module.bindings.bindings)
             return body.eval(newEnv)
@@ -511,8 +510,7 @@ class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNod
 
     override fun inferType(env: TypeEnv): MType {
         try {
-            val module = env.lookupBinding(name).instantiate(env.typeSystem)
-            if(module !is ModuleType) throw UnboundModuleException(name.toString())
+            val module = env.lookupModule(name)
             val newEnv = env.copy()
             newEnv.addAllBindings(module.types.bindingTypes)
             newEnv.addAllTypes(module.types.typeDefs)

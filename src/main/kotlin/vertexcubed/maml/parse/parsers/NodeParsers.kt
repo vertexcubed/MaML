@@ -1,14 +1,12 @@
 package vertexcubed.maml.parse.parsers
 
 import vertexcubed.maml.ast.*
+import vertexcubed.maml.core.BadRecordException
+import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.result.ParseResult
-import vertexcubed.maml.core.MBinding
-import vertexcubed.maml.core.BadRecordException
-import vertexcubed.maml.core.UnboundVarException
-import vertexcubed.maml.eval.ModuleValue
 import java.util.*
 import kotlin.math.pow
 

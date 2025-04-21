@@ -6,7 +6,6 @@ import vertexcubed.maml.core.UnifyException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 import java.util.*
-import kotlin.collections.ArrayList
 
 sealed class PatternNode(line: Int): AstNode(line) {
     override fun inferType(env: TypeEnv): MType {

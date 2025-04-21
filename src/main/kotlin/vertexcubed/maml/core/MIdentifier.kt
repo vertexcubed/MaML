@@ -1,7 +1,5 @@
 package vertexcubed.maml.core
 
-import vertexcubed.maml.eval.MValue
-import vertexcubed.maml.eval.ModuleValue
 
 /**
  * Represents a "long" identifier, to handle modules and such.

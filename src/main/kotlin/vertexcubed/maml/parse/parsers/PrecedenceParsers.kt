@@ -1,10 +1,10 @@
 package vertexcubed.maml.parse.parsers
 
 import vertexcubed.maml.ast.*
+import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.result.ParseResult
-import vertexcubed.maml.core.MBinding
 import java.util.*
 
 //All the precedence levels.

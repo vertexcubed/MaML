@@ -1,7 +1,6 @@
 package vertexcubed.maml.eval
 
 import vertexcubed.maml.ast.AstNode
-import vertexcubed.maml.ast.ConNode
 import vertexcubed.maml.core.MIdentifier
 import java.util.*
 
@@ -91,14 +90,5 @@ data class ConValue(val name: MIdentifier, val value: Optional<MValue>): MValue(
             str += " $toAdd"
         }
         return str;
-    }
-}
-
-/**
- * Module "values." The bindings map is all of the new bindings, while the env map is the environment this module was evaluated in (closure)
- */
-data class ModuleValue(val name: String, val bindings: DynEnv): MValue() {
-    override fun toString(): String {
-        return "<module>"
     }
 }

@@ -38,10 +38,10 @@ sealed class MType() {
     fun stringOpt(env: TypeEnv): Optional<String> {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val t = v.type.find()
-            if(t is ModuleType) {
-                val modString = stringOpt(t.types)
-                if(modString.isPresent) return Optional.of("${t.name}.${modString.get()}")
-            }
+//            if(t is ModuleType) {
+//                val modString = stringOpt(t.types)
+//                if(modString.isPresent) return Optional.of("${t.name}.${modString.get()}")
+//            }
 
             if(t is MTypeAlias && t.real.isSame(this.find())) return Optional.of(k)
             if(t.isSame(this.find())) {
@@ -227,10 +227,10 @@ data class MVariantType(val id: UUID, val args: List<Pair<String, MType>>): MTyp
     private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<String> {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val otherType = v.type.find()
-            if(otherType is ModuleType) {
-                val modString = stringOpt(otherType.types, parentEnv, "$module${otherType.name}.")
-                if(modString.isPresent) return modString
-            }
+//            if(otherType is ModuleType) {
+//                val modString = stringOpt(otherType.types, parentEnv, "$module${otherType.name}.")
+//                if(modString.isPresent) return modString
+//            }
             if(otherType is MVariantType && otherType.id == this.id) {
                 var str = ""
                 if(args.size == 1) {
@@ -287,10 +287,10 @@ data class MTypeAlias(val id: UUID, val args: List<Pair<String, MType>>, val rea
     private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<String> {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val otherType = v.type.find()
-            if(otherType is ModuleType) {
-                val modString = stringOpt(otherType.types, parentEnv, "$module${otherType.name}.")
-                if(modString.isPresent) return modString
-            }
+//            if(otherType is ModuleType) {
+//                val modString = stringOpt(otherType.types, parentEnv, "$module${otherType.name}.")
+//                if(modString.isPresent) return modString
+//            }
             if(otherType is MTypeAlias && otherType.id == this.id) {
                 var str = ""
                 if(args.size == 1) {
@@ -354,22 +354,5 @@ data class MConstr(val name: String, val type: MType, val argType: Optional<MTyp
             return false
         }
         return name == otherType.name && type.isSame(otherType.type)
-    }
-}
-
-/**
- * Not reeally a type? Hence why you cannot unify or substitute or do occurs checks
- */
-data class ModuleType(val name: String, val types: TypeEnv): MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        return this
-    }
-
-    override fun occurs(other: MType): Boolean {
-        return false
-    }
-
-    override fun unify(other: MType, typeSystem: TypeSystem) {
-        throw UnifyException(this, other)
     }
 }

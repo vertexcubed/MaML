@@ -2,7 +2,9 @@ package vertexcubed.maml.parse.parsers
 
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
-import vertexcubed.maml.parse.*
+import vertexcubed.maml.parse.ParseEnv
+import vertexcubed.maml.parse.Token
+import vertexcubed.maml.parse.TokenType
 import vertexcubed.maml.parse.result.ParseResult
 
 
