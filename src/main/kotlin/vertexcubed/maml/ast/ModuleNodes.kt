@@ -37,7 +37,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val parseEnv:
 
                 try {
 
-                    val conType = conDummy.lookupOrMutate(newEnv, false)
+                    val conType = conDummy.lookup(newEnv)
 //                    conType = conType.substitute(conType, )
 
                     typeEnv.addBinding(con.name.binding to

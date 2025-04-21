@@ -3,6 +3,7 @@ package vertexcubed.maml.core
 import vertexcubed.maml.ast.AstNode
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
+import vertexcubed.maml.parse.TypeVarDummy
 import vertexcubed.maml.type.MType
 import vertexcubed.maml.type.TypeEnv
 
@@ -34,7 +35,7 @@ class UnboundModuleException(val name: String) : Exception("Unbound Module: $nam
 /**
  * Thrown when trying to lookup a type label, but none was found. For example: in 'a option, 'b is unbound.
  */
-class UnboundTypeLabelException(val type: DummyType): Exception("The type of variable $type is unbound.")
+class UnboundTypeLabelException(val type: TypeVarDummy): Exception("The type of variable $type is unbound.")
 
 /**
  * Thrown when trying to lookup a type constructor in the environment, but none was found.

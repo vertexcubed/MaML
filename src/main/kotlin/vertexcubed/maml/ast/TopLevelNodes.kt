@@ -2,6 +2,7 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.core.UnboundTypeLabelException
 import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
@@ -19,7 +20,14 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
         val newEnv = env.copy()
         val statementType =  statement.inferType(newEnv)
         if(name.type.isPresent) {
-            val nameType = name.type.get().lookupOrMutate(newEnv, true)
+            var nameType: MType
+            try {
+                nameType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundTypeLabelException) {
+                nameType = newEnv.typeSystem.newTypeVar()
+                newEnv.addVarLabel(e.type.name to nameType)
+            }
             var lastType = statementType
             while(true) {
                 if(lastType is MFunction) {
@@ -29,7 +37,7 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
                     break
                 }
             }
-            nameType.unify(lastType, env.typeSystem)
+            nameType.unify(lastType, newEnv.typeSystem)
         }
 
 
@@ -92,7 +100,7 @@ class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDum
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val myType = MVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, a.lookupOrMutate(env, false)) })
+        val myType = MVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, a.lookup(env)) })
         return myType
     }
 }
@@ -104,9 +112,9 @@ class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: Du
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val original = type.lookupOrMutate(env, false)
+        val original = type.lookup(env)
         val id = UUID.randomUUID()
-        return MTypeAlias(id, args.map{ a -> Pair(a.name, a.lookupOrMutate(env, false))}, original)
+        return MTypeAlias(id, args.map{ a -> Pair(a.name, a.lookup(env))}, original)
     }
 
     override fun toString(): String {
@@ -134,7 +142,15 @@ class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: Strin
 
     override fun inferType(env: TypeEnv): MType {
         val newEnv = env.copy()
-        return type.lookupOrMutate(newEnv, true)
+        var t: MType
+        try {
+            t = type.lookup(newEnv)
+        }
+        catch(e: UnboundTypeLabelException) {
+            t = newEnv.typeSystem.newTypeVar()
+            newEnv.addVarLabel(e.type.name to t)
+        }
+        return t
     }
 
     override fun toString(): String {

@@ -2,6 +2,7 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.core.UnboundTypeLabelException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 
@@ -195,7 +196,7 @@ class VariableNode(val name: MIdentifier, line: Int): AstNode(line) {
         return "Var($name)"
     }
 }
-
+//TODO: refactor so you don't actually call inferType
 class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
@@ -205,7 +206,15 @@ class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
         val newEnv = env.copy()
         if(name.type.isPresent) {
             //purposely discard return type?
-            name.type.get().lookupOrMutate(newEnv, true)
+            var expectedType: MType
+            try {
+                expectedType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundTypeLabelException) {
+                expectedType = newEnv.typeSystem.newTypeVar()
+                newEnv.addVarLabel(e.type.name to expectedType)
+            }
+
         }
         //Uhhhh figure out what to do here cuz this is definitely wrong
         return MUnit

@@ -196,7 +196,14 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
         val statementType = statement.inferType(newEnv)
 
         if(name.type.isPresent) {
-            val nameType = name.type.get().lookupOrMutate(newEnv, true)
+            var nameType: MType
+            try {
+                nameType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundTypeLabelException) {
+                nameType = newEnv.typeSystem.newTypeVar()
+                newEnv.addVarLabel(e.type.name to nameType)
+            }
             var lastType = statementType
             while(true) {
                 if(lastType is MFunction) {
@@ -239,7 +246,14 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         var newEnv = env.copy()
         val myRetType = newEnv.typeSystem.newTypeVar()
         if(name.type.isPresent) {
-            val expectedType = name.type.get().lookupOrMutate(newEnv, true)
+            var expectedType: MType
+            try {
+                expectedType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundTypeLabelException) {
+                expectedType = newEnv.typeSystem.newTypeVar()
+                newEnv.addVarLabel(e.type.name to expectedType)
+            }
             //This should never throw an exception
             myRetType.unify(expectedType, env.typeSystem)
 
@@ -248,7 +262,14 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
 
         val argType = newEnv.typeSystem.newTypeVar()
         if(node.arg.type.isPresent) {
-            val expectedType = node.arg.type.get().lookupOrMutate(newEnv, true)
+            var expectedType: MType
+            try {
+                expectedType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundTypeLabelException) {
+                expectedType = newEnv.typeSystem.newTypeVar()
+                newEnv.addVarLabel(e.type.name to expectedType)
+            }
             //This should never throw an exception
             argType.unify(expectedType, env.typeSystem)
 
@@ -293,7 +314,14 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
         val argType = newEnv.typeSystem.newTypeVar()
 
         if(arg.type.isPresent) {
-            val expectedType = arg.type.get().lookupOrMutate(newEnv, true)
+            var expectedType: MType
+            try {
+                expectedType = arg.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundTypeLabelException) {
+                expectedType = newEnv.typeSystem.newTypeVar()
+                newEnv.addVarLabel(e.type.name to expectedType)
+            }
             //This should never throw an exception
             argType.unify(expectedType, env.typeSystem)
         }

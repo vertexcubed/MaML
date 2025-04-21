@@ -7,14 +7,14 @@ import vertexcubed.maml.type.*
  * Represents a type that may or may not exist. Used at parse time only.
  */
 sealed class DummyType {
-    abstract fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType
+    abstract fun lookup(env: TypeEnv): MType
 
 }
 
 data class SingleDummy(val name: MIdentifier): DummyType() {
     constructor(name: String): this(MIdentifier(name))
 
-    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+    override fun lookup(env: TypeEnv): MType {
 
 
         val type = env.lookupType(name).instantiate(env.typeSystem).find()
@@ -46,16 +46,9 @@ data class SingleDummy(val name: MIdentifier): DummyType() {
 }
 
 data class TypeVarDummy(val name: String): DummyType() {
-    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+    override fun lookup(env: TypeEnv): MType {
         return env.lookupVarLabel(name, {
-            if(makeNew) {
-                val type = env.typeSystem.newTypeVar()
-                env.addVarLabel(name to type)
-                type
-            }
-            else {
-                throw UnboundTypeLabelException(this)
-            }
+            throw UnboundTypeLabelException(this)
         })
     }
 
@@ -70,12 +63,12 @@ data class TypeVarDummy(val name: String): DummyType() {
 data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): DummyType() {
     constructor(name: String, args: List<DummyType>): this(MIdentifier(name), args)
 
-    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+    override fun lookup(env: TypeEnv): MType {
         val type = env.lookupType(name).instantiate(env.typeSystem)
         if(type is MTypeAlias) {
             if(unboundArgs(type) != args.size) throw UnboundTyConException(this.toString())
             for(i in args.indices) {
-                val argType = args[i].lookupOrMutate(env, makeNew)
+                val argType = args[i].lookup(env)
                 type.args[i].second.unify(argType, env.typeSystem)
             }
             return type
@@ -85,7 +78,7 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
         if(type !is MVariantType) throw TypeConException(env, type, 0, args.size)
         if(unboundArgs(type) != args.size) throw UnboundTyConException(this.toString())
         for(i in args.indices) {
-            val argType = args[i].lookupOrMutate(env, makeNew)
+            val argType = args[i].lookup(env)
             type.args[i].second.unify(argType, env.typeSystem)
         }
         return type
@@ -121,8 +114,8 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
 }
 
 data class FunctionDummy(val first: DummyType, val second: DummyType) : DummyType() {
-    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
-        return MFunction(first.lookupOrMutate(env, makeNew), second.lookupOrMutate(env, makeNew))
+    override fun lookup(env: TypeEnv): MType {
+        return MFunction(first.lookup(env), second.lookup(env))
     }
 
     override fun toString(): String {
@@ -135,8 +128,8 @@ data class FunctionDummy(val first: DummyType, val second: DummyType) : DummyTyp
 }
 
 data class TupleDummy(val types: List<DummyType>): DummyType() {
-    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
-        return MTuple(types.map { t -> t.lookupOrMutate(env, makeNew) })
+    override fun lookup(env: TypeEnv): MType {
+        return MTuple(types.map { t -> t.lookup(env) })
     }
 
     override fun toString(): String {
@@ -157,11 +150,11 @@ data class TupleDummy(val types: List<DummyType>): DummyType() {
 }
 
 data class StaticRecordDummy(val types: List<Pair<String, DummyType>>): DummyType() {
-    override fun lookupOrMutate(env: TypeEnv, makeNew: Boolean): MType {
+    override fun lookup(env: TypeEnv): MType {
         val map = mutableMapOf<String, MType>()
         for((k, v) in types) {
             if(k in map) throw BadRecordException(k)
-            map[k] = v.lookupOrMutate(env, makeNew)
+            map[k] = v.lookup(env)
         }
         return MRecord(map, MEmptyRow)
     }
