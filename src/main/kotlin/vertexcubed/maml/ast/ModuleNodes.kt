@@ -257,7 +257,14 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                         "Expression $k in module $name has type ${modVal.asString(newEnv)} \n" +
                         "which is incompatible with type ${v.instantiate(newEnv.typeSystem)} in signature ${this.sig.get()}")
                 }
-                newOut.addBinding(k to v)
+
+                //TODO: this is inefficient.
+                var out = v.instantiate(newEnv.typeSystem)
+                for((tk, tv) in sigTypes.typeDefs) {
+                    out = out.substitute(tv.instantiate(newEnv.typeSystem), moduleTypes.lookupType(tk).instantiate(newEnv.typeSystem))
+                }
+
+                newOut.addBinding(k to ForAll.generalize(out, newEnv.typeSystem))
             }
             return StructType(name, Optional.of(sig), newOut)
         }

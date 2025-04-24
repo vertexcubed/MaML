@@ -25,10 +25,11 @@ data class MDummyCons(val id: UUID, override val args: List<Pair<String, MType>>
     }
 
     override fun asString(env: TypeEnv): String {
-        return stringOpt(env, env, "").getOrElse { this.toString() }
+        val pair = stringOpt(env, env, "").getOrElse { return this.toString() }
+        return "${pair.first}${pair.second}"
     }
 
-    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<String> {
+    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<Pair<String, String>> {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val otherType = v.type.find()
 //            if(otherType is ModuleType) {
@@ -43,9 +44,24 @@ data class MDummyCons(val id: UUID, override val args: List<Pair<String, MType>>
                 else if(args.isNotEmpty()) {
                     str += args.map { p -> p.second.asString(parentEnv) }.joinToString(", ", "(" , ") ")
                 }
-                return Optional.of(str + module + k)
+                var modOut = module
+                if(modOut.isNotEmpty()) {
+                    modOut += "."
+                }
+                return Optional.of(str to modOut + k)
             }
         }
+
+        for((k, v) in env.modules.entries.reversed()) {
+            val opt = stringOpt(v.types, parentEnv, k)
+            if(opt.isPresent) {
+                if(module.isNotEmpty()) {
+                    return Optional.of(opt.get().first to "$module.${opt.get().second}");
+                }
+                return opt
+            }
+        }
+
         return Optional.empty()
     }
 
@@ -82,10 +98,12 @@ data class MVariantType(val id: UUID, override val args: List<Pair<String, MType
     }
 
     override fun asString(env: TypeEnv): String {
-        return stringOpt(env, env, "").getOrElse { this.toString() }
+        val pair = stringOpt(env, env, "").getOrElse { return this.toString() }
+        return "${pair.first}${pair.second}"
     }
 
-    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<String> {
+    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<Pair<String, String>> {
+
         for((k, v) in env.typeDefs.entries.reversed()) {
             val otherType = v.type.find()
 //            if(otherType is ModuleType) {
@@ -100,9 +118,24 @@ data class MVariantType(val id: UUID, override val args: List<Pair<String, MType
                 else if(args.isNotEmpty()) {
                     str += args.map { p -> p.second.asString(parentEnv) }.joinToString(", ", "(" , ") ")
                 }
-                return Optional.of(str + module + k)
+                var modOut = module
+                if(modOut.isNotEmpty()) {
+                    modOut += "."
+                }
+                return Optional.of(str to modOut + k)
             }
         }
+
+        for((k, v) in env.modules.entries.reversed()) {
+            val opt = stringOpt(v.types, parentEnv, k)
+            if(opt.isPresent) {
+                if(module.isNotEmpty()) {
+                    return Optional.of(opt.get().first to "$module.${opt.get().second}");
+                }
+                return opt
+            }
+        }
+
         return Optional.empty()
     }
 
@@ -144,10 +177,11 @@ data class MTypeAlias(val id: UUID, override val args: List<Pair<String, MType>>
     }
 
     override fun asString(env: TypeEnv): String {
-        return stringOpt(env, env, "").getOrElse { toString() }
+        val pair = stringOpt(env, env, "").getOrElse { return this.toString() }
+        return "${pair.first}${pair.second}"
     }
 
-    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<String> {
+    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<Pair<String, String>> {
         for((k, v) in env.typeDefs.entries.reversed()) {
             val otherType = v.type.find()
 //            if(otherType is ModuleType) {
@@ -162,9 +196,24 @@ data class MTypeAlias(val id: UUID, override val args: List<Pair<String, MType>>
                 else if(args.isNotEmpty()) {
                     str += args.map { p -> p.second.asString(parentEnv) }.joinToString(", ", "(" , ") ")
                 }
-                return Optional.of(str + module + k)
+                var modOut = module
+                if(modOut.isNotEmpty()) {
+                    modOut += "."
+                }
+                return Optional.of(str to modOut + k)
             }
         }
+
+        for((k, v) in env.modules.entries.reversed()) {
+            val opt = stringOpt(v.types, parentEnv, k)
+            if(opt.isPresent) {
+                if(module.isNotEmpty()) {
+                    return Optional.of(opt.get().first to "$module.${opt.get().second}");
+                }
+                return opt
+            }
+        }
+
         return Optional.empty()
     }
 
