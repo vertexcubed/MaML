@@ -20,7 +20,12 @@ val interp = Interpreter()
 interp.run(code)
 ```
 
-You can register builtin functions using the `registerBuiltins` method.
+You can register external functions using the `registerBuiltins` method.
+
+```ocaml
+    external print_endline: string -> unit = "maml_println"
+
+```
 
 ```kotlin
 fun myFunc(arg: MValue): MValue {
@@ -29,7 +34,7 @@ fun myFunc(arg: MValue): MValue {
 }
 
 val interp = Interpreter()
-interp.registerBuiltin("print", myFunc)
+interp.registerExternal("maml_println", ::myFunc)
 ```
 
 ## Documentation
