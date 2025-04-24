@@ -225,9 +225,9 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     newOut.addType(k to moduleTypes.lookupType(k))
                 }
                 else {
-                    throw TypeCheckException(line, this, "Incompatible types: " +
-                            "Signature ${this.sig.get()} contains type ${sigVal.asString(sigTypes)} " +
-                            "which is incompatible with type ${modVal.asString(newEnv)}")
+                    throw TypeCheckException(line, this,
+                        "Signature ${this.sig.get()} contains type ${sigVal.asString(sigTypes)} " +
+                        "which is incompatible with type ${modVal.asString(newEnv)}")
                 }
             }
 
@@ -240,18 +240,24 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                 catch(e: UnboundVarException) {
                     throw MissingSigFieldException(line, this, k, name, this.sig.get())
                 }
-                val sigVal = v.instantiateBase(newEnv.typeSystem)
+                var sigVal = v.instantiateBase(newEnv.typeSystem)
+                for((tk, tv) in sigTypes.typeDefs) {
+                    sigVal = sigVal.substitute(tv.instantiateBase(newEnv.typeSystem), moduleTypes.lookupType(tk).instantiateBase(newEnv.typeSystem))
+                }
+
+
                 //this shoooould work?
                 //TODO: BUGTEST BUGTEST BUGTEST
 
                 try {
-                    sigVal.unify(modVal, newEnv.typeSystem, true)
+                    modVal.unify(sigVal, newEnv.typeSystem, true)
                 }
                 catch(e: UnifyException) {
-                    //TODO: replace with better exception for signatures
-                    throw TypeCheckException(line, this, newEnv, modVal, sigVal)
+                    throw TypeCheckException(line, this,
+                        "Expression $k in module $name has type ${modVal.asString(newEnv)} \n" +
+                        "which is incompatible with type ${v.instantiate(newEnv.typeSystem)} in signature ${this.sig.get()}")
                 }
-                newOut.addBinding(k to moduleTypes.lookupBinding(k))
+                newOut.addBinding(k to v)
             }
             return StructType(name, Optional.of(sig), newOut)
         }

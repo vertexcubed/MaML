@@ -71,7 +71,7 @@ data class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
                     ret.toList()
                 }
 
-                is MDummyCons -> emptyList()
+                is MDummyCons -> real.args.filter { a -> a.second is MTypeVar }.map { a -> a.second as MTypeVar }
             }
         }
     }

@@ -23,7 +23,7 @@ data class SingleDummy(val name: MIdentifier): DummyType() {
 
 
         when(type) {
-            is MVariantType -> {
+            is MTypeCon -> {
                 var expected = 0
                 for(arg in type.args) {
                     val t = arg.second.find()
@@ -74,17 +74,8 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
 
     override fun lookup(env: TypeEnv): MType {
         val type = env.lookupType(name).instantiate(env.typeSystem)
-        if(type is MTypeAlias) {
-            if(unboundArgs(type) != args.size) throw UnboundTyConException(this.toString())
-            for(i in args.indices) {
-                val argType = args[i].lookup(env)
-                type.args[i].second.unify(argType, env.typeSystem)
-            }
-            return type
-        }
 
-
-        if(type !is MVariantType) throw TypeConException(env, type, 0, args.size)
+        if(type !is MTypeCon) throw TypeConException(env, type, 0, args.size)
         if(unboundArgs(type) != args.size) throw UnboundTyConException(this.toString())
         for(i in args.indices) {
             val argType = args[i].lookup(env)
@@ -97,17 +88,7 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
         return args.flatMap { it.getAllLabels() }
     }
 
-    private fun unboundArgs(type: MVariantType): Int {
-        var i = 0
-        for(arg in type.args) {
-            if(arg.second is MTypeVar) {
-                i++
-            }
-        }
-        return i
-    }
-
-    private fun unboundArgs(type: MTypeAlias): Int {
+    private fun unboundArgs(type: MTypeCon): Int {
         var i = 0
         for(arg in type.args) {
             if(arg.second is MTypeVar) {

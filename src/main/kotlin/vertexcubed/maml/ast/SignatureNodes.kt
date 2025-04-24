@@ -1,6 +1,7 @@
 package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
@@ -24,9 +25,22 @@ class ValSigNode(val name: String, val type: DummyType, line: Int): SigNode(line
         for(l in labels) {
             newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
         }
-        return type.lookup(newEnv)
+        return try {
+            type.lookup(newEnv)
+        }
+        catch(e: Exception) {
+            if(e.message == null) throw e
+            throw TypeCheckException(line, this, e.message!!)
+        }
     }
 
+    override fun pretty(): String {
+        return "val $name: $type"
+    }
+
+    override fun toString(): String {
+        return "Val($name, $type)"
+    }
 }
 
 class TypeSigNode(val name: String, val args: List<TypeVarDummy>, line: Int): SigNode(line) {
@@ -37,6 +51,21 @@ class TypeSigNode(val name: String, val args: List<TypeVarDummy>, line: Int): Si
         }
         return MDummyCons(UUID.randomUUID(), args.map { a -> a.name to a.lookup(newEnv) })
     }
+
+    override fun pretty(): String {
+        var argStr = ""
+        if(args.size > 1) {
+            argStr = args.joinToString(", ", "(", ")") + " "
+        }
+        else if(args.isNotEmpty()) {
+            argStr = args[0].toString() + " "
+        }
+        return "$argStr$name"
+    }
+
+    override fun toString(): String {
+        return "Type($name, $args)"
+    }
 }
 
 class IncludeSigNode(val name: MIdentifier, line: Int): SigNode(line) {
@@ -45,11 +74,26 @@ class IncludeSigNode(val name: MIdentifier, line: Int): SigNode(line) {
         throw AssertionError("Do not infer include node!")
     }
 
+    override fun pretty(): String {
+        return "include $name"
+    }
+
+    override fun toString(): String {
+        return "Include($name)"
+    }
 }
 
 class OpenSigNode(val name: MIdentifier, line: Int): SigNode(line) {
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not infer open node!")
+    }
+
+    override fun pretty(): String {
+        return "open $name"
+    }
+
+    override fun toString(): String {
+        return "Open($name)"
     }
 }
 

@@ -5,8 +5,10 @@ import vertexcubed.maml.core.UnifyException
 import java.util.*
 import kotlin.jvm.optionals.getOrElse
 
+sealed class MTypeCon(open val args: List<Pair<String, MType>>): MType()
 
-data class MDummyCons(val id: UUID, val args: List<Pair<String, MType>>): MType() {
+
+data class MDummyCons(val id: UUID, override val args: List<Pair<String, MType>>): MTypeCon(args) {
 
     override fun occurs(other: MType): Boolean {
         for(arg in args) {
@@ -16,6 +18,9 @@ data class MDummyCons(val id: UUID, val args: List<Pair<String, MType>>): MType(
     }
 
     override fun substitute(from: MType, to: MType): MType {
+        if(from is MDummyCons && from.id == this.id) {
+            return to
+        }
         return MDummyCons(id, args.map { (k, v) -> k to v.substitute(from, to) })
     }
 
@@ -47,7 +52,7 @@ data class MDummyCons(val id: UUID, val args: List<Pair<String, MType>>): MType(
 }
 
 
-data class MVariantType(val id: UUID, val args: List<Pair<String, MType>>): MType() {
+data class MVariantType(val id: UUID, override val args: List<Pair<String, MType>>): MTypeCon(args) {
 
     override fun occurs(other: MType): Boolean {
         for(arg in args) {
@@ -60,7 +65,7 @@ data class MVariantType(val id: UUID, val args: List<Pair<String, MType>>): MTyp
     override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
         val otherType = other.find()
         if(otherType is MTypeVar) {
-            if(looser) throw BindException(this, otherType)
+            if(looser) throw UnifyException(this, otherType)
 
             return otherType.unify(this, typeSystem, looser)
         }
@@ -108,7 +113,7 @@ data class MVariantType(val id: UUID, val args: List<Pair<String, MType>>): MTyp
     }
 }
 
-data class MTypeAlias(val id: UUID, val args: List<Pair<String, MType>>, val real: MType): MType() {
+data class MTypeAlias(val id: UUID, override val args: List<Pair<String, MType>>, val real: MType): MTypeCon(args) {
     override fun occurs(other: MType): Boolean {
         return real.occurs(other)
     }
