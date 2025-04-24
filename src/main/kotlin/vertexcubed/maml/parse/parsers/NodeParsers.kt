@@ -33,7 +33,7 @@ class ExprParser(): Parser<AstNode>() {
 class LetParser(): Parser<LetNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<LetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
-            IdentifierParser().bind { first ->
+            LetBindingParser().bind { first ->
                     ZeroOrMore(TypedIdentifierParser()).bind { arguments ->
                     OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).bind { type ->
                         SpecialCharParser("=").rCompose(ExprParser()).bind { second ->
@@ -270,7 +270,18 @@ class ConNodeParser(): Parser<ConNode>() {
 
 class ConDefParser(): Parser<ConDefNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConDefNode> {
-        return ConstructorParser().bind { cons ->
+
+        val listCons = LParenParser()
+            .rCompose(AndParser(SpecialCharParser(":"), SpecialCharParser(":")).map { "${it.first}${it.second}" })
+            .lCompose(RParenParser())
+
+
+        val name = ConstructorParser()
+            .disjoint(AndParser(LBracketParser(), RBracketParser()).map { "${it.first}${it.second}"})
+            .disjoint(listCons)
+
+
+        return name.bind { cons ->
             OptionalParser(KeywordParser("of").rCompose(TypeParser())).map { typ ->
                 ConDefNode(MBinding(cons, typ), index)
             }

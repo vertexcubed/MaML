@@ -1,9 +1,6 @@
 package vertexcubed.maml.parse
 
-import vertexcubed.maml.ast.AppNode
-import vertexcubed.maml.ast.AstNode
-import vertexcubed.maml.ast.ModuleStructNode
-import vertexcubed.maml.ast.VariableNode
+import vertexcubed.maml.ast.*
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.parsers.*
@@ -19,11 +16,12 @@ class ParseEnv() {
 
     //default values
     fun init() {
-        infixMap[0] = Pair(Associativity.RIGHT, arrayListOf("||"))
-        infixMap[1] = Pair(Associativity.RIGHT, arrayListOf("&&"))
-        infixMap[2] = Pair(Associativity.LEFT, arrayListOf("=", "!=", "<=", ">=", "<", ">"))
-        infixMap[3] = Pair(Associativity.LEFT, arrayListOf("+", "-"))
-        infixMap[4] = Pair(Associativity.LEFT, arrayListOf("*", "/", "%"))
+        infixMap[0] = Associativity.RIGHT to arrayListOf("||")
+        infixMap[1] = Associativity.RIGHT to arrayListOf("&&")
+        infixMap[2] = Associativity.LEFT to arrayListOf("=", "!=", "<=", ">=", "<", ">")
+        infixMap[3] = Associativity.RIGHT to arrayListOf("::")
+        infixMap[4] = Associativity.LEFT to arrayListOf("+", "-")
+        infixMap[5] = Associativity.LEFT to arrayListOf("*", "/", "%")
     }
 
 
@@ -166,11 +164,9 @@ class ParseEnv() {
 
     //this shoooooould work?
     fun leftAssocParser(first: AstNode, secondList: List<Pair<String, AstNode>>): AstNode {
-
-        var node = AppNode(AppNode(VariableNode(secondList[0].first, secondList[0].second.line), first, first.line), secondList[0].second, secondList[0].second.line)
-        for(i in 1..<secondList.size) {
-            val (op, next) = secondList[i]
-            node = AppNode(AppNode(VariableNode(op, next.line), node, node.line), next, next.line)
+        val node = secondList.fold(first) { acc, n ->
+            AppNode(AppNode(VariableNode(n.first, n.second.line), acc, acc.line), n.second, n.second.line)
+//            AppNode(acc, n.second, n.second.line)
         }
         return node
     }
@@ -183,21 +179,20 @@ class ParseEnv() {
         for(i in 1..<secondList.size) {
             newList.add(Pair(secondList[i-1].second, secondList[i].first))
         }
+        val last = secondList.last().second
 
 
-        //Do same thing as left associative
-        val lastIdx = secondList.lastIndex
-        val last = secondList[lastIdx].second
-//        var node = BinaryOpNode(newList[lastIdx].second, newList[lastIdx].first, last, tokens[index].line)
-        var node = AppNode(AppNode(VariableNode(newList[lastIdx].second, newList[lastIdx].first.line), newList[lastIdx].first, newList[lastIdx].first.line), last, last.line)
+        val node = newList.foldRight(last) {n, acc ->
 
-
-        for(i in 1..<newList.size) {
-            val (next, op) = newList[i]
-//            node = BinaryOpNode(pair.second, pair.first, node, tokens[index].line)
-            node = AppNode(AppNode(VariableNode(op, next.line), next, next.line), node, node.line)
+            //TODO: consider maybe figuring out a better way of this?
+            if(n.second == "::") {
+                ExternalAppNode(MIdentifier("::"), listOf(n.first, acc), acc.line)
+            }
+            else {
+                AppNode(AppNode(VariableNode(n.second, n.first.line), n.first, n.first.line), acc, acc.line)
+            }
+//            AppNode(n.first, acc, acc.line)
         }
-
         return node
     }
 }

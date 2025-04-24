@@ -45,6 +45,7 @@ class Interpreter {
             "/." to infixType(MFloat, MFloat),
             "%." to infixType(MFloat, MFloat),
 
+
             //Unary prefix operators
             "~-" to ForAll.empty(MFunction(MInt, MInt)),
             "~-." to ForAll.empty(MFunction(MFloat, MFloat)),

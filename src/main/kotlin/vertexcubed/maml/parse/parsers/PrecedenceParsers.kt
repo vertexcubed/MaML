@@ -27,6 +27,7 @@ class PrecedenceParsers {
                 UnitParser() as Parser<AstNode>,
                 ParenthesesParser() as Parser<AstNode>,
                 RecordLookupParser(),
+                ListLitParser(),
 
                 //TODO: REWRITE THIS
                 KeywordParser("op").rCompose(env.choiceNameParsers()).map { str -> VariableNode(str, tokens[index + 1].line) },

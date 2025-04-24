@@ -2,15 +2,11 @@ external print: 'a -> unit = "maml_core_print"
 external println: 'a -> unit = "maml_core_println"
 
 
-type 'a list = Nil | Cons of 'a * 'a list
+type 'a list = [] | (::) of 'a * 'a list
+external (::): 'a -> 'a list -> 'a list = "maml_list_cons"
 
-let rev l =
-    let rec go sub_l acc =
-        match sub_l with
-        | Nil -> acc
-        | Cons (x, xs) -> go xs (Cons (x, acc))
-        end
-    in
-    go l Nil
 
-let _ = println (rev (Cons (1, Cons (2, Cons (3, Cons (4, Cons (5, Nil)))))))
+
+let _ = [1; 2; 3; 4; 5;]
+
+(* let _ = 1 + 2 + 3 + 4 + 5 + 6 + 7 *)

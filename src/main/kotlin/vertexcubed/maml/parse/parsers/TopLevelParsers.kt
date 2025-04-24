@@ -108,7 +108,7 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
 class TopLetParser(): Parser<TopLetNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TopLetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
-            IdentifierParser().bind { first ->
+            LetBindingParser().bind { first ->
                 ZeroOrMore(TypedIdentifierParser()).bind { arguments ->
                     OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).bind { type ->
                         SpecialCharParser("=").rCompose(ExprParser()).map { second ->
@@ -195,7 +195,7 @@ class TopIncludeParser(): Parser<TopIncludeNode>() {
 
 class ExternalDefParser(): Parser<ExternalDefNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ExternalDefNode> {
-        return KeywordParser("external").rCompose(IdentifierParser()).bind { name ->
+        return KeywordParser("external").rCompose(LetBindingParser()).bind { name ->
             SpecialCharParser(":").rCompose(TypeParser()).bind { type ->
                 SpecialCharParser("=").rCompose(StringLitParser()).map { lit ->
                     ExternalDefNode(name, type, lit, tokens[index].line)

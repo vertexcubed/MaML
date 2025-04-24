@@ -2,6 +2,7 @@ package vertexcubed.maml.eval
 
 import vertexcubed.maml.ast.AstNode
 import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.type.MTuple
 import java.util.*
 
 sealed class MValue() {
@@ -81,6 +82,42 @@ data class ExternalValue(val javaFunc: String): MValue() {
 
 data class ConValue(val name: MIdentifier, val value: Optional<MValue>): MValue() {
     override fun toString(): String {
+        if(name == MIdentifier("::")) {
+            var str = "["
+            var trav = this
+            var isList = false
+            while(true) {
+                if(trav.value.isEmpty) {
+                    if(trav.name == MIdentifier("[]")) {
+                        isList = true
+                        str += "]"
+                        break
+                    }
+                    else break
+                }
+
+                val value = trav.value.get()
+                if(value is TupleValue && value.values.size == 2) {
+                    val left = value.values[0]
+                    val right = value.values[1]
+                    str += left.toString()
+                    if(right is ConValue) {
+                        if(right.name != MIdentifier("[]")) {
+                            str += "; "
+                        }
+                        trav = right
+                    }
+                }
+                else {
+                    break
+                }
+            }
+
+            if(isList) return str
+        }
+
+
+
         var str = name.toString()
         if(value.isPresent) {
             var toAdd = value.get().toString()

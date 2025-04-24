@@ -1,11 +1,13 @@
 package vertexcubed.maml.parse.parsers
 
+import vertexcubed.maml.ast.*
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.TokenType
 import vertexcubed.maml.parse.result.ParseResult
+import java.util.*
 
 
 private fun simple(tokens: List<Token>, index: Int, type: TokenType): ParseResult<String> {
@@ -46,6 +48,32 @@ class StringLitParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.STRING_LITERAL)
     }
+}
+
+class ListLitParser(): Parser<AstNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
+        val parser = LBracketParser().rCompose(
+            OptionalParser(
+                PrecedenceParsers.ConstLevel().bind { first ->
+                    ZeroOrMore(SpecialCharParser(";").rCompose(PrecedenceParsers.ConstLevel()))
+                        .lCompose(OptionalParser(SpecialCharParser(";"))).map { rest ->
+                        listOf(first) + rest
+                    }
+                }
+            )
+        ).lCompose(RBracketParser()).map { data ->
+            if(data.isEmpty) {
+                ConNode("[]", Optional.empty(), tokens[index].line)
+            }
+            else {
+                data.get().foldRight(
+                    ConNode("[]", Optional.empty(), tokens[index].line) as AstNode)
+                    { node, acc -> ExternalAppNode(MIdentifier("::"), listOf(node, acc), tokens[index].line) }
+            }
+        }
+        return parser.parse(tokens, index, env)
+    }
+
 }
 
 @OptIn(ExperimentalStdlibApi::class)
@@ -162,6 +190,16 @@ class IdentifierParser(): Parser<String>() {
     }
 }
 
+class LetBindingParser(): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        val parser = LParenParser().rCompose(OneOrMore(SimpleParser(TokenType.SPECIAL_CHAR)).map { it.joinToString("")}).lCompose(RParenParser())
+        return parser.disjoint(IdentifierParser()).parse(tokens, index, env)
+    }
+
+}
+
+
+
 class CompoundSpecialCharParser(val name: String): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         if(name.isEmpty()) throw IllegalArgumentException("Cannot make compound special char parser on empty string")
@@ -212,7 +250,6 @@ class SpecialCharParser(private val char: String): Parser<String>() {
 
 class LParenParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
-//        print("$index ")
         return simple(tokens, index, TokenType.LPAREN)
     }
 }
@@ -225,7 +262,6 @@ class RParenParser(): Parser<String>() {
 
 class LCurlParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
-//        print("$index ")
         return simple(tokens, index, TokenType.LCURL)
     }
 }
@@ -233,6 +269,18 @@ class LCurlParser(): Parser<String>() {
 class RCurlParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.RCURL)
+    }
+}
+
+class LBracketParser(): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        return simple(tokens, index, TokenType.LBRACKET)
+    }
+}
+
+class RBracketParser(): Parser<String>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        return simple(tokens, index, TokenType.RBRACKET)
     }
 }
 

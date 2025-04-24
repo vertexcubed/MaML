@@ -1,10 +1,14 @@
 package vertexcubed.maml
 
 import vertexcubed.maml.core.Interpreter
+import vertexcubed.maml.core.MIdentifier
+import vertexcubed.maml.eval.ConValue
+import vertexcubed.maml.eval.TupleValue
 import vertexcubed.maml.eval.UnitValue
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.IOException
+import java.util.*
 import kotlin.io.path.Path
 
 
@@ -47,6 +51,10 @@ fun main(args: Array<String>) {
     interp.registerExternal("maml_core_println") { arg ->
         println(arg)
         UnitValue
+    }
+
+    interp.registerExternal("maml_list_cons") { x, xs ->
+        ConValue(MIdentifier("::"), Optional.of(TupleValue(listOf(x, xs))))
     }
 
 

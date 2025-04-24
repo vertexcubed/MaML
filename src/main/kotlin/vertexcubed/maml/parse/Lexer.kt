@@ -117,6 +117,8 @@ class Lexer(val source: String) {
             }
             '{' -> Token(LCURL, "$c", lineIdx)
             '}' -> Token(RCURL, "$c", lineIdx)
+            '[' -> Token(LBRACKET, "$c", lineIdx)
+            ']' -> Token(RBRACKET, "$c", lineIdx)
             '(' -> {
                 if(hasNext()) {
                     val next = peek()
@@ -383,6 +385,7 @@ class Token(val type: TokenType, val lexeme: String, val line: Int) {
 enum class TokenType {
     LPAREN, RPAREN,
     LCURL, RCURL,
+    LBRACKET, RBRACKET,
 
     NUMBER_LITERAL,
     HEX_LITERAL,
