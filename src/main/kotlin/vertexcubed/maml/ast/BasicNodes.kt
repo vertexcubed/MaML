@@ -206,14 +206,12 @@ class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
         val newEnv = env.copy()
         if(name.type.isPresent) {
             //purposely discard return type?
-            var expectedType: MType
-            try {
-                expectedType = name.type.get().lookup(newEnv)
+            val labels = name.type.get().getAllLabels()
+            for(l in labels) {
+                newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            catch(e: UnboundTypeLabelException) {
-                expectedType = newEnv.typeSystem.newTypeVar()
-                newEnv.addVarLabel(e.type.name to expectedType)
-            }
+            val expectedType = name.type.get().lookup(newEnv)
+
 
         }
         //Uhhhh figure out what to do here cuz this is definitely wrong

@@ -9,6 +9,7 @@ import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
+import java.util.*
 
 class Interpreter {
 
@@ -193,13 +194,18 @@ class Interpreter {
         }
 
         println("All externals: ${parseEnv.allExternalFuncs()}")
-        val program = ModuleStructNode("Program", result.result, parseEnv, 1)
+        val program = ModuleStructNode("Program", result.result, Optional.empty(), parseEnv, 1)
         println(program.nodes)
         println("Parse successful. Type checking...")
         try {
             program.exportTypes(typeEnv)
         }
         catch(e: TypeCheckException) {
+            println(strList[e.line - 1].trim())
+            println("Error on line ${e.line} (${e.node.pretty()})\n${e.log}")
+            return
+        }
+        catch(e: MissingSigFieldException) {
             println(strList[e.line - 1].trim())
             println("Error on line ${e.line} (${e.node.pretty()})\n${e.log}")
             return

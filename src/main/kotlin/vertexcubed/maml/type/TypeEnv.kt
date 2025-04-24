@@ -1,24 +1,20 @@
 package vertexcubed.maml.type
 
+import vertexcubed.maml.ast.SigType
 import vertexcubed.maml.ast.StructType
-import vertexcubed.maml.core.MIdentifier
-import vertexcubed.maml.core.UnboundModuleException
-import vertexcubed.maml.core.UnboundTyConException
-import vertexcubed.maml.core.UnboundVarException
+import vertexcubed.maml.core.*
 
 class TypeEnv(val typeSystem: TypeSystem) {
 
     val modules = mutableMapOf<String, StructType>()
+    val signatures = mutableMapOf<String, SigType>()
     val bindingTypes: MutableMap<String, ForAll> = mutableMapOf()
     val typeDefs: MutableMap<String, ForAll> = mutableMapOf()
     val varLabelBindings: MutableMap<String, MType> = mutableMapOf()
 
     fun copy(): TypeEnv {
         val ret = TypeEnv(typeSystem)
-        ret.modules.putAll(modules)
-        ret.bindingTypes.putAll(bindingTypes)
-        ret.typeDefs.putAll(typeDefs)
-        ret.varLabelBindings.putAll(varLabelBindings)
+        ret.addAllFrom(this)
         return ret
     }
 
@@ -34,6 +30,20 @@ class TypeEnv(val typeSystem: TypeSystem) {
 
     fun lookupModule(name: String): StructType {
         return modules.getOrElse(name, { throw UnboundModuleException(name) })
+    }
+
+    fun lookupSignature(binding: MIdentifier): SigType {
+        var lastEnv = this
+        var cur: SigType? = null
+        for(i in binding.path.indices) {
+            cur = lastEnv.lookupSignature(binding.path[i])
+            lastEnv = cur.types
+        }
+        return cur?: throw UnboundSignatureException(binding.toString())
+    }
+
+    fun lookupSignature(name: String): SigType {
+        return signatures.getOrElse(name, { throw UnboundSignatureException(name) })
     }
 
     fun lookupBinding(binding: String): ForAll {
@@ -79,8 +89,13 @@ class TypeEnv(val typeSystem: TypeSystem) {
     fun addVarLabel(pair: Pair<String, MType>) {
         varLabelBindings += pair
     }
+
     fun addModule(struct: StructType) {
         modules[struct.name] = struct
+    }
+
+    fun addSignature(sig: SigType) {
+        signatures[sig.name] = sig
     }
 
 
@@ -106,6 +121,14 @@ class TypeEnv(val typeSystem: TypeSystem) {
 
     fun addAllTypes(from: Map<String, ForAll>) {
         typeDefs.putAll(from)
+    }
+
+    fun addAllFrom(other: TypeEnv) {
+        this.modules.putAll(other.modules)
+        this.signatures.putAll(other.signatures)
+        this.bindingTypes.putAll(other.bindingTypes)
+        this.typeDefs.putAll(other.typeDefs)
+        this.varLabelBindings.putAll(other.varLabelBindings)
     }
 
 }

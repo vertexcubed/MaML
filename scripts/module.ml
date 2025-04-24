@@ -1,20 +1,26 @@
-module A = struct
+type 'a option = Some of 'a | None
 
 
-    module B = struct
+module type BRIAN =
+  sig
+    type 'a t
+    val amazing: int -> int
 
-        let meow = 3
+  end
 
-    end
+module type BRIAN_OPT =
+  sig
+    include BRIAN
+    val other: t -> t option
+  end
 
-    let bark = 2
+module Brian : BRIAN_OPT =
+  struct
+    type 'a t = Meow of 'a
+    let amazing x = x
+    let other x = Some x
+    let priv = 6
+  end
 
-end
 
-module C = struct
-    let longMeow = A.B.meow * 2
-
-end
-
-
-let _ = C.longMeow + A.bark
+let _ = Brian.amazing 5

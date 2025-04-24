@@ -4,8 +4,10 @@ class TypeSystem() {
 
     val types = ArrayList<MTypeVar>()
     val generalizedTypes = ArrayList<MGeneralTypeVar>()
+    val baseTypes = ArrayList<MBaseTypeVar>()
     private var id = 0
     private var genId = 0
+    private var baseId = 0
 
     fun newTypeVar(): MTypeVar {
         val ret = MTypeVar(id++)
@@ -16,6 +18,12 @@ class TypeSystem() {
     fun newGeneralType(): MGeneralTypeVar {
         val ret = MGeneralTypeVar(genId++)
         generalizedTypes.add(ret)
+        return ret
+    }
+
+    fun newBaseType(): MBaseTypeVar {
+        val ret = MBaseTypeVar(baseId++)
+        baseTypes.add(ret)
         return ret
     }
 

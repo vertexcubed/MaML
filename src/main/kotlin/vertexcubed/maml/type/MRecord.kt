@@ -1,5 +1,6 @@
 package vertexcubed.maml.type
 
+import vertexcubed.maml.core.BindException
 import vertexcubed.maml.core.UnifyException
 
 data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
@@ -29,10 +30,12 @@ data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
         return rest.occurs(other)
     }
 
-    override fun unify(other: MType, typeSystem: TypeSystem) {
+    override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
         val otherType = other.find()
         if(otherType is MTypeVar) {
-            return otherType.unify(this, typeSystem)
+            if(looser) throw BindException(this, otherType)
+
+            return otherType.unify(this, typeSystem, looser)
         }
         if(otherType !is MRecord) {
             throw UnifyException(this, otherType)
@@ -49,7 +52,7 @@ data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
             val myVal = myFields[k]
             val otherVal = otherFields[k]
             if(myVal != null && otherVal != null) {
-                myVal.unify(otherVal, typeSystem)
+                myVal.unify(otherVal, typeSystem, looser)
             }
             else if(myVal == null) {
                 if(otherVal == null) throw UnifyException(this, otherType)
@@ -61,18 +64,18 @@ data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
             }
         }
         if(myMissing.isEmpty() && otherMissing.isEmpty()) {
-            return myRest.unify(otherRest, typeSystem)
+            return myRest.unify(otherRest, typeSystem, looser)
         }
         if(myMissing.isEmpty()) {
-            return otherRest.unify(MRecord(otherMissing, myRest), typeSystem)
+            return otherRest.unify(MRecord(otherMissing, myRest), typeSystem, looser)
         }
         if(otherMissing.isEmpty()) {
-            return myRest.unify(MRecord(myMissing, otherRest), typeSystem)
+            return myRest.unify(MRecord(myMissing, otherRest), typeSystem, looser)
         }
 
         val newType = typeSystem.newTypeVar()
-        myRest.unify(MRecord(myMissing, newType), typeSystem)
-        otherRest.unify(MRecord(otherMissing, newType), typeSystem)
+        myRest.unify(MRecord(myMissing, newType), typeSystem, looser)
+        otherRest.unify(MRecord(otherMissing, newType), typeSystem, looser)
     }
 
     override fun isSame(other: MType): Boolean {

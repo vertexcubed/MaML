@@ -9,6 +9,8 @@ import vertexcubed.maml.type.*
 sealed class DummyType {
     abstract fun lookup(env: TypeEnv): MType
 
+    abstract fun getAllLabels(): List<String>
+
 }
 
 data class SingleDummy(val name: MIdentifier): DummyType() {
@@ -40,6 +42,10 @@ data class SingleDummy(val name: MIdentifier): DummyType() {
         }
     }
 
+    override fun getAllLabels(): List<String> {
+        return emptyList()
+    }
+
     override fun toString(): String {
         return name.toString()
     }
@@ -52,6 +58,9 @@ data class TypeVarDummy(val name: String): DummyType() {
         })
     }
 
+    override fun getAllLabels(): List<String> {
+        return listOf(name)
+    }
 
 
     override fun toString(): String {
@@ -82,6 +91,10 @@ data class TypeConDummy(val name: MIdentifier, val args: List<DummyType>): Dummy
             type.args[i].second.unify(argType, env.typeSystem)
         }
         return type
+    }
+
+    override fun getAllLabels(): List<String> {
+        return args.flatMap { it.getAllLabels() }
     }
 
     private fun unboundArgs(type: MVariantType): Int {
@@ -118,6 +131,10 @@ data class FunctionDummy(val first: DummyType, val second: DummyType) : DummyTyp
         return MFunction(first.lookup(env), second.lookup(env))
     }
 
+    override fun getAllLabels(): List<String> {
+        return first.getAllLabels() + second.getAllLabels()
+    }
+
     override fun toString(): String {
         var firStr = first.toString()
         if(first is FunctionDummy) {
@@ -130,6 +147,10 @@ data class FunctionDummy(val first: DummyType, val second: DummyType) : DummyTyp
 data class TupleDummy(val types: List<DummyType>): DummyType() {
     override fun lookup(env: TypeEnv): MType {
         return MTuple(types.map { t -> t.lookup(env) })
+    }
+
+    override fun getAllLabels(): List<String> {
+        return types.flatMap { it.getAllLabels() }
     }
 
     override fun toString(): String {
@@ -157,6 +178,10 @@ data class StaticRecordDummy(val types: List<Pair<String, DummyType>>): DummyTyp
             map[k] = v.lookup(env)
         }
         return MRecord(map, MEmptyRow)
+    }
+
+    override fun getAllLabels(): List<String> {
+        return types.flatMap { (_, v) -> v.getAllLabels() }
     }
 
     override fun toString(): String {

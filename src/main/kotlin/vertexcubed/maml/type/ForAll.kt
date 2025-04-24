@@ -36,6 +36,7 @@ data class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
                     ret.toList()
                 }
                 is MGeneralTypeVar -> emptyList()
+                is MBaseTypeVar -> emptyList()
                 is MTuple -> {
                     val ret = ArrayList<MTypeVar>()
                     for(t in real.types) {
@@ -69,6 +70,8 @@ data class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
                     ret.addAll(recursiveFind(real.rest))
                     ret.toList()
                 }
+
+                is MDummyCons -> emptyList()
             }
         }
     }
@@ -89,6 +92,14 @@ data class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
 
         for(i in typeVars.indices) {
             ret = ret.substitute(typeVars[i], types.newTypeVar())
+        }
+        return ret
+    }
+
+    fun instantiateBase(types: TypeSystem): MType {
+        var ret = type
+        for(i in typeVars.indices) {
+            ret = ret.substitute(typeVars[i], types.newBaseType())
         }
         return ret
     }

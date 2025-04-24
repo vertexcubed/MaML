@@ -21,7 +21,7 @@ sealed class PatternNode(line: Int): AstNode(line) {
     abstract fun unify(expr: MValue): Optional<Map<String, MValue>>
 
     fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
-        return TypeCheckException(line, this, env, "This pattern matches values of type ${actualType.asString(env)}\n" +
+        return TypeCheckException(line, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
                 "but a pattern was expected which matches values of type ${expectedType.asString(env)}")
     }
 }
@@ -92,7 +92,7 @@ class OrPatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) 
     }
 
     private fun sideException(env: TypeEnv, binding: String): TypeCheckException {
-        return TypeCheckException(line, this, env, "Variable $binding must occur on all sides of this | pattern")
+        return TypeCheckException(line, this, "Variable $binding must occur on all sides of this | pattern")
     }
 
     override fun pretty(): String {
@@ -172,7 +172,7 @@ class TuplePatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(lin
     }
 
     private fun multibound(env: TypeEnv, binding: String): TypeCheckException {
-        return TypeCheckException(line, this, env, "Variable $binding is bound several times in this matching")
+        return TypeCheckException(line, this, "Variable $binding is bound several times in this matching")
     }
 
     override fun pretty(): String {
@@ -244,7 +244,7 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
     }
 
     private fun conException(env: TypeEnv, expectedSize: Int, actualSize: Int): TypeCheckException {
-        return TypeCheckException(line, this, env, "The constructor $constr expects $expectedSize argument(s),\n" +
+        return TypeCheckException(line, this, "The constructor $constr expects $expectedSize argument(s),\n" +
                 "but is applied here to $actualSize argument(s)")
     }
 

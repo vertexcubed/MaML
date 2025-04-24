@@ -135,7 +135,7 @@ class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>
             ogFind = ogFind.find()
         }
         if(ogFind !is MRecord) {
-            throw TypeCheckException(line, this, env, "An expression was expected of type record\n" +
+            throw TypeCheckException(line, this, "An expression was expected of type record\n" +
                     "but type ${ogFind.asString(env)} was found.")
         }
         val (ogFields, ogRest) = ogFind.flatten()
@@ -196,14 +196,12 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
         val statementType = statement.inferType(newEnv)
 
         if(name.type.isPresent) {
-            var nameType: MType
-            try {
-                nameType = name.type.get().lookup(newEnv)
+            val labels = name.type.get().getAllLabels()
+            for(l in labels) {
+                newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            catch(e: UnboundTypeLabelException) {
-                nameType = newEnv.typeSystem.newTypeVar()
-                newEnv.addVarLabel(e.type.name to nameType)
-            }
+            val nameType = name.type.get().lookup(newEnv)
+
             var lastType = statementType
             while(true) {
                 if(lastType is MFunction) {
@@ -246,30 +244,26 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
         var newEnv = env.copy()
         val myRetType = newEnv.typeSystem.newTypeVar()
         if(name.type.isPresent) {
-            var expectedType: MType
-            try {
-                expectedType = name.type.get().lookup(newEnv)
+            val labels = name.type.get().getAllLabels()
+            for(l in labels) {
+                newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            catch(e: UnboundTypeLabelException) {
-                expectedType = newEnv.typeSystem.newTypeVar()
-                newEnv.addVarLabel(e.type.name to expectedType)
-            }
+            val expectedType = name.type.get().lookup(newEnv)
+
             //This should never throw an exception
             myRetType.unify(expectedType, env.typeSystem)
 
         }
-        if(name.binding == "_") throw TypeCheckException(line, this, env, "Only variables are allowed as left-hand side of let rec")
+        if(name.binding == "_") throw TypeCheckException(line, this, "Only variables are allowed as left-hand side of let rec")
 
         val argType = newEnv.typeSystem.newTypeVar()
         if(node.arg.type.isPresent) {
-            var expectedType: MType
-            try {
-                expectedType = name.type.get().lookup(newEnv)
+            val labels = node.arg.type.get().getAllLabels()
+            for(l in labels) {
+                newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            catch(e: UnboundTypeLabelException) {
-                expectedType = newEnv.typeSystem.newTypeVar()
-                newEnv.addVarLabel(e.type.name to expectedType)
-            }
+            val expectedType = node.arg.type.get().lookup(newEnv)
+
             //This should never throw an exception
             argType.unify(expectedType, env.typeSystem)
 
@@ -314,14 +308,12 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
         val argType = newEnv.typeSystem.newTypeVar()
 
         if(arg.type.isPresent) {
-            var expectedType: MType
-            try {
-                expectedType = arg.type.get().lookup(newEnv)
+            val labels = arg.type.get().getAllLabels()
+            for(l in labels) {
+                newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            catch(e: UnboundTypeLabelException) {
-                expectedType = newEnv.typeSystem.newTypeVar()
-                newEnv.addVarLabel(e.type.name to expectedType)
-            }
+            val expectedType = arg.type.get().lookup(newEnv)
+
             //This should never throw an exception
             argType.unify(expectedType, env.typeSystem)
         }
@@ -395,7 +387,7 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
     }
 
     private fun conException(env: TypeEnv, expectedSize: Int, actualSize: Int): TypeCheckException {
-        return TypeCheckException(line, this, env,"The constructor $name expects $expectedSize argument(s),\n" +
+        return TypeCheckException(line, this, "The constructor $name expects $expectedSize argument(s),\n" +
                 "but is applied here to $actualSize argument(s)")
     }
 
@@ -508,7 +500,7 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
     }
 
     fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
-        return TypeCheckException(line, this, env, "This pattern matches values of type ${actualType.asString(env)}\n" +
+        return TypeCheckException(line, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
                 "but a pattern was expected which matches values of type ${expectedType.asString(env)}")
     }
 

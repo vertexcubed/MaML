@@ -20,14 +20,14 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
         val newEnv = env.copy()
         val statementType =  statement.inferType(newEnv)
         if(name.type.isPresent) {
-            var nameType: MType
-            try {
-                nameType = name.type.get().lookup(newEnv)
+
+            val labels = name.type.get().getAllLabels()
+            for(l in labels) {
+                newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            catch(e: UnboundTypeLabelException) {
-                nameType = newEnv.typeSystem.newTypeVar()
-                newEnv.addVarLabel(e.type.name to nameType)
-            }
+
+            val nameType = name.type.get().lookup(newEnv)
+
             var lastType = statementType
             while(true) {
                 if(lastType is MFunction) {
@@ -131,7 +131,16 @@ class TopOpenNode(val name: MIdentifier, line: Int): AstNode(line) {
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not typecheck open nodes!")
     }
+}
 
+class TopIncludeNode(val name: MIdentifier, line: Int): AstNode(line) {
+    override fun eval(env: DynEnv): MValue {
+        throw AssertionError("Do not eval open nodes!")
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        throw AssertionError("Do not typecheck open nodes!")
+    }
 }
 
 class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: String, line: Int): AstNode(line) {
@@ -142,15 +151,11 @@ class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: Strin
 
     override fun inferType(env: TypeEnv): MType {
         val newEnv = env.copy()
-        var t: MType
-        try {
-            t = type.lookup(newEnv)
+        val labels = type.getAllLabels()
+        for(l in labels) {
+            newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
         }
-        catch(e: UnboundTypeLabelException) {
-            t = newEnv.typeSystem.newTypeVar()
-            newEnv.addVarLabel(e.type.name to t)
-        }
-        return t
+        return type.lookup(newEnv)
     }
 
     override fun toString(): String {

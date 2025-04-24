@@ -45,9 +45,9 @@ class MTypeVar(val id: Int): MType() {
         substitute = Optional.of(last)
     }
 
-    override fun unify(other: MType, typeSystem: TypeSystem) {
+    override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
         if(substitute.isPresent) {
-            substitute.get().unify(other, typeSystem)
+            substitute.get().unify(other, typeSystem, looser)
             return
         }
         val otherType = other.find()
@@ -89,7 +89,7 @@ data class MGeneralTypeVar(val id: Int): MType() {
         return this == other
     }
 
-    override fun unify(other: MType, typeSystem: TypeSystem) {
+    override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
         throw UnifyException(this, other)
     }
 
@@ -104,4 +104,33 @@ data class MGeneralTypeVar(val id: Int): MType() {
     override fun toString(): String {
         return "'t$id"
     }
+}
+
+
+/**
+ * Special type variables that behave like "base" types (int, bool, etc.).
+ * For use in signature enrichment
+ */
+data class MBaseTypeVar(val id: Int): MType() {
+    override fun substitute(from: MType, to: MType): MType {
+        val first = from.find()
+        if(first is MBaseTypeVar && first.id == id) {
+            return to
+        }
+        return this
+    }
+
+    override fun occurs(other: MType): Boolean {
+        return isSame(other)
+    }
+
+
+    override fun isSame(other: MType): Boolean {
+        return (other is MBaseTypeVar && id == other.id)
+    }
+
+    override fun toString(): String {
+        return "b$id"
+    }
+
 }

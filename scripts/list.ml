@@ -1,3 +1,7 @@
+external print: 'a -> unit = "maml_core_print"
+external println: 'a -> unit = "maml_core_println"
+
+
 type 'a list = Nil | Cons of 'a * 'a list
 
 let rev l =
