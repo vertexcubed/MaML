@@ -191,7 +191,7 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
 
 
     override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
-        val constrType = env.lookupBinding(constr).instantiate(env.typeSystem)
+        val constrType = env.lookupConstructor(constr).instantiate(env.typeSystem)
 
         if(constrType !is MConstr) throw IllegalArgumentException("This should never happen?")
         if(expr.isEmpty) {

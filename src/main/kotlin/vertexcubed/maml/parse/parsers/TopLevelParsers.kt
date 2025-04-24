@@ -78,9 +78,6 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
                         }
                     }
 
-                    if(res.result is ExternalDefNode) {
-                        env.addExternalFunc(res.result.name)
-                    }
                     if(res.result is ModuleStructNode) {
                         env.addModule(res.result)
                     }

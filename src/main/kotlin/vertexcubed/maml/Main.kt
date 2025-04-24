@@ -3,8 +3,10 @@ package vertexcubed.maml
 import vertexcubed.maml.core.Interpreter
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.eval.ConValue
+import vertexcubed.maml.eval.IntegerValue
 import vertexcubed.maml.eval.TupleValue
 import vertexcubed.maml.eval.UnitValue
+import vertexcubed.maml.type.MUnit
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.IOException
@@ -57,7 +59,7 @@ fun main(args: Array<String>) {
         ConValue(MIdentifier("::"), Optional.of(TupleValue(listOf(x, xs))))
     }
 
-
+    interp.registerExternal("maml_some_value", { -> IntegerValue(12) })
 
     interp.run(code)
 

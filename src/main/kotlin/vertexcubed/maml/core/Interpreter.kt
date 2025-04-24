@@ -127,6 +127,11 @@ class Interpreter {
         return callback(func, *args)
     }
 
+    fun registerExternal(name: String, function: () -> MValue) {
+        registerExternalArr(name) { args ->
+            function()
+        }
+    }
 
     fun registerExternal(name: String, function: (MValue) -> MValue) {
         registerExternalArr(name) { args: Array<MValue> ->
@@ -194,7 +199,6 @@ class Interpreter {
             return
         }
 
-        println("All externals: ${parseEnv.allExternalFuncs()}")
         val program = ModuleStructNode("Program", result.result, Optional.empty(), parseEnv, 1)
         println(program.nodes)
         println("Parse successful. Type checking...")

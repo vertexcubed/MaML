@@ -4,6 +4,8 @@ import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.ExternalValue
 import vertexcubed.maml.eval.MValue
+import vertexcubed.maml.parse.DummyType
+import vertexcubed.maml.parse.FunctionDummy
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.type.*
 import java.util.*
@@ -39,10 +41,10 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     val conType = conDummy.lookup(newEnv)
 //                    conType = conType.substitute(conType, )
 
-                    typeEnv.addBinding(con.name.binding to
+                    typeEnv.addConstructor(con.name.binding to
                             ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.of(conType)))
                     )
-                    toWrite.addBinding(con.name.binding to
+                    toWrite.addConstructor(con.name.binding to
                             ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.of(conType)))
                     )
                 }
@@ -51,10 +53,10 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                 }
             }
             else {
-                typeEnv.addBinding(con.name.binding to
+                typeEnv.addConstructor(con.name.binding to
                         ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.empty())))
 
-                toWrite.addBinding(con.name.binding to
+                toWrite.addConstructor(con.name.binding to
                         ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.empty()))
                 )
             }
@@ -124,8 +126,25 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                 }
 
                 is ExternalDefNode -> {
-                    newEnv.addBinding(node.name to ExternalValue(node.javaFunc))
-                    newBindings.addBinding(node.name to ExternalValue(node.javaFunc))
+
+                    fun createFunction(type: DummyType, argCount: Int): AstNode {
+                        return when(type) {
+                            is FunctionDummy -> {
+                                FunctionNode(MBinding("p$argCount", Optional.empty()), createFunction(type.second,argCount + 1), 1)
+
+                            }
+                            else -> {
+                                ExternalCallNode(node.javaFunc, argCount, 1)
+                            }
+                        }
+                    }
+
+                    val n = createFunction(node.type, 0)
+
+                    val value = n.eval(newEnv)
+
+                    newEnv.addBinding(node.name to value)
+                    newBindings.addBinding(node.name to value)
                 }
                 else -> {
                     println(node.eval(newEnv))

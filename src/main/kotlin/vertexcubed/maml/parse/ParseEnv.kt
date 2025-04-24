@@ -11,7 +11,6 @@ import java.util.*
 class ParseEnv() {
 
     val infixMap = mutableMapOf<Int, Pair<Associativity, MutableList<String>>>()
-    val externalFuncs = arrayListOf<String>()
     val modules = mutableMapOf<String, ModuleStructNode>()
 
     //default values
@@ -27,14 +26,12 @@ class ParseEnv() {
 
     fun addAllFrom(other: ParseEnv) {
         infixMap.putAll(other.infixMap)
-        externalFuncs.addAll(other.externalFuncs)
         modules.putAll(other.modules)
     }
 
     fun copy(): ParseEnv {
         val ret = ParseEnv()
         ret.infixMap.putAll(infixMap)
-        ret.externalFuncs.addAll(externalFuncs)
         ret.modules.putAll(modules)
         return ret
     }
@@ -58,20 +55,6 @@ class ParseEnv() {
             }
         }
         throw AssertionError("Should not happen!")
-    }
-
-    fun allExternalFuncs(): List<MIdentifier> {
-        val ret = arrayListOf<MIdentifier>()
-        for((name, mod) in modules) {
-            val modFuncs = mod.parseEnv.allExternalFuncs()
-            ret.addAll(modFuncs.map { iden -> MIdentifier(listOf(name) + iden.path) })
-        }
-        ret.addAll(externalFuncs.map { s -> MIdentifier(s) })
-        return ret
-    }
-
-    fun addExternalFunc(name: String) {
-        externalFuncs.add(name)
     }
 
     fun addInfixRule(rule: InfixRule) {
@@ -184,13 +167,7 @@ class ParseEnv() {
 
         val node = newList.foldRight(last) {n, acc ->
 
-            //TODO: consider maybe figuring out a better way of this?
-            if(n.second == "::") {
-                ExternalAppNode(MIdentifier("::"), listOf(n.first, acc), acc.line)
-            }
-            else {
-                AppNode(AppNode(VariableNode(n.second, n.first.line), n.first, n.first.line), acc, acc.line)
-            }
+            AppNode(AppNode(VariableNode(n.second, n.first.line), n.first, n.first.line), acc, acc.line)
 //            AppNode(n.first, acc, acc.line)
         }
         return node

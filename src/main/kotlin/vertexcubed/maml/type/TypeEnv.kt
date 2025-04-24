@@ -11,6 +11,7 @@ class TypeEnv(val typeSystem: TypeSystem) {
     val bindingTypes: MutableMap<String, ForAll> = mutableMapOf()
     val typeDefs: MutableMap<String, ForAll> = mutableMapOf()
     val varLabelBindings: MutableMap<String, MType> = mutableMapOf()
+    val constructors = mutableMapOf<String, ForAll>()
 
     fun copy(): TypeEnv {
         val ret = TypeEnv(typeSystem)
@@ -58,6 +59,20 @@ class TypeEnv(val typeSystem: TypeSystem) {
             lastEnv = cur.types
         }
         return lastEnv.lookupBinding(binding.path.last())
+    }
+
+    fun lookupConstructor(binding: String): ForAll {
+        return constructors.getOrElse(binding, {
+            throw UnboundVarException(binding) })
+    }
+
+    fun lookupConstructor(binding: MIdentifier): ForAll {
+        var lastEnv = this
+        for (i in 0 until binding.path.lastIndex) {
+            val cur = lastEnv.lookupModule(binding.path[i])
+            lastEnv = cur.types
+        }
+        return lastEnv.lookupConstructor(binding.path.last())
     }
 
     fun lookupType(type: String): ForAll {
@@ -110,6 +125,17 @@ class TypeEnv(val typeSystem: TypeSystem) {
         bindingTypes.putAll(from)
     }
 
+    fun addConstructor(binding: String, type: ForAll) {
+        constructors[binding] = type
+    }
+    fun addConstructor(pair: Pair<String, ForAll>) {
+        constructors += pair
+    }
+
+    fun addAllConstructors(from: Map<String, ForAll>) {
+        constructors.putAll(from)
+    }
+
 
     fun addType(binding: String, type: ForAll) {
         typeDefs[binding] = type
@@ -129,6 +155,7 @@ class TypeEnv(val typeSystem: TypeSystem) {
         this.bindingTypes.putAll(other.bindingTypes)
         this.typeDefs.putAll(other.typeDefs)
         this.varLabelBindings.putAll(other.varLabelBindings)
+        this.constructors.putAll(other.constructors)
     }
 
 }

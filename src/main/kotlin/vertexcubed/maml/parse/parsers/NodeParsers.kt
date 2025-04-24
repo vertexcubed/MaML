@@ -226,15 +226,6 @@ class ApplicationParser(): Parser<AstNode>() {
             ZeroOrMore(PrecedenceParsers.ConstLevel()).map { second: List<AstNode> ->
                 if (second.isEmpty()) return@map first
 
-                //TODO: fix that last() call
-                if(first is VariableNode && first.name in env.allExternalFuncs()) {
-
-
-                    return@map ExternalAppNode(first.name, second, first.line)
-                }
-
-
-
                 var app = AppNode(first, second[0], tokens[index].line)
                 for (i in 1..<second.size) {
                     app = AppNode(app, second[i], tokens[index].line)

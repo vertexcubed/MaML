@@ -9,17 +9,16 @@ import java.util.*
 class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
 
     override fun eval(env: DynEnv): MValue {
+        val argEval = arg.eval(env)
 
         val funcVal = func.eval(env)
         when(funcVal) {
             is FunctionValue -> {
-                val argEval = arg.eval(env)
                 val newEnv = funcVal.env.copy()
                 newEnv.addBinding(funcVal.arg to argEval)
                 return funcVal.expr.eval(newEnv)
             }
             is RecursiveFunctionValue -> {
-                val argEval = arg.eval(env)
                 val newEnv = funcVal.func.env.copy()
                 newEnv.addBinding(funcVal.func.arg to argEval)
                 newEnv.addBinding(funcVal.name to funcVal)
@@ -351,7 +350,7 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val myType = env.lookupBinding(name).instantiate(env.typeSystem)
+        val myType = env.lookupConstructor(name).instantiate(env.typeSystem)
         if(myType !is MConstr) throw IllegalArgumentException("This should never happen?")
         if(value.isEmpty) {
             if(myType.argType.isPresent)
@@ -419,41 +418,25 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
     }
 }
 
-class ExternalAppNode(val name: MIdentifier, val args: List<AstNode>, line: Int): AstNode(line) {
+class ExternalCallNode(val javaFunc: String, val argCount: Int, line: Int): AstNode(line) {
     override fun eval(env: DynEnv): MValue {
-        val javaFunc = env.lookupBinding(name)
-        if(javaFunc !is ExternalValue) throw ApplicationException("Cannot apply non-function value $name!")
-        val argValues = args.map { n -> n.eval(env) }
-        return env.callJavaFunc(javaFunc.javaFunc, argValues.toTypedArray())
+        val args = arrayListOf<MValue>()
+        for(i in 0 until argCount) {
+            args.add(env.lookupBinding("p${i}"))
+        }
+        return env.callJavaFunc(javaFunc, args.toTypedArray())
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val funcType = env.lookupBinding(name).instantiate(env.typeSystem)
-
-        val argTypes = args.map { n -> n.inferType(env) }
-
-        val myType = env.typeSystem.newTypeVar()
-
-        val other = argTypes.foldRight(myType as MType, {arg, acc -> MFunction(arg, acc)})
-        try {
-            funcType.unify(other, env.typeSystem)
-        }
-        catch(e: UnifyException) {
-            throw TypeCheckException(line, this, env, e.t2, e.t1)
-        }
-
-        return myType
-    }
-
-    override fun pretty(): String {
-        return "$name ${args.joinToString(" ") {n -> n.pretty()}}"
+        throw AssertionError("Do not type check external calls!")
     }
 
     override fun toString(): String {
-        return "ExternalApp($name, $args)"
+        return "External($javaFunc)"
     }
 
 }
+
 
 
 

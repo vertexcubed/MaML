@@ -2,20 +2,34 @@ package vertexcubed.maml.parse.parsers
 
 import vertexcubed.maml.ast.*
 import vertexcubed.maml.core.BadRecordException
+import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.Token
 import vertexcubed.maml.parse.result.ParseResult
+import java.util.*
 
 @Suppress("UNCHECKED_CAST")
 class PatternPrecedence {
     class Sub(): Parser<PatternNode>() {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<PatternNode> {
-            return ChoiceParser(listOf(
+            val each = ChoiceParser(listOf(
                 IdentifierPatternParser(),
                 ConstantPatternParser() as Parser<PatternNode>,
                 TuplePatternParser(),
                 RecordPatternParser() as Parser<PatternNode>,
-            )).parse(tokens, index, env)
+                ListNilPatternParser() as Parser<PatternNode>,
+            ))
+
+            val parser = each.bind { first ->
+                ZeroOrMore(CompoundSpecialCharParser("::").rCompose(each)).map { rest ->
+                    rest.foldRight(first) { n, acc ->
+                        ConstructorPatternNode(MIdentifier("::"), Optional.of(TuplePatternNode(listOf(n, acc), n.line)), n.line)
+                    }
+                }
+            }
+
+
+            return parser.parse(tokens, index, env)
         }
     }
 
@@ -41,6 +55,17 @@ class ConstantPatternParser(): Parser<ConstantPatternNode>() {
         )).map { node -> ConstantPatternNode(node, node.line) }.parse(tokens, index, env)
     }
 }
+
+
+
+class ListNilPatternParser(): Parser<ConstructorPatternNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConstructorPatternNode> {
+        return LBracketParser().rCompose(RBracketParser()).map {
+            ConstructorPatternNode(MIdentifier("[]"), Optional.empty(), tokens[index].line)
+        }.parse(tokens, index, env)
+    }
+}
+
 
 class ConstrPatternParser(): Parser<ConstructorPatternNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConstructorPatternNode> {
