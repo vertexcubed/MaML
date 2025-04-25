@@ -46,6 +46,7 @@ data class ForAll(val typeVars: List<MGeneralTypeVar>, val type: MType) {
                     ret
                 }
                 is MVariantType -> real.args.filter { a -> a.second is MTypeVar }.map { a -> a.second as MTypeVar }
+                is MExtensibleVariantType -> real.args.filter { a -> a.second is MTypeVar }.map { a -> a.second as MTypeVar }
                 is MTypeVar -> listOf(real)
 
                 MBool, MChar, MFloat, MInt, MString, MUnit, MEmptyRow -> emptyList()

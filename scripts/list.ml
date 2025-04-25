@@ -1,12 +1,7 @@
-open Core
-
 (* let _ = 1 + 2 + 3 + 4 + 5 + 6 + 7 *)
 
 
+let a = [1; 2; 3; 4; 5]
+let _ = List.fold_left (op +) 0 a
 
-module Test = struct
-  let (++) x y = x + y + y
-
-  infix 5 (++)
-
-end
+let _ = List.nth_opt a 2

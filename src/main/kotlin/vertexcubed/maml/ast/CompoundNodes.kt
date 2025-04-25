@@ -525,3 +525,37 @@ class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNod
     }
 
 }
+
+class AssertNode(val check: AstNode, line: Int): AstNode(line) {
+
+    override fun eval(env: DynEnv): MValue {
+        val checkVal = check.eval(env)
+        if(!boolOrThrow(checkVal)) {
+            //TODO: throw assertion failure
+            return UnitValue
+        }
+        return UnitValue
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+
+        if(check is FalseNode) {
+            //TODO: actually decompose
+            return env.typeSystem.newTypeVar()
+        }
+
+        val checkType = check.inferType(env)
+        checkType.unify(MBool, env.typeSystem)
+        return MUnit
+    }
+
+    override fun pretty(): String {
+        return "assert ${check.pretty()}"
+    }
+
+    override fun toString(): String {
+        return "Assert($check)"
+    }
+
+
+}

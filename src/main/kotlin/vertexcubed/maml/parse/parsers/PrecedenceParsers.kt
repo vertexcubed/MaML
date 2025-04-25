@@ -58,7 +58,9 @@ class PrecedenceParsers {
                     .disjoint(SpecialCharParser("!"))
                     .disjoint(CompoundSpecialCharParser("~-."))
                     .disjoint(CompoundSpecialCharParser("~-"))
-            return (RecordExpandLevel() as Parser<AstNode>).disjoint(opParser.bind { op ->
+            return (RecordExpandLevel() as Parser<AstNode>)
+                .disjoint(AssertionParser() as Parser<AstNode>)
+                .disjoint(opParser.bind { op ->
                 AppLevel().map { second ->
                     var oper = op
                     //Syntax sugar: - (float) -> ~-. float, - -> ~-, -. -> ~-.

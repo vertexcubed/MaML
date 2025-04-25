@@ -236,6 +236,15 @@ class ApplicationParser(): Parser<AstNode>() {
     }
 }
 
+class AssertionParser(): Parser<AssertNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AssertNode> {
+        return KeywordParser("assert")
+            .rCompose(PrecedenceParsers.ConstLevel()).map { AssertNode(it, tokens[index].line) }
+            .parse(tokens, index, env)
+    }
+
+}
+
 class FunctionParser(): Parser<FunctionNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<FunctionNode> {
         return KeywordParser("fun").rCompose(TypedIdentifierParser()).bind { first ->

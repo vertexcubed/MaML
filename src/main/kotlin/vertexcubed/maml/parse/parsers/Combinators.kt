@@ -149,12 +149,13 @@ class OneOrMore<T>(val parser: Parser<T>): Parser<List<T>>() {
 }
 
 class ChoiceParser<T>(val parsers: List<Parser<T>>): Parser<T>() {
-    init {
-        if(parsers.size == 0) throw IllegalArgumentException("Cannot make Choice parser wtih no parsers!")
-    }
+
 
 
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<T> {
+        if(parsers.isEmpty()) {
+            return ParseResult.Failure(index, tokens[index], "Empty choice parser.")
+        }
         var ret = parsers[0]
         for(i in 1..<parsers.size) {
             ret = ret.disjoint(parsers[i])

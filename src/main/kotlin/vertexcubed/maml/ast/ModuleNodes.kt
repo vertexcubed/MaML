@@ -66,6 +66,58 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
         }
     }
 
+    private fun typeExtend(node: VariantExtendNode, typeEnv: TypeEnv, toWrite: TypeEnv, debug: Boolean) {
+        val labelEnv = typeEnv.copy()
+
+        val scheme = typeEnv.lookupType(node.name)
+        val nodeType = scheme.instantiate(typeEnv.typeSystem)
+        if(nodeType !is MExtensibleVariantType) {
+            throw TypeCheckException(node.line, node, "Type ${nodeType.asString(typeEnv)} is not extensible.")
+        }
+        if(node.arguments.size != nodeType.args.size) {
+            throw TypeCheckException(node.line, node, "This extension does not match type ${nodeType.asString(typeEnv)}\n" +
+                    "Expected arity ${nodeType.args.size}, but found arity ${node.arguments.size}")
+        }
+        for(i in node.arguments.indices) {
+            // We don't care if the labels are different
+            labelEnv.addVarLabel(node.arguments[i].name to nodeType.args[i].second)
+        }
+
+        for(con in node.cons) {
+            if(con.name.type.isPresent) {
+                val conDummy = con.name.type.get()
+
+                try {
+
+                    val conType = conDummy.lookup(labelEnv)
+
+                    typeEnv.addConstructor(con.name.binding to
+                            ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.of(conType)))
+                    )
+                    toWrite.addConstructor(con.name.binding to
+                            ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.of(conType)))
+                    )
+                }
+                catch(e: UnboundTypeLabelException) {
+                    throw TypeCheckException(node.line, node, "The type of variable ${e.type} is unbound in this type declaration.")
+                }
+            }
+            else {
+                typeEnv.addConstructor(con.name.binding to
+                        ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.empty())))
+
+                toWrite.addConstructor(con.name.binding to
+                        ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.empty()))
+                )
+            }
+            if(debug) {
+                println("Type of $node : ${nodeType.asString(typeEnv)}")
+            }
+        }
+    }
+
+
+
     private fun typeAlias(node: TypeAliasNode, typeEnv: TypeEnv, toWrite: TypeEnv, debug: Boolean) {
         val newEnv = typeEnv.copy()
         for(arg in node.args) {
@@ -94,73 +146,6 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
     }
 
 
-    fun exportValues(env: DynEnv): StructEval {
-        val newBindings = DynEnv()
-        val newEnv = env.copy()
-        for(node in nodes) {
-            when(node) {
-                is TopLetNode -> {
-                    val nodeVal = node.eval(newEnv)
-                    println(nodeVal)
-                    if(node.name.binding != "_") {
-                        newEnv.addBinding(node.name.binding to nodeVal)
-                        newBindings.addBinding(node.name.binding to nodeVal)
-                    }
-                }
-                is VariantTypeNode, is TypeAliasNode, is ModuleSigNode -> {
-                    //These are only used for type checking
-                    continue
-                }
-
-                is ModuleStructNode -> {
-                    val module = node.exportValues(newEnv)
-                    newEnv.addModule(module)
-                    newBindings.addModule(module)
-                }
-
-                is TopOpenNode -> {
-                    val module = newEnv.lookupModule(node.name)
-                    newEnv.addAllBindings(module.bindings.bindings)
-                }
-
-                is TopIncludeNode -> {
-                    val module = newEnv.lookupModule(node.name)
-                    newEnv.addAllBindings(module.bindings.bindings)
-                    newBindings.addAllBindings(module.bindings.bindings)
-                }
-
-                is ExternalDefNode -> {
-
-                    fun createFunction(type: DummyType, argCount: Int): AstNode {
-                        return when(type) {
-                            is FunctionDummy -> {
-                                FunctionNode(MBinding("p$argCount", Optional.empty()), createFunction(type.second,argCount + 1), 1)
-
-                            }
-                            else -> {
-                                ExternalCallNode(node.javaFunc, argCount, 1)
-                            }
-                        }
-                    }
-
-                    val n = createFunction(node.type, 0)
-
-                    val value = n.eval(newEnv)
-
-                    newEnv.addBinding(node.name to value)
-                    newBindings.addBinding(node.name to value)
-                }
-                else -> {
-                    println(node.eval(newEnv))
-                }
-            }
-        }
-        newBindings.bindings.keys.map { k -> "$name.$k" }
-        return StructEval(name, newBindings)
-    }
-
-
-
     fun exportTypes(env: TypeEnv, debug: Boolean): StructType {
         val newEnv = env.copy()
         val moduleTypes = TypeEnv(env.typeSystem)
@@ -183,8 +168,16 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     typeVariant(node, newEnv, moduleTypes, debug)
                 }
 
+                is VariantExtendNode -> {
+                    typeExtend(node, newEnv, moduleTypes, debug)
+                }
+
                 is ExtensibleVariantTypeNode -> {
 
+                    val nodeType = node.inferType(newEnv)
+                    val scheme = ForAll.generalize(nodeType, newEnv.typeSystem)
+                    newEnv.addType(node.name to scheme)
+                    moduleTypes.addType(node.name to scheme)
                 }
 
                 is TypeAliasNode -> {
@@ -300,6 +293,77 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
 
 
         return StructType(name, Optional.empty(), moduleTypes)
+    }
+
+
+
+    fun exportValues(env: DynEnv, debug: Boolean): StructEval {
+        val newBindings = DynEnv()
+        val newEnv = env.copy()
+        for(node in nodes) {
+            when(node) {
+                is TopLetNode -> {
+                    val nodeVal = node.eval(newEnv)
+                    if(debug) {
+                        println(nodeVal)
+                    }
+                    if(node.name.binding != "_") {
+                        newEnv.addBinding(node.name.binding to nodeVal)
+                        newBindings.addBinding(node.name.binding to nodeVal)
+                    }
+                }
+                is VariantTypeNode, is VariantExtendNode, is ExtensibleVariantTypeNode, is TypeAliasNode, is ModuleSigNode -> {
+                    //These are only used for type checking
+                    continue
+                }
+
+                is ModuleStructNode -> {
+                    val module = node.exportValues(newEnv, debug)
+                    newEnv.addModule(module)
+                    newBindings.addModule(module)
+                }
+
+                is TopOpenNode -> {
+                    val module = newEnv.lookupModule(node.name)
+                    newEnv.addAllBindings(module.bindings.bindings)
+                }
+
+                is TopIncludeNode -> {
+                    val module = newEnv.lookupModule(node.name)
+                    newEnv.addAllBindings(module.bindings.bindings)
+                    newBindings.addAllBindings(module.bindings.bindings)
+                }
+
+                is ExternalDefNode -> {
+
+                    fun createFunction(type: DummyType, argCount: Int): AstNode {
+                        return when(type) {
+                            is FunctionDummy -> {
+                                FunctionNode(MBinding("p$argCount", Optional.empty()), createFunction(type.second,argCount + 1), 1)
+
+                            }
+                            else -> {
+                                ExternalCallNode(node.javaFunc, argCount, 1)
+                            }
+                        }
+                    }
+
+                    val n = createFunction(node.type, 0)
+
+                    val value = n.eval(newEnv)
+
+                    newEnv.addBinding(node.name to value)
+                    newBindings.addBinding(node.name to value)
+                }
+                else -> {
+                    if(debug) {
+                        println(node.eval(newEnv))
+                    }
+                }
+            }
+        }
+        newBindings.bindings.keys.map { k -> "$name.$k" }
+        return StructEval(name, newBindings)
     }
 
 

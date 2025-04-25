@@ -1,5 +1,42 @@
 
 
+(* Exceptions *)
+
+type exn = ..
+
+external raise: exn -> 'a = "maml_core_raise"
+
+(** Raised when none of the cases in a match statement are matched. Formatted as file_name, line# *)
+exception Match_failure of (string * int)
+
+(** Raised when an assertion fails. In the format file_name, line# *)
+exception Assert_failure of (string * int)
+
+
+(** Thrown when this function's arguments don't make sense. *)
+exception Invalid_argument of string
+
+(** Thrown in general failures. *)
+exception Failure of string
+
+(** Thrown when some element can't be found in a search function. *)
+exception Not_found
+
+(** Thrown when out of memory. *)
+exception Out_of_memory
+
+(** Thrown when the stack is too large. Generally indicates infinite recursion problems *)
+exception Stack_overflow
+
+
+(** Raised when trying to divide by zero *)
+exception Division_by_zero
+
+let failwith s = raise (Failure s)
+let invalid_arg s = raise (Invalid_argument s)
+
+
+
 (* Basic Operators *)
 
 external (+): int -> int -> int = "maml_core_add"
@@ -54,10 +91,6 @@ external (~-.): int -> int = "maml_core_negatef"
 
 type 'a option = Some of 'a | None
 type ('a, 'b) result = Ok of 'a | Error of 'b
-(* type exn = .. *)
-
-(* Temporary. Replace with exception later *)
-let invalid_arg s = s
 
 
 (* Integer arithmetic *)
@@ -105,7 +138,7 @@ let bool_of_string s =
   match s with
   | "true" -> true
   | "false" -> false
-  | _ -> invalid_arg false
+  | _ -> invalid_arg s
   end
 
 let bool_of_string_opt s =
@@ -115,8 +148,13 @@ let bool_of_string_opt s =
   | _ -> None
   end
 
-external string_of_int: int -> string = "maml_string_of_int"
-external string_of_float: float -> string = "maml_string_of_float"
+external string_of_int: int -> string = "maml_core_string_of_int"
+
+external int_of_string: string -> int = "maml_core_int_of_string"
+
+external string_of_float: float -> string = "maml_core_string_of_float"
+
+external float_of_string: string -> int = "maml_core_float_of_string"
 
 (* Pairs *)
 

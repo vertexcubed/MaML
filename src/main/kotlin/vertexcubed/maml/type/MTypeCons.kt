@@ -5,7 +5,15 @@ import vertexcubed.maml.core.UnifyException
 import java.util.*
 import kotlin.jvm.optionals.getOrElse
 
-sealed class MTypeCon(open val args: List<Pair<String, MType>>): MType()
+sealed class MTypeCon(open val args: List<Pair<String, MType>>): MType() {
+    override fun occurs(other: MType): Boolean {
+        for(arg in args) {
+            if(arg.second.occurs(other)) return true
+        }
+        return false
+    }
+
+}
 
 
 data class MDummyCons(val id: UUID, override val args: List<Pair<String, MType>>): MTypeCon(args) {
@@ -68,14 +76,82 @@ data class MDummyCons(val id: UUID, override val args: List<Pair<String, MType>>
 }
 
 
-data class MVariantType(val id: UUID, override val args: List<Pair<String, MType>>): MTypeCon(args) {
-
+data class MExtensibleVariantType(val id: UUID, override val args: List<Pair<String, MType>>): MTypeCon(args) {
     override fun occurs(other: MType): Boolean {
-        for(arg in args) {
-            if(arg.second.occurs(other)) return true
-        }
-        return false
+        return super.occurs(other)
     }
+
+    override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
+        val otherType = other.find()
+        if(otherType is MTypeVar) {
+            if(looser) throw UnifyException(this, otherType)
+
+            return otherType.unify(this, typeSystem, looser)
+        }
+        if(otherType !is MExtensibleVariantType) throw UnifyException(this, otherType)
+        if(otherType.id != this.id) throw UnifyException(this, otherType)
+        if(otherType.args.size != args.size) throw UnifyException(this, otherType)
+        for(i in args.indices) {
+            args[i].second.unify(otherType.args[i].second, typeSystem, looser)
+        }
+    }
+
+    override fun substitute(from: MType, to: MType): MType {
+        return MExtensibleVariantType(id, args.map { a -> Pair(a.first, a.second.substitute(from, to)) })
+    }
+
+    override fun asString(env: TypeEnv): String {
+        val pair = stringOpt(env, env, "").getOrElse { return this.toString() }
+        return "${pair.first}${pair.second}"
+    }
+
+    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<Pair<String, String>> {
+
+        for((k, v) in env.typeDefs.entries.reversed()) {
+            val otherType = v.type.find()
+//            if(otherType is ModuleType) {
+//                val modString = stringOpt(otherType.types, parentEnv, "$module${otherType.name}.")
+//                if(modString.isPresent) return modString
+//            }
+            if(otherType is MExtensibleVariantType && otherType.id == this.id) {
+                var str = ""
+                if(args.size == 1) {
+                    str += args[0].second.asString(parentEnv) + " "
+                }
+                else if(args.isNotEmpty()) {
+                    str += args.map { p -> p.second.asString(parentEnv) }.joinToString(", ", "(" , ") ")
+                }
+                var modOut = module
+                if(modOut.isNotEmpty()) {
+                    modOut += "."
+                }
+                return Optional.of(str to modOut + k)
+            }
+        }
+
+        for((k, v) in env.modules.entries.reversed()) {
+            val opt = stringOpt(v.types, parentEnv, k)
+            if(opt.isPresent) {
+                if(module.isNotEmpty()) {
+                    return Optional.of(opt.get().first to "$module.${opt.get().second}");
+                }
+                return opt
+            }
+        }
+
+        return Optional.empty()
+    }
+
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType !is MExtensibleVariantType) return false
+        return id == otherType.id
+    }
+}
+
+
+
+data class MVariantType(val id: UUID, override val args: List<Pair<String, MType>>): MTypeCon(args) {
 
 
     override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
@@ -148,7 +224,7 @@ data class MVariantType(val id: UUID, override val args: List<Pair<String, MType
 
 data class MTypeAlias(val id: UUID, override val args: List<Pair<String, MType>>, val real: MType): MTypeCon(args) {
     override fun occurs(other: MType): Boolean {
-        return real.occurs(other)
+        return  real.occurs(other) || super.occurs(other)
     }
 
     override fun substitute(from: MType, to: MType): MType {

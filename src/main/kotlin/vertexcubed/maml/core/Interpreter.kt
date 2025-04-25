@@ -1,11 +1,13 @@
 package vertexcubed.maml.core
 
-import vertexcubed.maml.ast.AstNode
-import vertexcubed.maml.ast.FunctionNode
+import vertexcubed.maml.ast.ModuleSigNode
 import vertexcubed.maml.ast.ModuleStructNode
+import vertexcubed.maml.ast.OpenSigNode
+import vertexcubed.maml.ast.TopOpenNode
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.parse.Lexer
 import vertexcubed.maml.parse.ParseEnv
+import vertexcubed.maml.parse.parsers.InterfaceParser
 import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
@@ -21,7 +23,8 @@ class Interpreter {
     private var dynEnv: DynEnv
     private var typeEnv: TypeEnv
     private val typeSystem: TypeSystem = TypeSystem()
-    private val globalModules = mutableListOf<ModuleWrapper>()
+    private val fileModules = mutableListOf<ModuleWrapper>()
+    private val interfaces = mutableListOf<InterfaceWrapper>()
 
     //TODO: IMPLEMENT AND/OR SHORT CIRCUITING
     init {
@@ -57,13 +60,42 @@ class Interpreter {
         registerExternal("maml_core_add") { x, y -> IntegerValue(longOrThrow(x) + longOrThrow(y))}
         registerExternal("maml_core_sub") { x, y -> IntegerValue(longOrThrow(x) - longOrThrow(y))}
         registerExternal("maml_core_mul") { x, y -> IntegerValue(longOrThrow(x) * longOrThrow(y))}
-        registerExternal("maml_core_div") { x, y -> IntegerValue(longOrThrow(x) / longOrThrow(y))}
-        registerExternal("maml_core_mod") { x, y -> IntegerValue(longOrThrow(x) % longOrThrow(y))}
+        registerExternal("maml_core_div") { x, y ->
+            val x = longOrThrow(x)
+            val y = longOrThrow(y)
+            if(y == 0L) {
+                raise("Division_by_zero")
+            }
+            return@registerExternal IntegerValue(x / y)
+        }
+        registerExternal("maml_core_mod") { x, y ->
+            val x = longOrThrow(x)
+            val y = longOrThrow(y)
+            if(y == 0L) {
+                raise("Division_by_zero")
+            }
+            return@registerExternal IntegerValue(x % y)
+        }
+
         registerExternal("maml_core_addf") { x, y -> FloatValue(floatOrThrow(x) + floatOrThrow(y))}
         registerExternal("maml_core_subf") { x, y -> FloatValue(floatOrThrow(x) - floatOrThrow(y))}
         registerExternal("maml_core_mulf") { x, y -> FloatValue(floatOrThrow(x) * floatOrThrow(y))}
-        registerExternal("maml_core_divf") { x, y -> FloatValue(floatOrThrow(x) / floatOrThrow(y))}
-        registerExternal("maml_core_modf") { x, y -> FloatValue(floatOrThrow(x) % floatOrThrow(y))}
+        registerExternal("maml_core_divf") { x, y ->
+            val x = floatOrThrow(x)
+            val y = floatOrThrow(y)
+            if(y == 0.0f) {
+                raise("Division_by_zero")
+            }
+            return@registerExternal FloatValue(x / y)
+        }
+        registerExternal("maml_core_modf") { x, y ->
+            val x = floatOrThrow(x)
+            val y = floatOrThrow(y)
+            if(y == 0.0f) {
+                raise("Division_by_zero")
+            }
+            return@registerExternal FloatValue(x % y)
+        }
         registerExternal("maml_core_eq") { x, y -> BooleanValue(x == y)}
         registerExternal("maml_core_neq") { x, y -> BooleanValue(x != y)}
         registerExternal("maml_core_lt") { x, y -> BooleanValue(x < y)}
@@ -103,6 +135,10 @@ class Interpreter {
         registerExternal("maml_core_floor") { x -> FloatValue(floor(floatOrThrow(x))) }
         registerExternal("maml_core_ceil") { x -> FloatValue(ceil(floatOrThrow(x))) }
         registerExternal("maml_core_round") { x -> FloatValue(round(floatOrThrow(x))) }
+
+        registerExternal("maml_core_raise") { x ->
+            throw MaMLException(x)
+        }
     }
 
 
@@ -116,10 +152,18 @@ class Interpreter {
         return ForAll.generalize(rawType, typeSystem)
     }
 
+
+    /**
+     * Returns the value of some named value, or null if it was not found.
+     * Register named values with Callback.register
+     */
     fun namedValue(name: String): MValue? {
         return namedValues[name]
     }
 
+    /**
+     * Returns the result of some function call, or null if it failed.
+     */
     fun callback(vfunc: MValue, vararg args: MValue): MValue? {
         if(args.isEmpty()) return null
 
@@ -131,10 +175,57 @@ class Interpreter {
         return last
     }
 
+    /**
+     * Returns the result of some named function call, or null if it failed or if the function was not found.
+     * Register named functions with Callback.register
+     */
     fun callback(name: String, vararg args: MValue): MValue? {
         val func = namedValue(name) ?: return null
         return callback(func, *args)
     }
+
+
+    /**
+     * Raises a MaML exception from java.
+     * Throws IllegalArgumentException if name isn't a registered exception
+     */
+    fun raise(name: String, vararg args: MValue) {
+        val iden = MIdentifier(name)
+        var con: MType
+        try {
+            con = typeEnv.lookupConstructor(iden).instantiate(typeSystem)
+
+        }
+        catch(e: UnboundVarException) {
+            try {
+                con = typeEnv.lookupConstructor(MIdentifier("Core.$name")).instantiate(typeSystem)
+            }
+            catch(e: UnboundVarException) {
+                throw IllegalArgumentException("MaML exception $name does not exist")
+            }
+        }
+
+        if(con !is MConstr) throw IllegalArgumentException("Cannot raise non-exception $name")
+        val conType = con.type
+        if(conType !is MExtensibleVariantType) throw IllegalArgumentException("Cannot raise non-exception $name")
+        val (exn, _) = typeEnv.lookupType(conType.id)
+        if(exn != "Core.exn") throw IllegalArgumentException("Cannot raise non-exception $name")
+
+        val tupleOpt: Optional<MValue> =
+            if(args.isEmpty()) Optional.empty<MValue>()
+            else Optional.of(TupleValue(args.toList()))
+        val ret = ConValue(MIdentifier(name), tupleOpt)
+        throw MaMLException(ret)
+    }
+
+    fun failWith(name: String) {
+        return raise("Failure", StringValue(name))
+    }
+
+    fun invalidArg(name: String) {
+        return raise("Invalid_argument", StringValue(name))
+    }
+
 
     fun registerExternal(name: String, function: () -> MValue) {
         registerExternalArr(name) { args ->
@@ -232,32 +323,77 @@ class Interpreter {
         val parseEnv = ParseEnv()
         parseEnv.init()
 
-        val core = File(classLoader.getResource("core/core.ml")?.toURI() ?: throw FileNotFoundException("Could not find file core/core.ml"))
+        val coreFile = File(classLoader.getResource("core/core.ml")?.toURI() ?: throw FileNotFoundException("Could not find file core/core.ml"))
 
-        globalModules.add(ModuleWrapper(fileToString(core), "Core", parseEnv))
+        val core = ModuleWrapper(fileToString(coreFile), "Core", false, parseEnv, false)
 
         val stdlibEnum = classLoader.getResources("stdlib")
+
+
+        val moduleMap = mutableMapOf<String, Pair<String?, String?>>()
 
         if(stdlibEnum.hasMoreElements()) {
             val folderURL = stdlibEnum.nextElement()
             val files = File(folderURL.toURI()).listFiles()
 
+
             if(files != null) {
+
+
                 for(f in files.filterNotNull()) {
                     val str = fileToString(f)
-                    var moduleName = f.name.replaceFirstChar { it.uppercase() }
-                    moduleName = moduleName.substring(0, moduleName.indexOf(".ml"))
-                    println(moduleName)
-                    globalModules.add(ModuleWrapper(str, moduleName, parseEnv))
+
+                    var moduleName = f.nameWithoutExtension
+                    moduleName = moduleName.replaceFirstChar { it.uppercase() }
+                    if(f.extension == "mli") {
+                        if(moduleName in moduleMap) {
+                            moduleMap[moduleName] = str to moduleMap[moduleName]!!.second
+                        }
+                        else {
+                            moduleMap[moduleName] = str to null
+                        }
+                    }
+                    else if(f.extension == "ml") {
+                        if(moduleName in moduleMap) {
+                            moduleMap[moduleName] = moduleMap[moduleName]!!.first to str
+                        }
+                        else {
+                            moduleMap[moduleName] = null to str
+                        }
+                    }
                 }
+
+//                globalModules.add(ModuleWrapper(str, moduleName, parseEnv))
             }
         }
+        for ((k, v) in moduleMap) {
+            val (sig, struct) = v
+            if(sig != null)
+                interfaces.add(InterfaceWrapper(sig, k, parseEnv))
+            if(struct != null)
+                fileModules.add(ModuleWrapper(struct, k, sig != null, parseEnv))
+        }
 
-        val program = ModuleWrapper(code, "Program", parseEnv)
+
+
+        val program = ModuleWrapper(code, "Program", false, parseEnv)
 
         println(program.node)
 
-        for(mod in globalModules) {
+        core.typeCheck(typeEnv)
+
+        for(sig in interfaces) {
+            try {
+                sig.typeCheck(typeEnv)
+            }
+            catch(e: TypeCheckException) {
+                println(sig.strList[e.line - 1].trim())
+                println("Error on line ${e.line} (${e.node.pretty()})\n${e.log}")
+                return
+            }
+        }
+
+        for(mod in fileModules) {
             try {
                 mod.typeCheck(typeEnv)
             }
@@ -281,28 +417,33 @@ class Interpreter {
 
         println("Type checked. Evaluating...")
 
-        for(mod in globalModules) {
+        core.evaluate(dynEnv)
+
+        for(mod in fileModules) {
             try {
                 mod.evaluate(dynEnv)
             }
-            catch(e: Exception) {
-                println("Runtime Error: $e")
+            catch(e: MaMLException) {
+                println("Exception: ${e.exn}")
                 return
             }
         }
 
         try {
-            program.node.exportValues(dynEnv)
+            program.node.exportValues(dynEnv, true)
         }
-        catch(e: Exception) {
-            println("Runtime Error: $e")
+        catch(e: MaMLException) {
+            println("Exception: ${e.exn}")
+        }
+        catch(e: MaMLException) {
+            println("Exception: ${e.exn}")
         }
     }
 }
 
 
-class ModuleWrapper(code: String, moduleName: String, val parseEnv: ParseEnv) {
-
+class ModuleWrapper(code: String, moduleName: String, val hasInterface: Boolean, val parseEnv: ParseEnv, val openCore: Boolean) {
+    constructor(code: String, moduleName: String, hasInterface: Boolean, parseEnv: ParseEnv): this(code, moduleName, hasInterface, parseEnv, true)
 
     val strList: List<String>
     val node: ModuleStructNode
@@ -322,13 +463,18 @@ class ModuleWrapper(code: String, moduleName: String, val parseEnv: ParseEnv) {
 
         if(result is ParseResult.Failure) {
             val line = result.token.line
-            throw ParseException(strList[line - 1].trim(), line, result.logMessage)
+            throw ParseException(strList[line - 1].trim(), line, "Module $moduleName: ${result.logMessage}")
         }
         if(result !is ParseResult.Success) {
             println("Catastrophic failure: parse result isn't a success OR failure (This will never happen).")
             throw AssertionError()
         }
-        return ModuleStructNode(moduleName, result.result.first, Optional.empty(), result.result.second, 1)
+        var list = result.result.first
+        if(openCore) {
+           list = listOf(TopOpenNode(MIdentifier("Core"), 1)) + list
+        }
+        val sig = if(hasInterface) Optional.of(MIdentifier(moduleName)) else Optional.empty()
+        return ModuleStructNode(moduleName, list, sig, result.result.second, 1)
     }
 
     fun typeCheck(env: TypeEnv) {
@@ -337,9 +483,48 @@ class ModuleWrapper(code: String, moduleName: String, val parseEnv: ParseEnv) {
     }
 
     fun evaluate(env: DynEnv) {
-        val module = node.exportValues(env)
+        val module = node.exportValues(env, false)
         env.addModule(module)
     }
 }
 
+class InterfaceWrapper(code: String, interfaceName: String, val parseEnv: ParseEnv, val openCore: Boolean) {
+    constructor(code: String, interfaceName: String, parseEnv: ParseEnv): this(code, interfaceName, parseEnv, true)
+
+    val strList: List<String>
+    val node: ModuleSigNode
+
+    init {
+        strList = code.split('\n')
+        node = parseFile(code, interfaceName)
+    }
+
+    private fun parseFile(code: String, moduleName: String): ModuleSigNode {
+        val lexer = Lexer(code)
+
+        val parser = InterfaceParser()
+        val tokens = lexer.read()
+        println(tokens)
+        val result = parser.parse(tokens, parseEnv)
+
+        if(result is ParseResult.Failure) {
+            val line = result.token.line
+            throw ParseException(strList[line - 1].trim(), line, result.logMessage)
+        }
+        if(result !is ParseResult.Success) {
+            println("Catastrophic failure: parse result isn't a success OR failure (This will never happen).")
+            throw AssertionError()
+        }
+        var list = result.result.first
+        if(openCore) {
+            list = listOf(OpenSigNode(MIdentifier("Core"), 1)) + list
+        }
+        return ModuleSigNode(moduleName, list, result.result.second, 1)
+    }
+
+    fun typeCheck(env: TypeEnv) {
+        val sig = node.exportTypes(env)
+        env.addSignature(sig)
+    }
+}
 

@@ -66,7 +66,7 @@ data class BooleanValue(val value: Boolean) : MValue() {
 
 data class StringValue(val value: String): MValue() {
     override fun toString(): String {
-        return value
+        return "\"$value\""
     }
 
     override fun compareTo(y: MValue): Int {

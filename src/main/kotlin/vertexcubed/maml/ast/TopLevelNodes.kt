@@ -99,10 +99,38 @@ class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDum
         throw AssertionError("Probably shouldn't be evaluated")
     }
 
-    override fun inferType(env: TypeEnv): MType {
-        val myType = MVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, a.lookup(env)) })
+    override fun inferType(env: TypeEnv): MExtensibleVariantType {
+        val myType = MExtensibleVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, env.typeSystem.newTypeVar()) })
+        val newEnv = env.copy()
+        newEnv.addType(name to ForAll.generalize(myType, env.typeSystem))
         return myType
     }
+}
+
+class VariantExtendNode(val name: String, val arguments: List<TypeVarDummy>, val cons: List<ConDefNode>, line: Int): AstNode(line) {
+    override fun eval(env: DynEnv): MValue {
+        throw AssertionError("Probably shouldn't be evaluated?")
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        throw AssertionError("Do not type check extend node")
+    }
+
+    override fun pretty(): String {
+        var str = ""
+        for(i in cons.indices) {
+            str += cons[i].toString() + " "
+            if(i != cons.size - 1) {
+                str += "| "
+            }
+        }
+        return "type $name += "
+    }
+
+    override fun toString(): String {
+        return "TypeExtend($name, $arguments, $cons)"
+    }
+
 }
 
 

@@ -20,6 +20,9 @@ class ProgramParser(val terminator: Parser<Any>): Parser<Pair<List<AstNode>, Par
             TopLetParser() as Parser<AstNode>,
             TypeAliasParser() as Parser<AstNode>,
             DataTypeDefParser() as Parser<AstNode>,
+            ExtensibleVariantTypeParser() as Parser<AstNode>,
+            VariantExtendParser() as Parser<AstNode>,
+            ExceptionParser() as Parser<AstNode>,
             StructParser() as Parser<AstNode>,
             SigParser() as Parser<AstNode>,
             TopOpenParser() as Parser<AstNode>,
@@ -105,6 +108,45 @@ class ProgramParser(val terminator: Parser<Any>): Parser<Pair<List<AstNode>, Par
 }
 
 
+@Suppress("UNCHECKED_CAST")
+class InterfaceParser(val terminator: Parser<Any>): Parser<Pair<List<SigNode>, ParseEnv>>() {
+    constructor(): this(EOFParser() as Parser<Any>)
+
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Pair<List<SigNode>, ParseEnv>> {
+        val parser = ChoiceParser(listOf(
+            ValParser() as Parser<SigNode>,
+            AbstractTypeParser() as Parser<SigNode>,
+            OpenSigParser() as Parser<SigNode>,
+            IncludeSigParser() as Parser<SigNode>,
+        ))
+
+
+        val outEnv = ParseEnv()
+
+        var workingIndex = index
+        val output = arrayListOf<SigNode>()
+        while(workingIndex < tokens.size) {
+            if(terminator.parse(tokens, workingIndex, env) is ParseResult.Success) {
+                workingIndex--
+                break
+            }
+
+            val res = parser.parse(tokens, workingIndex, env)
+            when(res) {
+                is ParseResult.Success -> {
+                    workingIndex = res.newIndex
+                    output.add(res.result)
+                }
+                is ParseResult.Failure -> {
+                    return res.newResult()
+                }
+            }
+        }
+        return ParseResult.Success(output to outEnv, workingIndex + 1)
+    }
+
+}
+
 
 
 
@@ -181,6 +223,63 @@ class TypeAliasParser(): Parser<TypeAliasNode>() {
     }
 }
 
+class ExtensibleVariantTypeParser(): Parser<ExtensibleVariantTypeNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ExtensibleVariantTypeNode> {
+        val parser = KeywordParser("type").rCompose(
+            idenParser()).lCompose(SpecialCharParser("=")).lCompose(CompoundSpecialCharParser("..")).map { iden ->
+                ExtensibleVariantTypeNode(iden.first, iden.second, tokens[index].line)
+            }
+        return parser.parse(tokens, index, env)
+    }
+
+    private fun idenParser(): Parser<Pair<String, List<TypeVarDummy>>> {
+        return OptionalParser(MultiTypeVarTypeParser()).bind { args ->
+            IdentifierParser().map { name ->
+                Pair(name, args.getOrDefault(emptyList()))
+            }
+        }
+    }
+}
+
+class VariantExtendParser(): Parser<VariantExtendNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<VariantExtendNode> {
+        val parser = KeywordParser("type").rCompose(
+            idenParser()).lCompose(CompoundSpecialCharParser("+=")).bind { iden ->
+            ConDefParser().bind { first ->
+                ZeroOrMore(SpecialCharParser("|").rCompose(ConDefParser())).map { second ->
+                    val list = ArrayList<ConDefNode>()
+                    list.add(first)
+                    list.addAll(second)
+                    VariantExtendNode(iden.first, iden.second, list, tokens[index].line)
+                }
+            }
+        }
+        return parser.parse(tokens, index, env)
+    }
+
+    private fun idenParser(): Parser<Pair<String, List<TypeVarDummy>>> {
+        return OptionalParser(MultiTypeVarTypeParser()).bind { args ->
+            IdentifierParser().map { name ->
+                Pair(name, args.getOrDefault(emptyList()))
+            }
+        }
+    }
+}
+
+/**
+ * Exceptions are implemented as sugar.
+ */
+class ExceptionParser(): Parser<VariantExtendNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<VariantExtendNode> {
+        return KeywordParser("exception").rCompose(ConDefParser()).map { con ->
+            VariantExtendNode("exn", emptyList(), listOf(con), tokens[index].line)
+        }.parse(tokens, index, env)
+    }
+
+}
+
+
+
 class TopOpenParser(): Parser<TopOpenNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TopOpenNode> {
         val parseRes = KeywordParser("open").rCompose(LongConstructorParser()).map { iden ->
@@ -229,46 +328,12 @@ class StructParser(): Parser<ModuleStructNode>() {
 
 class SigParser(): Parser<ModuleSigNode>() {
 
-    @Suppress("UNCHECKED_CAST")
-    class SigNodes(): Parser<List<SigNode>>() {
-        override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<List<SigNode>> {
-            val parser = ChoiceParser(listOf(
-                ValParser() as Parser<SigNode>,
-                AbstractTypeParser() as Parser<SigNode>,
-                OpenSigParser() as Parser<SigNode>,
-                IncludeSigParser() as Parser<SigNode>,
-            ))
-
-            var workingIndex = index
-            val output = arrayListOf<SigNode>()
-            while(workingIndex < tokens.size) {
-                if(KeywordParser("end").parse(tokens, workingIndex, env) is ParseResult.Success) {
-                    workingIndex--
-                    break
-                }
-
-                val res = parser.parse(tokens, workingIndex, env)
-                when(res) {
-                    is ParseResult.Success -> {
-                        workingIndex = res.newIndex
-                        output.add(res.result)
-                    }
-                    is ParseResult.Failure -> {
-                        return res.newResult()
-                    }
-                }
-            }
-            return ParseResult.Success(output, workingIndex + 1)
-        }
-
-    }
-
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ModuleSigNode> {
         val newEnv = env.copy()
         return KeywordParser("module").rCompose(KeywordParser("type"))
             .rCompose(ConstructorParser()).lCompose(SpecialCharParser("=")).bind { name ->
-            KeywordParser("sig").rCompose(SigNodes()).lCompose(KeywordParser("end")).map {nodes ->
-                ModuleSigNode(name, nodes, newEnv, tokens[index].line)
+            KeywordParser("sig").rCompose(InterfaceParser(KeywordParser("end") as Parser<Any>)).lCompose(KeywordParser("end")).map {nodes ->
+                ModuleSigNode(name, nodes.first, nodes.second, tokens[index].line)
             }
         }.parse(tokens, index, newEnv)
     }

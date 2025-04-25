@@ -3,6 +3,7 @@ package vertexcubed.maml.type
 import vertexcubed.maml.ast.SigType
 import vertexcubed.maml.ast.StructType
 import vertexcubed.maml.core.*
+import java.util.UUID
 
 class TypeEnv(val typeSystem: TypeSystem) {
 
@@ -73,6 +74,31 @@ class TypeEnv(val typeSystem: TypeSystem) {
             lastEnv = cur.types
         }
         return lastEnv.lookupConstructor(binding.path.last())
+    }
+
+    fun lookupType(id: UUID): Pair<String, ForAll> {
+        for((k, v) in typeDefs) {
+            if(v.type is MExtensibleVariantType && v.type.id == id) {
+                return k to v
+            }
+            if(v.type is MVariantType && v.type.id == id) {
+                return k to v
+            }
+            if(v.type is MTypeAlias && v.type.id == id) {
+                return k to v
+            }
+            if(v.type is MDummyCons && v.type.id == id) {
+                return k to v
+            }
+        }
+        for((k, v) in modules) {
+            try {
+                val ret = v.types.lookupType(id)
+                return "$k.${ret.first}" to ret.second
+            }
+            catch(_: IllegalArgumentException) {}
+        }
+        throw IllegalArgumentException("id not found: $id")
     }
 
     fun lookupType(type: String): ForAll {
