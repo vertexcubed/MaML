@@ -4,19 +4,20 @@ import vertexcubed.maml.ast.*
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.parse.Lexer
 import vertexcubed.maml.parse.ParseEnv
+import vertexcubed.maml.parse.parsers.ExprParser
 import vertexcubed.maml.parse.parsers.InterfaceParser
 import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
-import java.io.File
-import java.io.FileNotFoundException
-import java.io.IOException
+import java.io.*
 import java.util.*
+import kotlin.io.path.Path
 import kotlin.math.*
 
 class Interpreter {
 
     private val namedValues: MutableMap<String, MValue>
+    private val parseEnv = ParseEnv()
     private var dynEnv: DynEnv
     private var typeEnv: TypeEnv
     private val typeSystem: TypeSystem = TypeSystem()
@@ -135,6 +136,16 @@ class Interpreter {
 
         registerExternal("maml_core_raise") { x ->
             throw MaMLException(x)
+        }
+
+        registerExternal("maml_core_print") { arg ->
+            print(arg)
+            UnitValue
+        }
+
+        registerExternal("maml_core_println") { arg ->
+            println(arg)
+            UnitValue
         }
     }
 
@@ -289,16 +300,14 @@ class Interpreter {
     }
 
 
-    fun run(code: String) {
-
+    fun loadStdLib() {
         val classLoader = Thread.currentThread().contextClassLoader
 
-        val parseEnv = ParseEnv()
         parseEnv.init()
 
         val coreFile = File(classLoader.getResource("core/core.ml")?.toURI() ?: throw FileNotFoundException("Could not find file core/core.ml"))
 
-        val core = ModuleWrapper(coreFile.name, fileToString(coreFile), "Core", false, parseEnv, false)
+        val core = ModuleWrapper(coreFile.name, fileToString(coreFile), "Core", false, parseEnv)
 
         parseEnv.addAllFrom(core.node.parseEnv)
 
@@ -354,34 +363,64 @@ class Interpreter {
         }
 
 
-
-        val program = ModuleWrapper("toplevel", code, "Program", false, parseEnv)
-
-        println(program.node)
-
         core.typeCheck(typeEnv)
+        val coreTypes = typeEnv.lookupModule("Core").types
+        typeEnv.addAllFrom(coreTypes)
 
         for(sig in interfaces) {
-            try {
-                sig.typeCheck(typeEnv)
-            }
-            catch(e: TypeCheckException) {
-                println(sig.strList[e.loc.line - 1].trim())
-                println("Error in ${e.loc}\n${e.log}")
-                return
-            }
+            sig.typeCheck(typeEnv)
+
         }
 
         for(mod in fileModules) {
-            try {
-                mod.typeCheck(typeEnv)
-            }
-            catch(e: TypeCheckException) {
-                println(mod.strList[e.loc.line - 1].trim())
-                println("Error in ${e.loc}\n${e.log}")
-                return
+            mod.typeCheck(typeEnv)
+        }
+
+
+        //Eval Stdlib
+
+        core.evaluate(dynEnv)
+
+        val coreValues = dynEnv.lookupModule("Core").bindings
+        dynEnv.addAllFrom(coreValues)
+
+        for(mod in fileModules) {
+            mod.evaluate(dynEnv)
+        }
+
+
+    }
+
+
+    fun runFile(fileName: String) {
+
+        println("Executing file $fileName...")
+
+        val path = Path(fileName)
+        val reader = BufferedReader(FileReader(path.toString()))
+        val lines = StringBuilder()
+        try {
+            var line = reader.readLine()
+            while(line != null) {
+                lines.append(line)
+                lines.append('\n')
+                line = reader.readLine()
             }
         }
+        catch (e: IOException) {
+            e.printStackTrace()
+        }
+        finally {
+            reader.close()
+        }
+        val code = lines.toString()
+        var moduleName = path.last().toString()
+        moduleName = moduleName.substring(0, moduleName.lastIndexOf('.'))
+        moduleName = moduleName.replaceFirstChar {it.uppercase() }
+
+        val program = ModuleWrapper(fileName, code, moduleName, false, parseEnv)
+
+//        println(program.node)
 
         try {
             program.node.exportTypes(typeEnv, true)
@@ -391,22 +430,6 @@ class Interpreter {
             println("Error in ${e.loc}\n${e.log}")
             return
         }
-        //TODO: this is broken. Fix.
-        typeSystem.normalizeTypeNames()
-
-        println("Type checked. Evaluating...")
-
-        core.evaluate(dynEnv)
-
-        for(mod in fileModules) {
-            try {
-                mod.evaluate(dynEnv)
-            }
-            catch(e: MaMLException) {
-                println("Exception: ${e.exn}")
-                return
-            }
-        }
 
         try {
             program.node.exportValues(dynEnv, true)
@@ -414,15 +437,67 @@ class Interpreter {
         catch(e: MaMLException) {
             println("Exception: ${e.exn}")
         }
+    }
+
+
+    fun run(code: String) {
+        try {
+            runInternal(code, true)
+        }
+        catch(e: ParseException) {
+            try {
+                runInternal(code, false)
+            }
+            catch(e2: ParseException) {
+                println("Syntax error: ${e2.log}")
+            }
+        }
+    }
+
+    private fun runInternal(code: String, isExpr: Boolean) {
+        val lexer = Lexer(code, "//toplevel//")
+        val tokens = lexer.read()
+        val parser = if(isExpr) ExprParser().map { listOf(it) to parseEnv } else ProgramParser()
+        val result: ParseResult<Pair<List<AstNode>, ParseEnv>>
+        try {
+            result = parser.parse(tokens, parseEnv)
+        }
+        catch(e: ParseException) {
+            println("Syntax error: $e")
+            return
+        }
+
+        if(result is ParseResult.Failure) {
+            val line = result.token.line
+            throw ParseException(NodeLoc("//toplevel//", line), result.logMessage)
+        }
+        if(result !is ParseResult.Success) {
+            println("Catastrophic failure: parse result isn't a success OR failure (This will never happen).")
+            throw AssertionError()
+        }
+        if(result.newIndex != tokens.lastIndex) {
+            throw ParseException(NodeLoc("//toplevel//", tokens[result.newIndex].line), "EOF not reached")
+        }
+        val toplevel = TopLevel(result.result.first, parseEnv, isExpr)
+
+        try {
+            val (outTyp, outDyn) = toplevel.runAll(typeEnv, dynEnv)
+            typeEnv.addAllFrom(outTyp)
+            dynEnv.addAllFrom(outDyn)
+        }
+        catch(e: TypeCheckException) {
+            println(e.log)
+            return
+        }
         catch(e: MaMLException) {
             println("Exception: ${e.exn}")
+            return
         }
     }
 }
 
 
-class ModuleWrapper(val fileName: String, code: String, moduleName: String, val hasInterface: Boolean, val parseEnv: ParseEnv, val openCore: Boolean) {
-    constructor(fileName: String, code: String, moduleName: String, hasInterface: Boolean, parseEnv: ParseEnv): this(fileName, code, moduleName, hasInterface, parseEnv, true)
+class ModuleWrapper(val fileName: String, code: String, moduleName: String, val hasInterface: Boolean, val parseEnv: ParseEnv) {
 
     val strList: List<String>
     val node: ModuleStructNode
@@ -437,14 +512,14 @@ class ModuleWrapper(val fileName: String, code: String, moduleName: String, val 
 
         val parser = ProgramParser()
         val tokens = lexer.read()
-        println(tokens)
+//        println(tokens)
         val newEnv = parseEnv.copy()
         newEnv.file = fileName
         val result = parser.parse(tokens, newEnv)
 
         if(result is ParseResult.Failure) {
             val line = result.token.line
-            println(result)
+//            println(result)
             throw ParseException(strList[line - 1].trim(), NodeLoc(fileName, line), "Module $moduleName: ${result.logMessage}")
         }
         if(result !is ParseResult.Success) {
@@ -452,9 +527,6 @@ class ModuleWrapper(val fileName: String, code: String, moduleName: String, val 
             throw AssertionError()
         }
         var list = result.result.first
-        if(openCore) {
-           list = listOf(TopOpenNode(MIdentifier("Core"), NodeLoc(fileName, 1))) + list
-        }
         val sig = if(hasInterface) Optional.of(MIdentifier(moduleName)) else Optional.empty()
         return ModuleStructNode(moduleName, list, sig, result.result.second, NodeLoc(fileName, 1))
     }
@@ -470,8 +542,7 @@ class ModuleWrapper(val fileName: String, code: String, moduleName: String, val 
     }
 }
 
-class InterfaceWrapper(val fileName: String, code: String, interfaceName: String, val parseEnv: ParseEnv, val openCore: Boolean) {
-    constructor(fileName: String, code: String, interfaceName: String, parseEnv: ParseEnv): this(fileName, code, interfaceName, parseEnv, true)
+class InterfaceWrapper(val fileName: String, code: String, interfaceName: String, val parseEnv: ParseEnv) {
 
     val strList: List<String>
     val node: ModuleSigNode
@@ -500,9 +571,6 @@ class InterfaceWrapper(val fileName: String, code: String, interfaceName: String
             throw AssertionError()
         }
         var list = result.result.first
-        if(openCore) {
-            list = listOf(OpenSigNode(MIdentifier("Core"), NodeLoc(fileName, 1))) + list
-        }
         return ModuleSigNode(moduleName, list, result.result.second, NodeLoc(fileName, 1))
     }
 

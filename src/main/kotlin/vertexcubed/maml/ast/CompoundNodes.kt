@@ -620,8 +620,7 @@ class AssertNode(val check: AstNode, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         val checkVal = check.eval(env)
         if(!boolOrThrow(checkVal)) {
-            //TODO: throw assertion failure
-            return UnitValue
+            throw MaMLException(ConValue(MIdentifier("Assert_failure"), Optional.of(TupleValue(listOf(StringValue(loc.file), IntegerValue(loc.line.toLong()))))))
         }
         return UnitValue
     }
@@ -645,6 +644,4 @@ class AssertNode(val check: AstNode, loc: NodeLoc): AstNode(loc) {
     override fun toString(): String {
         return "Assert($check)"
     }
-
-
 }

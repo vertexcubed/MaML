@@ -18,11 +18,15 @@ class DynEnv(vararg pairs: Pair<String, MValue>) {
         bindings.putAll(pairs)
     }
 
+    fun addAllFrom(other: DynEnv) {
+        this.bindings.putAll(other.bindings)
+        this.modules.putAll(other.modules)
+        this.javaFuncs.putAll(other.javaFuncs)
+    }
+
     fun copy(): DynEnv {
         val ret = DynEnv()
-        ret.bindings.putAll(bindings)
-        ret.modules.putAll(modules)
-        ret.javaFuncs.putAll(javaFuncs)
+        ret.addAllFrom(this)
         return ret
     }
 

@@ -51,6 +51,8 @@ MaML is in active development, and bugs and issues are expected. Please report b
 
 ## Roadmap
 
+### Core Language
+
 - [x] Basic expression syntax - If statements, let expressions, functions
 - [x] Type checking and type inference
 - [x] Recursive functions
@@ -63,25 +65,25 @@ MaML is in active development, and bugs and issues are expected. Please report b
 - [x] Multi argument Type Constructors
 - [x] Type aliases
 - [ ] Pattern exhaustiveness checking
-- [ ] List Sugar (`[]`, `x :: xs`, etc.)
+- [x] List Sugar (`[]`, `x :: xs`, etc.)
 - [x] Records
 - [x] Modules
-  - [ ] Module Signatures / Interfaces
+  - [x] Module Signatures / Interfaces
   - [ ] Module Functors
-- [ ] Exceptions
+- [x] Exceptions
 
-### Future Additions
+### Additional Features
 
 - [ ] Asynchronous values?
-- [ ] Callbacks
-- [ ] REPL environment for command-line
+- [x] Callbacks
+- [x] REPL environment for command-line
 - [ ] **Standard Library**
   - [ ] Either
   - [ ] Format (Pretty printing)
   - [ ] Functors (Maybe)
   - [ ] Higher order functions - map, fold
   - [ ] Lazy
-  - [ ] Lists
+  - [x] Lists
   - [ ] Maps
   - [ ] Monads
   - [ ] Options

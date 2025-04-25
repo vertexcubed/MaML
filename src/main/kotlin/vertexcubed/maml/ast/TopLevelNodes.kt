@@ -167,6 +167,14 @@ class TopOpenNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not typecheck open nodes!")
     }
+
+    override fun pretty(): String {
+        return "open $name"
+    }
+
+    override fun toString(): String {
+        return "Open($name)"
+    }
 }
 
 class TopIncludeNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
@@ -176,6 +184,14 @@ class TopIncludeNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not typecheck open nodes!")
+    }
+
+    override fun toString(): String {
+        return "Include($name)"
+    }
+
+    override fun pretty(): String {
+        return "include $name"
     }
 }
 

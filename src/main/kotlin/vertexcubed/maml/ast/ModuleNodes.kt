@@ -13,8 +13,7 @@ import java.util.*
 /**
  * module m = struct ... end
  */
-//TODO: THIS NEEDS ONLY NEW STUFF, NOT THE WHOLE PARSEENV
-class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Optional<MIdentifier>, val parseEnv: ParseEnv, loc: NodeLoc): AstNode(loc) {
+open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Optional<MIdentifier>, val parseEnv: ParseEnv, loc: NodeLoc): AstNode(loc) {
 
     private fun typeVariant(node: VariantTypeNode, typeEnv: TypeEnv, toWrite: TypeEnv, debug: Boolean) {
         val newEnv = typeEnv.copy()
@@ -436,3 +435,49 @@ data class StructEval(val name: String, val bindings: DynEnv)
 data class StructType(val name: String, val sig: Optional<SigType>, val types: TypeEnv)
 
 data class SigType(val name: String, val types: TypeEnv)
+
+
+class TopLevel(nodes: List<AstNode>, parseEnv: ParseEnv, val isExpr: Boolean): ModuleStructNode("//toplevel//", nodes, Optional.empty(), parseEnv, NodeLoc("//toplevel//", 0)) {
+
+    fun runAll(typeEnv: TypeEnv, dynEnv: DynEnv): Pair<TypeEnv, DynEnv> {
+        if(isExpr) {
+            val t = nodes[0].inferType(typeEnv)
+            val v = nodes[0].eval(dynEnv)
+            println("- : ${t.asString(typeEnv)} = $v")
+            val outT = TypeEnv(typeEnv.typeSystem)
+            val outV = DynEnv()
+            return outT to outV
+        }
+
+
+
+
+
+
+
+        val types = exportTypes(typeEnv, false).types
+        val valueTypes = mutableMapOf<String, MType>()
+        val allTypeEnv = types.copy()
+        allTypeEnv.addAllFrom(typeEnv)
+
+        for((_, v) in types.typeDefs) {
+            val t = v.instantiate(types.typeSystem)
+            println("type ${t.asString(allTypeEnv)}")
+        }
+        for((k, v) in types.bindingTypes) {
+            val t = v.instantiate(types.typeSystem)
+            valueTypes[k] = t
+        }
+
+        val values = exportValues(dynEnv, false).bindings
+
+
+
+        for((k, v) in values.bindings) {
+            val t = valueTypes[k]!!
+            println("val $k : ${t.asString(allTypeEnv)} = $v")
+        }
+
+        return types to values
+    }
+}
