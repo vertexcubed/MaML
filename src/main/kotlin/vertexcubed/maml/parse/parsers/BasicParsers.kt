@@ -63,12 +63,12 @@ class ListLitParser(): Parser<AstNode>() {
             )
         ).lCompose(RBracketParser()).map { data ->
             if(data.isEmpty) {
-                ConNode("[]", Optional.empty(), tokens[index].line)
+                ConNode("[]", Optional.empty(), NodeLoc("", tokens[index].line))
             }
             else {
                 data.get().foldRight(
-                    ConNode("[]", Optional.empty(), tokens[index].line) as AstNode)
-                    { node, acc -> AppNode(AppNode(VariableNode(MIdentifier("::"), node.line), node, node.line), acc, acc.line) }
+                    ConNode("[]", Optional.empty(), NodeLoc("", tokens[index].line)) as AstNode)
+                    { node, acc -> AppNode(AppNode(VariableNode(MIdentifier("::"), node.loc), node, node.loc), acc, acc.loc) }
             }
         }
         return parser.parse(tokens, index, env)

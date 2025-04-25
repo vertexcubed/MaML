@@ -28,7 +28,7 @@ class PatternPrecedence {
                     val list = listOf(first) + rest.subList(0, rest.lastIndex)
 
                     list.foldRight(rest.last()) { n, acc ->
-                        ConstructorPatternNode(MIdentifier("::"), Optional.of(TuplePatternNode(listOf(n, acc), n.line)), n.line)
+                        ConstructorPatternNode(MIdentifier("::"), Optional.of(TuplePatternNode(listOf(n, acc), n.loc)), n.loc)
                     }
                 }
             }
@@ -57,7 +57,7 @@ class ConstantPatternParser(): Parser<ConstantPatternNode>() {
             TrueParser() as Parser<AstNode>,
             FalseParser() as Parser<AstNode>,
             UnitParser() as Parser<AstNode>,
-        )).map { node -> ConstantPatternNode(node, node.line) }.parse(tokens, index, env)
+        )).map { node -> ConstantPatternNode(node, node.loc) }.parse(tokens, index, env)
     }
 }
 
@@ -66,7 +66,7 @@ class ConstantPatternParser(): Parser<ConstantPatternNode>() {
 class ListNilPatternParser(): Parser<ConstructorPatternNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConstructorPatternNode> {
         return LBracketParser().rCompose(RBracketParser()).map {
-            ConstructorPatternNode(MIdentifier("[]"), Optional.empty(), tokens[index].line)
+            ConstructorPatternNode(MIdentifier("[]"), Optional.empty(), NodeLoc(env.file, tokens[index].line))
         }.parse(tokens, index, env)
     }
 }
@@ -76,7 +76,7 @@ class ConstrPatternParser(): Parser<ConstructorPatternNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConstructorPatternNode> {
         return LongConstructorParser().bind { constr ->
             OptionalParser(PatternPrecedence.Main()).map { pattern ->
-                ConstructorPatternNode(constr, pattern, tokens[index].line)
+                ConstructorPatternNode(constr, pattern, NodeLoc(env.file, tokens[index].line))
             }
         }.parse(tokens, index, env)
     }
@@ -86,10 +86,10 @@ class IdentifierPatternParser(): Parser<PatternNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<PatternNode> {
         return IdentifierParser().map { iden ->
             if(iden == "_") {
-                WildcardPatternNode(tokens[index].line)
+                WildcardPatternNode(NodeLoc(env.file, tokens[index].line))
             }
             else {
-                VariablePatternNode(iden, tokens[index].line)
+                VariablePatternNode(iden, NodeLoc(env.file, tokens[index].line))
             }
         }.parse(tokens, index, env)
     }
@@ -105,7 +105,7 @@ class OrPatternParser(): Parser<PatternNode>() {
                 else {
                     val list = arrayListOf(first)
                     list.addAll(rest)
-                    OrPatternNode(list, first.line)
+                    OrPatternNode(list, first.loc)
                 }
             }
         }.parse(tokens, index, env)
@@ -122,7 +122,7 @@ class TuplePatternParser(): Parser<PatternNode>() {
                 else {
                     val list = arrayListOf(first)
                     list.addAll(rest)
-                    TuplePatternNode(list, first.line)
+                    TuplePatternNode(list, first.loc)
                 }
             }
         }.parse(tokens, index, env)
@@ -142,7 +142,7 @@ class RecordPatternParser(): Parser<RecordPatternNode>() {
                         if(k in map) throw BadRecordException(k)
                         map.put(k, v)
                     }
-                    RecordPatternNode(map, true, tokens[index].line)
+                    RecordPatternNode(map, true, NodeLoc(env.file, tokens[index].line))
                 }.disjoint(
                     OptionalParser(SpecialCharParser(";")).map { _ ->
                         val list = listOf(first) + rest
@@ -151,7 +151,7 @@ class RecordPatternParser(): Parser<RecordPatternNode>() {
                             if(k in map) throw BadRecordException(k)
                             map.put(k, v)
                         }
-                        RecordPatternNode(map, false, tokens[index].line)
+                        RecordPatternNode(map, false, NodeLoc(env.file, tokens[index].line))
                     }
                 ).lCompose(RCurlParser())
             }

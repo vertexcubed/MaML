@@ -1,8 +1,6 @@
 package vertexcubed.maml.ast
 
-import vertexcubed.maml.core.MBinding
-import vertexcubed.maml.core.MIdentifier
-import vertexcubed.maml.core.UnboundTypeLabelException
+import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
@@ -11,7 +9,7 @@ import vertexcubed.maml.type.*
 import java.util.*
 
 
-class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode(line) {
+class TopLetNode(val name: MBinding, val statement: AstNode, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         return statement.eval(env)
     }
@@ -25,8 +23,13 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
             for(l in labels) {
                 newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-
-            val nameType = name.type.get().lookup(newEnv)
+            val nameType: MType
+            try {
+                nameType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
+            }
 
             var lastType = statementType
             while(true) {
@@ -58,7 +61,7 @@ class TopLetNode(val name: MBinding, val statement: AstNode, line: Int): AstNode
 /**
  * Represents a variant type: eg. type a = B | C | D
  */
-class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val cons: List<ConDefNode>, line: Int): AstNode(line) {
+class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val cons: List<ConDefNode>, loc: NodeLoc): AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
@@ -94,7 +97,7 @@ class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val c
 /**
  * Represents an extensible variant type, such as exn
  */
-class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, line: Int): AstNode(line) {
+class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated")
     }
@@ -107,7 +110,7 @@ class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDum
     }
 }
 
-class VariantExtendNode(val name: String, val arguments: List<TypeVarDummy>, val cons: List<ConDefNode>, line: Int): AstNode(line) {
+class VariantExtendNode(val name: String, val arguments: List<TypeVarDummy>, val cons: List<ConDefNode>, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
     }
@@ -134,15 +137,20 @@ class VariantExtendNode(val name: String, val arguments: List<TypeVarDummy>, val
 }
 
 
-class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: DummyType, line: Int): AstNode(line) {
+class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: DummyType, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val original = type.lookup(env)
-        val id = UUID.randomUUID()
-        return MTypeAlias(id, args.map{ a -> Pair(a.name, a.lookup(env))}, original)
+        try {
+            val original = type.lookup(env)
+            val id = UUID.randomUUID()
+            return MTypeAlias(id, args.map{ a -> Pair(a.name, a.lookup(env))}, original)
+        }
+        catch(e: UnboundException) {
+            throw TypeCheckException(loc, this, e.log)
+        }
     }
 
     override fun toString(): String {
@@ -151,7 +159,7 @@ class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: Du
 
 }
 
-class TopOpenNode(val name: MIdentifier, line: Int): AstNode(line) {
+class TopOpenNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Do not eval open nodes!")
     }
@@ -161,7 +169,7 @@ class TopOpenNode(val name: MIdentifier, line: Int): AstNode(line) {
     }
 }
 
-class TopIncludeNode(val name: MIdentifier, line: Int): AstNode(line) {
+class TopIncludeNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Do not eval open nodes!")
     }
@@ -171,7 +179,7 @@ class TopIncludeNode(val name: MIdentifier, line: Int): AstNode(line) {
     }
 }
 
-class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: String, line: Int): AstNode(line) {
+class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: String, loc: NodeLoc): AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated")
@@ -183,7 +191,12 @@ class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: Strin
         for(l in labels) {
             newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
         }
-        return type.lookup(newEnv)
+        try {
+            return type.lookup(newEnv)
+        }
+        catch(e: UnboundException) {
+            throw TypeCheckException(loc, this, e.log)
+        }
     }
 
     override fun toString(): String {

@@ -2,11 +2,12 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
-import vertexcubed.maml.core.UnboundTypeLabelException
+import vertexcubed.maml.core.TypeCheckException
+import vertexcubed.maml.core.UnboundException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 
-class UnitNode(line: Int) : AstNode(line) {
+class UnitNode(loc: NodeLoc) : AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         return UnitValue
     }
@@ -24,7 +25,7 @@ class UnitNode(line: Int) : AstNode(line) {
     }
 }
 
-class TrueNode(line: Int) : AstNode(line) {
+class TrueNode(loc: NodeLoc) : AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         return BooleanValue(true)
     }
@@ -42,7 +43,7 @@ class TrueNode(line: Int) : AstNode(line) {
     }
 }
 
-class FalseNode(line: Int) : AstNode(line) {
+class FalseNode(loc: NodeLoc) : AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         return BooleanValue(false)
@@ -61,7 +62,7 @@ class FalseNode(line: Int) : AstNode(line) {
     }
 }
 
-class StringNode(val text: String, line: Int) : AstNode(line) {
+class StringNode(val text: String, loc: NodeLoc) : AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         return StringValue(text)
@@ -80,7 +81,7 @@ class StringNode(val text: String, line: Int) : AstNode(line) {
     }
 }
 
-class CharNode(val text: Char, line: Int): AstNode(line) {
+class CharNode(val text: Char, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         return CharValue(text)
     }
@@ -102,7 +103,7 @@ class CharNode(val text: Char, line: Int): AstNode(line) {
 /**
  * All integers in MaML are 64-bit.
  */
-class IntegerNode(val number: Long, line: Int) : AstNode(line) {
+class IntegerNode(val number: Long, loc: NodeLoc) : AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         return IntegerValue(number)
@@ -121,7 +122,7 @@ class IntegerNode(val number: Long, line: Int) : AstNode(line) {
     }
 }
 
-class FloatNode(val number: Float, line: Int): AstNode(line) {
+class FloatNode(val number: Float, loc: NodeLoc): AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         return FloatValue(number)
@@ -140,7 +141,7 @@ class FloatNode(val number: Float, line: Int): AstNode(line) {
     }
 }
 
-class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
+class TupleNode(val nodes: List<AstNode>, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         return TupleValue(nodes.map { node -> node.eval(env) })
     }
@@ -158,7 +159,7 @@ class TupleNode(val nodes: List<AstNode>, line: Int): AstNode(line) {
     }
 }
 
-class RecordLiteralNode(val fields: Map<String, AstNode>, line: Int): AstNode(line) {
+class RecordLiteralNode(val fields: Map<String, AstNode>, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         return RecordValue(fields.mapValues { (_, v) -> v.eval(env) })
     }
@@ -177,15 +178,20 @@ class RecordLiteralNode(val fields: Map<String, AstNode>, line: Int): AstNode(li
 
 }
 
-class VariableNode(val name: MIdentifier, line: Int): AstNode(line) {
-    constructor(name: String, line: Int): this(MIdentifier(name), line)
+class VariableNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
+    constructor(name: String, loc: NodeLoc): this(MIdentifier(name), loc)
 
     override fun eval(env: DynEnv): MValue {
         return env.lookupBinding(name)
     }
 
     override fun inferType(env: TypeEnv): MType {
-        return env.lookupBinding(name).instantiate(env.typeSystem)
+        try {
+            return env.lookupBinding(name).instantiate(env.typeSystem)
+        }
+        catch(e: UnboundException) {
+            throw TypeCheckException(loc, this, e.log)
+        }
     }
 
     override fun pretty(): String {
@@ -197,7 +203,7 @@ class VariableNode(val name: MIdentifier, line: Int): AstNode(line) {
     }
 }
 //TODO: refactor so you don't actually call inferType
-class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
+class ConDefNode(val name: MBinding, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Probably shouldn't be evaluated?")
     }
@@ -210,11 +216,16 @@ class ConDefNode(val name: MBinding, line: Int): AstNode(line) {
             for(l in labels) {
                 newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            val expectedType = name.type.get().lookup(newEnv)
+            try {
+                val expectedType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
+            }
 
 
         }
-        //Uhhhh figure out what to do here cuz this is definitely wrong
+        //TODO: Uhhhh figure out what to do here cuz this is definitely wrong
         return MUnit
     }
 

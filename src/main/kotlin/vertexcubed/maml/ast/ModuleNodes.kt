@@ -2,7 +2,6 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.DynEnv
-import vertexcubed.maml.eval.ExternalValue
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
 import vertexcubed.maml.parse.FunctionDummy
@@ -15,7 +14,7 @@ import java.util.*
  * module m = struct ... end
  */
 //TODO: THIS NEEDS ONLY NEW STUFF, NOT THE WHOLE PARSEENV
-class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Optional<MIdentifier>, val parseEnv: ParseEnv, line: Int): AstNode(line) {
+class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Optional<MIdentifier>, val parseEnv: ParseEnv, loc: NodeLoc): AstNode(loc) {
 
     private fun typeVariant(node: VariantTypeNode, typeEnv: TypeEnv, toWrite: TypeEnv, debug: Boolean) {
         val newEnv = typeEnv.copy()
@@ -49,7 +48,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     )
                 }
                 catch(e: UnboundTypeLabelException) {
-                    throw TypeCheckException(node.line, node, "The type of variable ${e.type} is unbound in this type declaration.")
+                    throw TypeCheckException(node.loc, node, "The type of variable ${e.type} is unbound in this type declaration.")
                 }
             }
             else {
@@ -72,10 +71,10 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
         val scheme = typeEnv.lookupType(node.name)
         val nodeType = scheme.instantiate(typeEnv.typeSystem)
         if(nodeType !is MExtensibleVariantType) {
-            throw TypeCheckException(node.line, node, "Type ${nodeType.asString(typeEnv)} is not extensible.")
+            throw TypeCheckException(node.loc, node, "Type ${nodeType.asString(typeEnv)} is not extensible.")
         }
         if(node.arguments.size != nodeType.args.size) {
-            throw TypeCheckException(node.line, node, "This extension does not match type ${nodeType.asString(typeEnv)}\n" +
+            throw TypeCheckException(node.loc, node, "This extension does not match type ${nodeType.asString(typeEnv)}\n" +
                     "Expected arity ${nodeType.args.size}, but found arity ${node.arguments.size}")
         }
         for(i in node.arguments.indices) {
@@ -99,7 +98,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     )
                 }
                 catch(e: UnboundTypeLabelException) {
-                    throw TypeCheckException(node.line, node, "The type of variable ${e.type} is unbound in this type declaration.")
+                    throw TypeCheckException(node.loc, node, "The type of variable ${e.type} is unbound in this type declaration.")
                 }
             }
             else {
@@ -150,81 +149,86 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
         val newEnv = env.copy()
         val moduleTypes = TypeEnv(env.typeSystem)
         for(node in nodes) {
-            when (node) {
-                is TopLetNode -> {
-                    val nodeType = node.inferType(newEnv)
-                    val scheme = ForAll.generalize(nodeType, newEnv.typeSystem)
-                    if (node.name.binding != "_") {
-                        newEnv.addBinding(node.name.binding to scheme)
-                        moduleTypes.addBinding(node.name.binding to scheme)
-                    }
-                    if(debug) {
-                        println("Type of $node : ${nodeType.asString(newEnv)}")
-                    }
+            try {
+                when (node) {
+                    is TopLetNode -> {
+                        val nodeType = node.inferType(newEnv)
+                        val scheme = ForAll.generalize(nodeType, newEnv.typeSystem)
+                        if (node.name.binding != "_") {
+                            newEnv.addBinding(node.name.binding to scheme)
+                            moduleTypes.addBinding(node.name.binding to scheme)
+                        }
+                        if(debug) {
+                            println("Type of $node : ${nodeType.asString(newEnv)}")
+                        }
 
-                }
-
-                is VariantTypeNode -> {
-                    typeVariant(node, newEnv, moduleTypes, debug)
-                }
-
-                is VariantExtendNode -> {
-                    typeExtend(node, newEnv, moduleTypes, debug)
-                }
-
-                is ExtensibleVariantTypeNode -> {
-
-                    val nodeType = node.inferType(newEnv)
-                    val scheme = ForAll.generalize(nodeType, newEnv.typeSystem)
-                    newEnv.addType(node.name to scheme)
-                    moduleTypes.addType(node.name to scheme)
-                }
-
-                is TypeAliasNode -> {
-                    typeAlias(node, newEnv, moduleTypes, debug)
-                }
-
-                is ModuleStructNode -> {
-                    val module = node.exportTypes(newEnv, debug)
-                    newEnv.addModule(module)
-                    moduleTypes.addModule(module)
-
-                }
-
-                is ModuleSigNode -> {
-                    val sig = node.exportTypes(newEnv)
-                    newEnv.addSignature(sig)
-                    moduleTypes.addSignature(sig)
-                }
-
-                is TopOpenNode -> {
-                    val module = newEnv.lookupModule(node.name)
-                    newEnv.addAllFrom(module.types)
-                }
-
-                is TopIncludeNode -> {
-                    val module = newEnv.lookupModule(node.name)
-                    newEnv.addAllFrom(module.types)
-                    moduleTypes.addAllFrom(module.types)
-                }
-
-                is ExternalDefNode -> {
-                    val t = node.inferType(newEnv)
-                    val scheme = ForAll.generalize(t, newEnv.typeSystem)
-                    newEnv.addBinding(node.name to scheme)
-                    moduleTypes.addBinding(node.name to scheme)
-                    if(debug) {
-                        println("Type of $node : ${t.asString(newEnv)}")
                     }
 
-                }
+                    is VariantTypeNode -> {
+                        typeVariant(node, newEnv, moduleTypes, debug)
+                    }
 
-                else -> {
-                    val t = node.inferType(newEnv)
-                    if(debug) {
-                        println("Type of $node : ${t.asString(newEnv)}")
+                    is VariantExtendNode -> {
+                        typeExtend(node, newEnv, moduleTypes, debug)
+                    }
+
+                    is ExtensibleVariantTypeNode -> {
+
+                        val nodeType = node.inferType(newEnv)
+                        val scheme = ForAll.generalize(nodeType, newEnv.typeSystem)
+                        newEnv.addType(node.name to scheme)
+                        moduleTypes.addType(node.name to scheme)
+                    }
+
+                    is TypeAliasNode -> {
+                        typeAlias(node, newEnv, moduleTypes, debug)
+                    }
+
+                    is ModuleStructNode -> {
+                        val module = node.exportTypes(newEnv, debug)
+                        newEnv.addModule(module)
+                        moduleTypes.addModule(module)
+
+                    }
+
+                    is ModuleSigNode -> {
+                        val sig = node.exportTypes(newEnv)
+                        newEnv.addSignature(sig)
+                        moduleTypes.addSignature(sig)
+                    }
+
+                    is TopOpenNode -> {
+                        val module = newEnv.lookupModule(node.name)
+                        newEnv.addAllFrom(module.types)
+                    }
+
+                    is TopIncludeNode -> {
+                        val module = newEnv.lookupModule(node.name)
+                        newEnv.addAllFrom(module.types)
+                        moduleTypes.addAllFrom(module.types)
+                    }
+
+                    is ExternalDefNode -> {
+                        val t = node.inferType(newEnv)
+                        val scheme = ForAll.generalize(t, newEnv.typeSystem)
+                        newEnv.addBinding(node.name to scheme)
+                        moduleTypes.addBinding(node.name to scheme)
+                        if(debug) {
+                            println("Type of $node : ${t.asString(newEnv)}")
+                        }
+
+                    }
+
+                    else -> {
+                        val t = node.inferType(newEnv)
+                        if(debug) {
+                            println("Type of $node : ${t.asString(newEnv)}")
+                        }
                     }
                 }
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
             }
         }
         if(sig.isPresent) {
@@ -239,7 +243,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     modVal = moduleTypes.lookupType(k).instantiate(newEnv.typeSystem)
                 }
                 catch (e: UnboundTyConException) {
-                    throw MissingSigTypeException(line, this, sigVal, sigTypes, name, this.sig.get())
+                    throw MissingSigTypeException(loc, this, sigVal, sigTypes, name, this.sig.get())
                 }
 
                 if(modVal is MVariantType && modVal.args.size == sigVal.args.size
@@ -247,7 +251,8 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     newOut.addType(k to moduleTypes.lookupType(k))
                 }
                 else {
-                    throw TypeCheckException(line, this,
+                    throw TypeCheckException(
+                        loc, this,
                         "Signature ${this.sig.get()} contains type ${sigVal.asString(sigTypes)} " +
                         "which is incompatible with type ${modVal.asString(newEnv)}")
                 }
@@ -260,7 +265,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     modVal = moduleTypes.lookupBinding(k).instantiate(newEnv.typeSystem)
                 }
                 catch(e: UnboundVarException) {
-                    throw MissingSigFieldException(line, this, k, name, this.sig.get())
+                    throw MissingSigFieldException(loc, this, k, name, this.sig.get())
                 }
                 var sigVal = v.instantiateBase(newEnv.typeSystem)
                 for((tk, tv) in sigTypes.typeDefs) {
@@ -275,7 +280,8 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     modVal.unify(sigVal, newEnv.typeSystem, true)
                 }
                 catch(e: UnifyException) {
-                    throw TypeCheckException(line, this,
+                    throw TypeCheckException(
+                        loc, this,
                         "Expression $k in module $name has type ${modVal.asString(newEnv)} \n" +
                         "which is incompatible with type ${v.instantiate(newEnv.typeSystem)} in signature ${this.sig.get()}")
                 }
@@ -339,11 +345,11 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     fun createFunction(type: DummyType, argCount: Int): AstNode {
                         return when(type) {
                             is FunctionDummy -> {
-                                FunctionNode(MBinding("p$argCount", Optional.empty()), createFunction(type.second,argCount + 1), 1)
+                                FunctionNode(MBinding("p$argCount", Optional.empty()), createFunction(type.second,argCount + 1), node.loc)
 
                             }
                             else -> {
-                                ExternalCallNode(node.javaFunc, argCount, 1)
+                                ExternalCallNode(node.javaFunc, argCount, node.loc)
                             }
                         }
                     }
@@ -374,7 +380,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
 
 }
 
-class ModuleSigNode(val name: String, val nodes: List<SigNode>, val parseEnv: ParseEnv, line: Int): AstNode(line) {
+class ModuleSigNode(val name: String, val nodes: List<SigNode>, val parseEnv: ParseEnv, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Do not evaluate sig nodes!")
     }
@@ -387,28 +393,33 @@ class ModuleSigNode(val name: String, val nodes: List<SigNode>, val parseEnv: Pa
         val newEnv = env.copy()
         val sigTypes = TypeEnv(env.typeSystem)
         for(node in nodes) {
-            when(node) {
-                is ExternalSigNode -> TODO()
-                is IncludeSigNode -> {
-                    val sig = newEnv.lookupSignature(node.name)
-                    newEnv.addAllFrom(sig.types)
-                    //Export everything too
-                    sigTypes.addAllFrom(sig.types)
+            try {
+                when(node) {
+                    is ExternalSigNode -> TODO()
+                    is IncludeSigNode -> {
+                        val sig = newEnv.lookupSignature(node.name)
+                        newEnv.addAllFrom(sig.types)
+                        //Export everything too
+                        sigTypes.addAllFrom(sig.types)
+                    }
+                    is OpenSigNode -> {
+                        val module = newEnv.lookupModule(node.name)
+                        newEnv.addAllFrom(module.types)
+                    }
+                    is TypeSigNode -> {
+                        val type = node.inferType(newEnv)
+                        val scheme = ForAll.generalize(type, newEnv.typeSystem)
+                        newEnv.addType(node.name to scheme)
+                        sigTypes.addType(node.name to scheme)
+                    }
+                    is ValSigNode -> {
+                        val type = ForAll.generalize(node.inferType(newEnv), newEnv.typeSystem)
+                        sigTypes.addBinding(node.name to type)
+                    }
                 }
-                is OpenSigNode -> {
-                    val module = newEnv.lookupModule(node.name)
-                    newEnv.addAllFrom(module.types)
-                }
-                is TypeSigNode -> {
-                    val type = node.inferType(newEnv)
-                    val scheme = ForAll.generalize(type, newEnv.typeSystem)
-                    newEnv.addType(node.name to scheme)
-                    sigTypes.addType(node.name to scheme)
-                }
-                is ValSigNode -> {
-                    val type = ForAll.generalize(node.inferType(newEnv), newEnv.typeSystem)
-                    sigTypes.addBinding(node.name to type)
-                }
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
             }
         }
         return SigType(name, sigTypes)

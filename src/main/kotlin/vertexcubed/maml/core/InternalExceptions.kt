@@ -7,16 +7,18 @@ import vertexcubed.maml.type.MType
 import vertexcubed.maml.type.TypeEnv
 
 
+abstract class UnboundException(val log: String) : Exception(log)
+
 
 /**
  * Thrown when trying to lookup a variable in the environment, but none was found.
  */
-class UnboundVarException(val name: String) : Exception("Unbound Variable: $name")
+class UnboundVarException(val name: String) : UnboundException("Unbound Variable: $name")
 
 /**
  * Thrown when trying to lookup a variable in the environment, but none was found.
  */
-class UnboundExternalException(val name: String) : Exception("Java function $name not implemented.")
+class UnboundExternalException(val name: String) : UnboundException("Java function $name not implemented.")
 
 
 
@@ -24,25 +26,25 @@ class UnboundExternalException(val name: String) : Exception("Java function $nam
 /**
  * Thrown when trying to lookup a module in the environment, but none was found.
  */
-class UnboundModuleException(val name: String) : Exception("Unbound Module: $name")
+class UnboundModuleException(val name: String) : UnboundException("Unbound Module: $name")
 
 
 /**
  * Thrown when trying to lookup a signature in the environment, but none was found.
  */
-class UnboundSignatureException(val name: String) : Exception("Unbound Module Type: $name")
+class UnboundSignatureException(val name: String) : UnboundException("Unbound Module Type: $name")
 
 
 
 /**
  * Thrown when trying to lookup a type label, but none was found. For example: in 'a option, 'b is unbound.
  */
-class UnboundTypeLabelException(val type: TypeVarDummy): Exception("The type of variable $type is unbound.")
+class UnboundTypeLabelException(val type: TypeVarDummy): UnboundException("The type of variable $type is unbound.")
 
 /**
  * Thrown when trying to lookup a type constructor in the environment, but none was found.
  */
-class UnboundTyConException(val name: String) : Exception("Unbound Type Constructor: $name")
+class UnboundTyConException(val name: String) : UnboundException("Unbound Type Constructor: $name")
 
 /**
  * Runtime Exception thrown when trying to apply a non-function value.

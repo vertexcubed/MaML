@@ -12,6 +12,7 @@ class ParseEnv() {
 
     val infixMap = mutableMapOf<Int, Pair<Associativity, MutableList<String>>>()
     val modules = mutableMapOf<String, ModuleStructNode>()
+    var file = "toplevel"
 
     //default values
     fun init() {
@@ -42,6 +43,7 @@ class ParseEnv() {
         val ret = ParseEnv()
         ret.infixMap.putAll(infixMap)
         ret.modules.putAll(modules)
+        ret.file = file
         return ret
     }
 
@@ -131,13 +133,13 @@ class ParseEnv() {
                     first
                 } else {
                     if (assoc == Associativity.NONE && secondList.size > 1) throw ParseException(
-                        first.line,
+                        first.loc,
                         "Cannot chain ${secondList[0].first} operations without parentheses"
                     )
 
                     when (assoc) {
                         Associativity.NONE -> {
-                            AppNode(AppNode(VariableNode(secondList[0].first, secondList[0].second.line), first, first.line), secondList[0].second, secondList[0].second.line)
+                            AppNode(AppNode(VariableNode(secondList[0].first, secondList[0].second.loc), first, first.loc), secondList[0].second, secondList[0].second.loc)
                         }
 
                         Associativity.LEFT -> {
@@ -158,7 +160,7 @@ class ParseEnv() {
     //this shoooooould work?
     fun leftAssocParser(first: AstNode, secondList: List<Pair<String, AstNode>>): AstNode {
         val node = secondList.fold(first) { acc, n ->
-            AppNode(AppNode(VariableNode(n.first, n.second.line), acc, acc.line), n.second, n.second.line)
+            AppNode(AppNode(VariableNode(n.first, n.second.loc), acc, acc.loc), n.second, n.second.loc)
 //            AppNode(acc, n.second, n.second.line)
         }
         return node
@@ -177,7 +179,7 @@ class ParseEnv() {
 
         val node = newList.foldRight(last) {n, acc ->
 
-            AppNode(AppNode(VariableNode(n.second, n.first.line), n.first, n.first.line), acc, acc.line)
+            AppNode(AppNode(VariableNode(n.second, n.first.loc), n.first, n.first.loc), acc, acc.loc)
 //            AppNode(n.first, acc, acc.line)
         }
         return node

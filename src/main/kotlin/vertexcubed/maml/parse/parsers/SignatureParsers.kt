@@ -11,7 +11,7 @@ class ValParser(): Parser<ValSigNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ValSigNode> {
         return KeywordParser("val").rCompose(IdentifierParser()).bind { iden ->
             SpecialCharParser(":").rCompose(TypeParser()).map { type ->
-                ValSigNode(iden, type, tokens[index].line)
+                ValSigNode(iden, type, NodeLoc(env.file, tokens[index].line))
             }
         }.parse(tokens, index, env)
     }
@@ -20,7 +20,7 @@ class ValParser(): Parser<ValSigNode>() {
 class AbstractTypeParser(): Parser<TypeSigNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TypeSigNode> {
         return KeywordParser("type").rCompose(idenParser()).map { (name, args) ->
-            TypeSigNode(name, args, tokens[index].line)
+            TypeSigNode(name, args, NodeLoc(env.file, tokens[index].line))
         }.parse(tokens, index, env)
     }
 
@@ -37,7 +37,7 @@ class AbstractTypeParser(): Parser<TypeSigNode>() {
 class OpenSigParser(): Parser<OpenSigNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<OpenSigNode> {
         val parseRes = KeywordParser("open").rCompose(LongConstructorParser()).map { iden ->
-            OpenSigNode(iden, tokens[index].line)
+            OpenSigNode(iden, NodeLoc(env.file, tokens[index].line))
         }
         return parseRes.parse(tokens, index, env)
     }
@@ -46,7 +46,7 @@ class OpenSigParser(): Parser<OpenSigNode>() {
 class IncludeSigParser(): Parser<IncludeSigNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<IncludeSigNode> {
         val parseRes = KeywordParser("include").rCompose(LongConstructorParser()).map { iden ->
-            IncludeSigNode(iden, tokens[index].line)
+            IncludeSigNode(iden, NodeLoc(env.file, tokens[index].line))
         }
         return parseRes.parse(tokens, index, env)
     }

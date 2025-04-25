@@ -1,5 +1,6 @@
 package vertexcubed.maml.parse
 
+import vertexcubed.maml.ast.NodeLoc
 import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.TokenType.*
 
@@ -12,7 +13,7 @@ private val HEX_DIGIT_REG = Regex("[0-9a-fA-F]")
 
 
 
-class Lexer(val source: String) {
+class Lexer(val source: String, val fileName: String) {
 
     companion object {
         private val keywords = HashSet<String>()
@@ -182,7 +183,7 @@ class Lexer(val source: String) {
             builder.append(poll())
         }
         if(hex && builder.toString().length <= 2) {
-            throw ParseException(lineIdx, "Invalid hex literal: $builder")
+            throw ParseException(NodeLoc(fileName, lineIdx), "Invalid hex literal: $builder")
         }
         return Token(if(hex) HEX_LITERAL else NUMBER_LITERAL, builder.toString(), lineIdx)
     }
@@ -218,7 +219,7 @@ class Lexer(val source: String) {
                     poll() //discard closing char
                     return Token(CHAR_LITERAL, builder.toString(), lineIdx)
                 }
-                else throw ParseException(lineIdx, "Illegal char literal: $nextChar")
+                else throw ParseException(NodeLoc(fileName, lineIdx), "Illegal char literal: $nextChar")
             }
             's' -> {
                 try {
@@ -233,10 +234,10 @@ class Lexer(val source: String) {
                             }
                             return Token(CHAR_LITERAL, builder.toString(), lineIdx)
                         }
-                        else throw ParseException(lineIdx, "Illegal char literal: $nextChar")
+                        else throw ParseException(NodeLoc(fileName, lineIdx), "Illegal char literal: $nextChar")
                     }
                 catch (e: IndexOutOfBoundsException) {
-                    throw ParseException(lineIdx, "Illegal char literal: $nextChar")
+                    throw ParseException(NodeLoc(fileName, lineIdx), "Illegal char literal: $nextChar")
                 }
             }
             else -> {
@@ -244,17 +245,17 @@ class Lexer(val source: String) {
                     state = 1
                     builder.append(nextChar)
                     for(i in 0..1) {
-                        if(!hasNext() || !DIGIT_REG.matches("${peek()}")) throw ParseException(lineIdx, "Illegal char literal: $nextChar")
+                        if(!hasNext() || !DIGIT_REG.matches("${peek()}")) throw ParseException(NodeLoc(fileName, lineIdx), "Illegal char literal: $nextChar")
                         builder.append(poll())
                     }
                     if(hasNext() && peek() == '\'') {
                         poll()
                         return Token(CHAR_LITERAL, builder.toString(), lineIdx)
                     }
-                    else throw ParseException(lineIdx, "Missing closing apostrophe in char literal: $nextChar")
+                    else throw ParseException(NodeLoc(fileName, lineIdx), "Missing closing apostrophe in char literal: $nextChar")
                 }
                 else {
-                    throw ParseException(lineIdx, "Illegal char literal: $nextChar")
+                    throw ParseException(NodeLoc(fileName, lineIdx), "Illegal char literal: $nextChar")
                 }
             }
         }
@@ -263,7 +264,7 @@ class Lexer(val source: String) {
             2 -> {
                 for (i in 0..1) {
                     if (!hasNext() || !HEX_DIGIT_REG.matches("${peek()}")) throw ParseException(
-                        lineIdx,
+                        NodeLoc(fileName, lineIdx),
                         "Illegal char literal: $nextChar"
                     )
                     builder.append(poll())
@@ -271,7 +272,7 @@ class Lexer(val source: String) {
                 if (hasNext() && peek() == '\'') {
                     poll()
                     return Token(CHAR_LITERAL, builder.toString(), lineIdx)
-                } else throw ParseException(lineIdx, "Missing closing apostrophe in char literal: $nextChar")
+                } else throw ParseException(NodeLoc(fileName, lineIdx), "Missing closing apostrophe in char literal: $nextChar")
             }
 
             3 -> {
@@ -279,15 +280,15 @@ class Lexer(val source: String) {
                     val octal = Regex("[0-3][0-7][0-7]")
                     builder.append(poll()).append(poll()).append(poll())
                     val toTest = builder.toString().substring(2, 5)
-                    if(!octal.matches(toTest)) throw ParseException(lineIdx, "Illegal char literal: $nextChar")
+                    if(!octal.matches(toTest)) throw ParseException(NodeLoc(fileName, lineIdx), "Illegal char literal: $nextChar")
                 }
                 catch(e: IndexOutOfBoundsException) {
-                    throw ParseException(lineIdx, "Illegal char literal: $nextChar")
+                    throw ParseException(NodeLoc(fileName, lineIdx), "Illegal char literal: $nextChar")
                 }
                 if (hasNext() && peek() == '\'') {
                     poll()
                     return Token(CHAR_LITERAL, builder.toString(), lineIdx)
-                } else throw ParseException(lineIdx, "Missing closing apostrophe in char literal: $nextChar")
+                } else throw ParseException(NodeLoc(fileName, lineIdx), "Missing closing apostrophe in char literal: $nextChar")
             }
 
             else -> throw IllegalStateException("Illegal state when building char literal: $state")
@@ -324,7 +325,7 @@ class Lexer(val source: String) {
             }
             builder.append(poll())
         }
-        throw ParseException(beginningLine, "No closing comment.")
+        throw ParseException(NodeLoc(fileName, beginningLine), "No closing comment.")
     }
 
     private fun stringLit(): Token {
@@ -351,7 +352,7 @@ class Lexer(val source: String) {
             }
             builder.append(next)
         }
-        throw ParseException(beginningLine, "String literal not terminated.")
+        throw ParseException(NodeLoc(fileName, beginningLine), "String literal not terminated.")
     }
 
 }

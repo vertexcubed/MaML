@@ -7,7 +7,7 @@ class LexerTest {
 
     @Test
     fun testLexing1() {
-        val lexer = Lexer("one two three four")
+        val lexer = Lexer("one two three four", "UNITTEST")
         val firstTest = listOf(
                 Token(TokenType.IDENTIFIER, "one", 1),
                 Token(TokenType.IDENTIFIER, "two", 1),
@@ -20,7 +20,7 @@ class LexerTest {
 
     @Test
     fun testLexing2() {
-        val lexer = Lexer("-4213.2792")
+        val lexer = Lexer("-4213.2792", "UNITTEST")
         val secondTest = listOf(
             Token(TokenType.NUMBER_LITERAL, "-4213", 1),
             Token(TokenType.SPECIAL_CHAR, ".", 1),
@@ -31,7 +31,7 @@ class LexerTest {
     }
     @Test
     fun testLexing3() {
-        val lexer = Lexer("line tests something\nsomething else")
+        val lexer = Lexer("line tests something\nsomething else", "UNITTEST")
         val thirdTest = listOf(
             Token(TokenType.IDENTIFIER, "line", 1),
             Token(TokenType.IDENTIFIER, "tests", 1),
@@ -44,7 +44,7 @@ class LexerTest {
     }
     @Test
     fun testLexing4() {
-        val lexer = Lexer("string \"literals\" and \"2.314\"      also \"ignoring \\\"escaped\\\" characters\"")
+        val lexer = Lexer("string \"literals\" and \"2.314\"      also \"ignoring \\\"escaped\\\" characters\"", "UNITTEST")
         val fourthTest = listOf(
             Token(TokenType.IDENTIFIER, "string", 1),
             Token(TokenType.STRING_LITERAL, "literals", 1),
@@ -59,7 +59,7 @@ class LexerTest {
     }
     @Test
     fun testLexing5() {
-        val lexer = Lexer("char tests \'n\' and \'p\' 1245 \'\\o372\' '\\n' 456.21=3 \'\\space\' \' \' ")
+        val lexer = Lexer("char tests \'n\' and \'p\' 1245 \'\\o372\' '\\n' 456.21=3 \'\\space\' \' \' ", "UNITTEST")
         val fifthTest = listOf(
             Token(TokenType.IDENTIFIER, "char", 1),
             Token(TokenType.IDENTIFIER, "tests", 1),
@@ -83,7 +83,7 @@ class LexerTest {
     }
     @Test
     fun testLexing6() {
-        val lexer = Lexer("let x = 0x2341 in x + 2.6")
+        val lexer = Lexer("let x = 0x2341 in x + 2.6", "UNITTEST")
         val sixthTest = listOf(
             Token(TokenType.KEYWORD, "let", 1),
             Token(TokenType.IDENTIFIER, "x", 1),
@@ -102,7 +102,7 @@ class LexerTest {
 
     @Test
     fun testLexing7() {
-        val lexer = Lexer("comment test (* this is a comment! ignore me entirely *) cool")
+        val lexer = Lexer("comment test (* this is a comment! ignore me entirely *) cool", "UNITTEST")
         val expected = listOf(
             Token(TokenType.IDENTIFIER, "comment", 1),
             Token(TokenType.IDENTIFIER, "test", 1),
@@ -114,7 +114,7 @@ class LexerTest {
 
     @Test
     fun testLexing8() {
-        val lexer = Lexer("nested comments (* this is a comment! (* this is another comment! *) ignore me entirely *) cool")
+        val lexer = Lexer("nested comments (* this is a comment! (* this is another comment! *) ignore me entirely *) cool", "UNITTEST")
         val expected = listOf(
             Token(TokenType.IDENTIFIER, "nested", 1),
             Token(TokenType.IDENTIFIER, "comments", 1),

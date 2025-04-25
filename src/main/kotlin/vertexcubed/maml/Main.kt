@@ -55,9 +55,6 @@ fun main(args: Array<String>) {
         UnitValue
     }
 
-
-    interp.registerExternal("maml_some_value", { -> IntegerValue(12) })
-
     interp.run(code)
 
 }

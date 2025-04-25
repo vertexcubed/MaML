@@ -2,12 +2,13 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.TypeCheckException
+import vertexcubed.maml.core.UnboundException
 import vertexcubed.maml.core.UnifyException
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
 import java.util.*
 
-sealed class PatternNode(line: Int): AstNode(line) {
+sealed class PatternNode(loc: NodeLoc): AstNode(loc) {
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not inferType of a pattern, use inferPatternType instead.")
     }
@@ -21,12 +22,13 @@ sealed class PatternNode(line: Int): AstNode(line) {
     abstract fun unify(expr: MValue): Optional<Map<String, MValue>>
 
     fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
-        return TypeCheckException(line, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
+        return TypeCheckException(
+            loc, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
                 "but a pattern was expected which matches values of type ${expectedType.asString(env)}")
     }
 }
 
-class ConstantPatternNode(val value: AstNode, line: Int): PatternNode(line) {
+class ConstantPatternNode(val value: AstNode, loc: NodeLoc): PatternNode(loc) {
 
     override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
         return Pair(value.inferType(env), emptyMap())
@@ -50,7 +52,7 @@ class ConstantPatternNode(val value: AstNode, line: Int): PatternNode(line) {
 
 }
 
-class OrPatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) {
+class OrPatternNode(val nodes: List<PatternNode>, loc: NodeLoc): PatternNode(loc) {
     init {
         if(nodes.isEmpty()) throw IllegalArgumentException("Cannot have | pattern with 0 patterns!")
     }
@@ -92,7 +94,7 @@ class OrPatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) 
     }
 
     private fun sideException(env: TypeEnv, binding: String): TypeCheckException {
-        return TypeCheckException(line, this, "Variable $binding must occur on all sides of this | pattern")
+        return TypeCheckException(loc, this, "Variable $binding must occur on all sides of this | pattern")
     }
 
     override fun pretty(): String {
@@ -101,7 +103,7 @@ class OrPatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) 
 
 }
 
-class VariablePatternNode(val name: String, line: Int): PatternNode(line) {
+class VariablePatternNode(val name: String, loc: NodeLoc): PatternNode(loc) {
     override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
         val varType = env.typeSystem.newTypeVar()
         return Pair(varType, mapOf(name to varType))
@@ -122,7 +124,7 @@ class VariablePatternNode(val name: String, line: Int): PatternNode(line) {
 }
 
 
-class WildcardPatternNode(line: Int): PatternNode(line) {
+class WildcardPatternNode(loc: NodeLoc): PatternNode(loc) {
     override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
         return Pair(env.typeSystem.newTypeVar(), emptyMap())
     }
@@ -142,7 +144,7 @@ class WildcardPatternNode(line: Int): PatternNode(line) {
 }
 
 
-class TuplePatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(line) {
+class TuplePatternNode(val nodes: List<PatternNode>, loc: NodeLoc): PatternNode(loc) {
     override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
         val types = ArrayList<MType>()
         var bindings = emptyMap<String, MType>()
@@ -172,7 +174,7 @@ class TuplePatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(lin
     }
 
     private fun multibound(env: TypeEnv, binding: String): TypeCheckException {
-        return TypeCheckException(line, this, "Variable $binding is bound several times in this matching")
+        return TypeCheckException(loc, this, "Variable $binding is bound several times in this matching")
     }
 
     override fun pretty(): String {
@@ -186,12 +188,18 @@ class TuplePatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(lin
 }
 
 
-class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<PatternNode>, line: Int): PatternNode(line) {
-    constructor(name: String, expr: Optional<PatternNode>, line: Int): this(MIdentifier(name), expr, line)
+class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<PatternNode>, loc: NodeLoc): PatternNode(loc) {
+    constructor(name: String, expr: Optional<PatternNode>, loc: NodeLoc): this(MIdentifier(name), expr, loc)
 
 
     override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
-        val constrType = env.lookupConstructor(constr).instantiate(env.typeSystem)
+        val constrType: MType
+        try {
+            constrType = env.lookupConstructor(constr).instantiate(env.typeSystem)
+        }
+        catch(e: UnboundException) {
+            throw TypeCheckException(loc, this, e.log)
+        }
 
         if(constrType !is MConstr) throw IllegalArgumentException("This should never happen?")
         if(expr.isEmpty) {
@@ -215,7 +223,7 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
                     throw conException(env, getArgSize(expectedType), getArgSize(valueType))
 
                 //Technically i should do per tuple type checking but idc lmao
-                throw TypeCheckException(line, this, env, valueType, expectedType)
+                throw TypeCheckException(loc, this, env, valueType, expectedType)
             }
             //Only one of them are tuples, aka different size args
             if(expectedType is MTuple || valueType is MTuple) {
@@ -244,7 +252,8 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
     }
 
     private fun conException(env: TypeEnv, expectedSize: Int, actualSize: Int): TypeCheckException {
-        return TypeCheckException(line, this, "The constructor $constr expects $expectedSize argument(s),\n" +
+        return TypeCheckException(
+            loc, this, "The constructor $constr expects $expectedSize argument(s),\n" +
                 "but is applied here to $actualSize argument(s)")
     }
 
@@ -277,7 +286,7 @@ class ConstructorPatternNode(val constr: MIdentifier, val expr: Optional<Pattern
 
 }
 
-class RecordPatternNode(val fields: Map<String, PatternNode>, val poly: Boolean, line: Int): PatternNode(line) {
+class RecordPatternNode(val fields: Map<String, PatternNode>, val poly: Boolean, loc: NodeLoc): PatternNode(loc) {
     override fun inferPatternType(env: TypeEnv): Pair<MType, Map<String, MType>> {
         val bindings = mutableMapOf<String, MType>()
         for((k, v) in fields) {

@@ -152,9 +152,22 @@ external string_of_int: int -> string = "maml_core_string_of_int"
 
 external int_of_string: string -> int = "maml_core_int_of_string"
 
+let int_of_string_opt s =
+  try Some (int_of_string s) with
+  | Invalid_argument _ -> None
+  end
+
+
 external string_of_float: float -> string = "maml_core_string_of_float"
 
 external float_of_string: string -> int = "maml_core_float_of_string"
+
+let float_of_string_opt s =
+  try Some (float_of_string s) with
+  | Invalid_argument _ -> None
+  end
+
+
 
 (* Pairs *)
 

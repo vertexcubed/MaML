@@ -2,6 +2,7 @@ package vertexcubed.maml.ast
 
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.TypeCheckException
+import vertexcubed.maml.core.UnboundException
 import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
@@ -11,13 +12,13 @@ import vertexcubed.maml.type.MType
 import vertexcubed.maml.type.TypeEnv
 import java.util.*
 
-sealed class SigNode(line: Int): AstNode(line) {
+sealed class SigNode(loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Do not evaluate module signature nodes!")
     }
 }
 
-class ValSigNode(val name: String, val type: DummyType, line: Int): SigNode(line) {
+class ValSigNode(val name: String, val type: DummyType, loc: NodeLoc): SigNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         val newEnv = env.copy()
@@ -28,9 +29,8 @@ class ValSigNode(val name: String, val type: DummyType, line: Int): SigNode(line
         return try {
             type.lookup(newEnv)
         }
-        catch(e: Exception) {
-            if(e.message == null) throw e
-            throw TypeCheckException(line, this, e.message!!)
+        catch(e: UnboundException) {
+            throw TypeCheckException(loc, this, e.log)
         }
     }
 
@@ -43,7 +43,7 @@ class ValSigNode(val name: String, val type: DummyType, line: Int): SigNode(line
     }
 }
 
-class TypeSigNode(val name: String, val args: List<TypeVarDummy>, line: Int): SigNode(line) {
+class TypeSigNode(val name: String, val args: List<TypeVarDummy>, loc: NodeLoc): SigNode(loc) {
     override fun inferType(env: TypeEnv): MType {
         val newEnv = env.copy()
         for(arg in args) {
@@ -68,7 +68,7 @@ class TypeSigNode(val name: String, val args: List<TypeVarDummy>, line: Int): Si
     }
 }
 
-class IncludeSigNode(val name: MIdentifier, line: Int): SigNode(line) {
+class IncludeSigNode(val name: MIdentifier, loc: NodeLoc): SigNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not infer include node!")
@@ -83,7 +83,7 @@ class IncludeSigNode(val name: MIdentifier, line: Int): SigNode(line) {
     }
 }
 
-class OpenSigNode(val name: MIdentifier, line: Int): SigNode(line) {
+class OpenSigNode(val name: MIdentifier, loc: NodeLoc): SigNode(loc) {
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not infer open node!")
     }
@@ -97,7 +97,7 @@ class OpenSigNode(val name: MIdentifier, line: Int): SigNode(line) {
     }
 }
 
-class ExternalSigNode(val name: String, val type: DummyType, line: Int): SigNode(line) {
+class ExternalSigNode(val name: String, val type: DummyType, loc: NodeLoc): SigNode(loc) {
     override fun inferType(env: TypeEnv): MType {
         TODO("Not yet implemented")
     }

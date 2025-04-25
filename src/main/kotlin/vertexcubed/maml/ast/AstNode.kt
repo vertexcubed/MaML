@@ -5,7 +5,7 @@ import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.type.MType
 import vertexcubed.maml.type.TypeEnv
 
-abstract class AstNode(val line: Int) {
+abstract class AstNode(val loc: NodeLoc) {
 
     abstract fun eval(env: DynEnv): MValue
 
@@ -17,3 +17,8 @@ abstract class AstNode(val line: Int) {
     }
 }
 
+data class NodeLoc(val file: String, val line: Int) {
+    override fun toString(): String {
+        return "$file, line $line"
+    }
+}

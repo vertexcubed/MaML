@@ -30,7 +30,7 @@ class PrecedenceParsers {
                 ListLitParser(),
 
                 //TODO: REWRITE THIS
-                KeywordParser("op").rCompose(env.choiceNameParsers()).map { str -> VariableNode(str, tokens[index + 1].line) },
+                KeywordParser("op").rCompose(env.choiceNameParsers()).map { str -> VariableNode(str, NodeLoc(env.file, tokens[index].line)) },
             )).parse(tokens, index, env)
         }
     }
@@ -73,7 +73,7 @@ class PrecedenceParsers {
                     else if(op == "-.") {
                         oper = "~-."
                     }
-                    AppNode(VariableNode(oper, second.line), second, second.line)
+                    AppNode(VariableNode(oper, second.loc), second, second.loc)
                 }
             }).parse(tokens, index, env)
         }
@@ -141,7 +141,7 @@ class PrecedenceParsers {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
             val parser: Parser<AstNode> = TryLevel().bind { first ->
                 OptionalParser(SpecialCharParser(";").rCompose(ExprParser())).map { second ->
-                    if(second.isPresent) LetNode(MBinding("_", Optional.empty()), first, second.get(), tokens[index].line)
+                    if(second.isPresent) LetNode(MBinding("_", Optional.empty()), first, second.get(), NodeLoc(env.file, tokens[index].line))
                 else first
                 }
             }

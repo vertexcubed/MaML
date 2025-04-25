@@ -1,5 +1,6 @@
 package vertexcubed.maml.parse.parsers
 
+import vertexcubed.maml.ast.NodeLoc
 import vertexcubed.maml.core.ParseException
 import vertexcubed.maml.parse.*
 import vertexcubed.maml.parse.result.ParseResult
@@ -184,7 +185,7 @@ class TypeVarParser(): Parser<TypeVarDummy>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TypeVarDummy> {
         return SpecialCharParser("'").rCompose(IdentifierParser()).map { iden ->
             if(iden.indexOf('\'') != -1) {
-                throw ParseException(tokens[index].line, "Illegal type var label: $iden")
+                throw ParseException(NodeLoc(env.file, tokens[index].line), "Illegal type var label: $iden")
             }
             else {
                 TypeVarDummy(iden)

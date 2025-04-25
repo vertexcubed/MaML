@@ -6,7 +6,7 @@ import vertexcubed.maml.type.*
 import java.util.*
 
 
-class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
+class AppNode(val func: AstNode, val arg: AstNode, loc: NodeLoc) : AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         val argEval = arg.eval(env)
@@ -41,7 +41,7 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
             funcType.unify(other, env.typeSystem)
         }
         catch(e: UnifyException) {
-            throw TypeCheckException(line, this, env, e.t2, e.t1)
+            throw TypeCheckException(loc, this, env, e.t2, e.t1)
         }
 
 
@@ -65,7 +65,7 @@ class AppNode(val func: AstNode, val arg: AstNode, line: Int) : AstNode(line) {
     }
 }
 
-class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: AstNode, line: Int) : AstNode(line) {
+class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: AstNode, loc: NodeLoc) : AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         val conditionValue = condition.eval(env)
@@ -83,7 +83,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
             condType.unify(MBool, env.typeSystem)
         }
         catch(e: UnifyException) {
-            throw TypeCheckException(condition.line, this, env, condType, MBool)
+            throw TypeCheckException(condition.loc, this, env, condType, MBool)
         }
         val thenType = thenBranch.inferType(env)
         val elseType = elseBranch.inferType(env)
@@ -91,7 +91,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
             thenType.unify(elseType, env.typeSystem)
         }
         catch(e: UnifyException) {
-            throw TypeCheckException(elseBranch.line, this, env, elseType, thenType)
+            throw TypeCheckException(elseBranch.loc, this, env, elseType, thenType)
         }
         return thenType
     }
@@ -106,7 +106,7 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
 
 }
 
-class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>, line: Int): AstNode(line) {
+class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         val oldRecord = original.eval(env)
         if(oldRecord !is RecordValue) throw RecordException("Cannot expand non-record value!")
@@ -129,12 +129,13 @@ class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>
                 ogFind.unify(empty, env.typeSystem)
             }
             catch(e: UnifyException) {
-                throw TypeCheckException(line, this, env, ogFind, empty)
+                throw TypeCheckException(loc, this, env, ogFind, empty)
             }
             ogFind = ogFind.find()
         }
         if(ogFind !is MRecord) {
-            throw TypeCheckException(line, this, "An expression was expected of type record\n" +
+            throw TypeCheckException(
+                loc, this, "An expression was expected of type record\n" +
                     "but type ${ogFind.asString(env)} was found.")
         }
         val (ogFields, ogRest) = ogFind.flatten()
@@ -149,7 +150,7 @@ class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>
     }
 }
 
-class RecordLookupNode(val record: AstNode, val field: String, line: Int): AstNode(line) {
+class RecordLookupNode(val record: AstNode, val field: String, loc: NodeLoc): AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         val recordVal = record.eval(env)
@@ -177,7 +178,7 @@ class RecordLookupNode(val record: AstNode, val field: String, line: Int): AstNo
 
 
 //TODO: explicit type for let not actually used!
-class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNode, line: Int) : AstNode(line) {
+class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNode, loc: NodeLoc) : AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         val statementVal = statement.eval(env)
@@ -199,7 +200,13 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
             for(l in labels) {
                 newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            val nameType = name.type.get().lookup(newEnv)
+            val nameType: MType
+            try {
+                nameType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
+            }
 
             var lastType = statementType
             while(true) {
@@ -233,7 +240,7 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
     }
 }
 
-class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: Int): AstNode(line) {
+class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         val nodeVal = node.eval(env)
         return RecursiveFunctionValue(name.binding, nodeVal)
@@ -247,13 +254,19 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
             for(l in labels) {
                 newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            val expectedType = name.type.get().lookup(newEnv)
+            val expectedType: MType
+            try {
+                expectedType = name.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
+            }
 
             //This should never throw an exception
             myRetType.unify(expectedType, env.typeSystem)
 
         }
-        if(name.binding == "_") throw TypeCheckException(line, this, "Only variables are allowed as left-hand side of let rec")
+        if(name.binding == "_") throw TypeCheckException(loc, this, "Only variables are allowed as left-hand side of let rec")
 
         val argType = newEnv.typeSystem.newTypeVar()
         if(node.arg.type.isPresent) {
@@ -261,7 +274,13 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
             for(l in labels) {
                 newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            val expectedType = node.arg.type.get().lookup(newEnv)
+            val expectedType: MType
+            try {
+                expectedType = node.arg.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
+            }
 
             //This should never throw an exception
             argType.unify(expectedType, env.typeSystem)
@@ -296,7 +315,7 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, line: In
 
 }
 
-class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(line) {
+class FunctionNode(val arg: MBinding, val body: AstNode, loc: NodeLoc) : AstNode(loc) {
 
     override fun eval(env: DynEnv): FunctionValue {
         return FunctionValue(arg.binding, body, env)
@@ -311,7 +330,13 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
             for(l in labels) {
                 newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
             }
-            val expectedType = arg.type.get().lookup(newEnv)
+            val expectedType: MType
+            try {
+                expectedType = arg.type.get().lookup(newEnv)
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
+            }
 
             //This should never throw an exception
             argType.unify(expectedType, env.typeSystem)
@@ -339,8 +364,8 @@ class FunctionNode(val arg: MBinding, val body: AstNode, line: Int) : AstNode(li
     }
 }
 
-class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): AstNode(line) {
-    constructor(name: String, value: Optional<AstNode>, line: Int): this(MIdentifier(name), value, line)
+class ConNode(val name: MIdentifier, val value: Optional<AstNode>, loc: NodeLoc): AstNode(loc) {
+    constructor(name: String, value: Optional<AstNode>, loc: NodeLoc): this(MIdentifier(name), value, loc)
 
     override fun eval(env: DynEnv): MValue {
         if(value.isPresent) {
@@ -350,7 +375,15 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
     }
 
     override fun inferType(env: TypeEnv): MType {
-        val myType = env.lookupConstructor(name).instantiate(env.typeSystem)
+        val myType: MType
+        try {
+            myType = env.lookupConstructor(name).instantiate(env.typeSystem)
+
+        }
+        catch(e: UnboundException) {
+            throw TypeCheckException(loc, this, e.log)
+        }
+
         if(myType !is MConstr) throw IllegalArgumentException("This should never happen?")
         if(value.isEmpty) {
             if(myType.argType.isPresent)
@@ -372,13 +405,13 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
                     throw conException(env, getArgSize(expectedType), getArgSize(valueType))
 
                 //Technically i should do per tuple type checking but idc lmao
-                throw TypeCheckException(line, this, env, valueType, expectedType)
+                throw TypeCheckException(loc, this, env, valueType, expectedType)
             }
             //Only one of them are tuples, aka different size args
             if(expectedType is MTuple || valueType is MTuple) {
                 throw conException(env, getArgSize(expectedType), getArgSize(valueType))
             }
-            throw TypeCheckException(line, this, env, valueType, expectedType)
+            throw TypeCheckException(loc, this, env, valueType, expectedType)
         }
 
 
@@ -386,7 +419,8 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
     }
 
     private fun conException(env: TypeEnv, expectedSize: Int, actualSize: Int): TypeCheckException {
-        return TypeCheckException(line, this, "The constructor $name expects $expectedSize argument(s),\n" +
+        return TypeCheckException(
+            loc, this, "The constructor $name expects $expectedSize argument(s),\n" +
                 "but is applied here to $actualSize argument(s)")
     }
 
@@ -418,7 +452,7 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, line: Int): A
     }
 }
 
-class ExternalCallNode(val javaFunc: String, val argCount: Int, line: Int): AstNode(line) {
+class ExternalCallNode(val javaFunc: String, val argCount: Int, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         val args = arrayListOf<MValue>()
         for(i in 0 until argCount) {
@@ -440,7 +474,7 @@ class ExternalCallNode(val javaFunc: String, val argCount: Int, line: Int): AstN
 
 
 
-class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode>>, line: Int): AstNode(line) {
+class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode>>, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         val exprVal = expr.eval(env)
         for((pat, newExpr) in nodes) {
@@ -451,7 +485,10 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
                 return newExpr.eval(newEnv)
             }
         }
-        throw MatchException(exprVal)
+        //TODO: include file name.
+        val exn = ConValue(MIdentifier("Match_failure"), Optional.of(TupleValue(listOf(StringValue(loc.file), IntegerValue(
+            loc.line.toLong())))))
+        throw MaMLException(exn)
     }
 
     override fun inferType(env: TypeEnv): MType {
@@ -472,14 +509,15 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
                 retType.unify(eType, env.typeSystem)
             }
             catch(e: UnifyException) {
-                throw TypeCheckException(line, this, env, eType, retType)
+                throw TypeCheckException(loc, this, env, eType, retType)
             }
         }
         return retType
     }
 
     fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
-        return TypeCheckException(line, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
+        return TypeCheckException(
+            loc, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
                 "but a pattern was expected which matches values of type ${expectedType.asString(env)}")
     }
 
@@ -492,7 +530,7 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
     }
 }
 
-class TryWithNode(val expr: AstNode, val exceptions: List<Pair<PatternNode, AstNode>>, line: Int): AstNode(line) {
+class TryWithNode(val expr: AstNode, val exceptions: List<Pair<PatternNode, AstNode>>, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         try {
             return expr.eval(env)
@@ -530,14 +568,15 @@ class TryWithNode(val expr: AstNode, val exceptions: List<Pair<PatternNode, AstN
                 exprType.unify(eType, env.typeSystem)
             }
             catch(e: UnifyException) {
-                throw TypeCheckException(line, this, env, eType, exprType)
+                throw TypeCheckException(loc, this, env, eType, exprType)
             }
         }
         return exprType
     }
 
     fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
-        return TypeCheckException(line, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
+        return TypeCheckException(
+            loc, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
                 "but a pattern was expected which matches values of type ${expectedType.asString(env)}")
     }
 
@@ -547,7 +586,7 @@ class TryWithNode(val expr: AstNode, val exceptions: List<Pair<PatternNode, AstN
 
 
 
-class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNode(line) {
+class LocalOpenNode(val name: MIdentifier, val body: AstNode, loc: NodeLoc): AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         try {
@@ -556,8 +595,8 @@ class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNod
             newEnv.addAllBindings(module.bindings.bindings)
             return body.eval(newEnv)
         }
-        catch(e: UnboundVarException) {
-            throw UnboundModuleException(e.name)
+        catch(e: UnboundException) {
+            throw TypeCheckException(loc, this, e.log)
         }
     }
 
@@ -569,14 +608,14 @@ class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNod
             newEnv.addAllTypes(module.types.typeDefs)
             return body.inferType(newEnv)
         }
-        catch(e: UnboundVarException) {
-            throw UnboundModuleException(e.name)
+        catch(e: UnboundException) {
+            throw TypeCheckException(loc, this, e.log)
         }
     }
 
 }
 
-class AssertNode(val check: AstNode, line: Int): AstNode(line) {
+class AssertNode(val check: AstNode, loc: NodeLoc): AstNode(loc) {
 
     override fun eval(env: DynEnv): MValue {
         val checkVal = check.eval(env)

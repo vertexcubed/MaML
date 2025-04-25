@@ -160,15 +160,15 @@ class TopLetParser(): Parser<TopLetNode>() {
                 ZeroOrMore(TypedIdentifierParser()).bind { arguments ->
                     OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).bind { type ->
                         SpecialCharParser("=").rCompose(ExprParser()).map { second ->
-                            if(rec.isPresent() && arguments.isEmpty()) throw ParseException(tokens[index].line, "Only functions can be recursive, not values.")
+                            if(rec.isPresent() && arguments.isEmpty()) throw ParseException(NodeLoc(env.file, tokens[index].line), "Only functions can be recursive, not values.")
 
                             val node = arguments.foldRightIndexed(second, { index, str, exist ->
                                 if(rec.isPresent() && index == 0) {
-                                    RecursiveFunctionNode(MBinding(first, Optional.empty()), FunctionNode(str, exist, tokens[index].line), tokens[index].line)
+                                    RecursiveFunctionNode(MBinding(first, Optional.empty()), FunctionNode(str, exist, NodeLoc(env.file, tokens[index].line)), NodeLoc(env.file, tokens[index].line))
                                 }
-                                else FunctionNode(str, exist, tokens[index].line)
+                                else FunctionNode(str, exist, NodeLoc(env.file, tokens[index].line))
                             })
-                            TopLetNode(MBinding(first, type), node, tokens[index].line)
+                            TopLetNode(MBinding(first, type), node, NodeLoc(env.file, tokens[index].line))
                         }
                     }
                 }
@@ -188,7 +188,7 @@ class DataTypeDefParser(): Parser<VariantTypeNode>() {
                     val list = ArrayList<ConDefNode>()
                     list.add(first)
                     list.addAll(second)
-                    VariantTypeNode(iden.first, iden.second, list, tokens[index].line)
+                    VariantTypeNode(iden.first, iden.second, list, NodeLoc(env.file, tokens[index].line))
                 }
             }
         }
@@ -208,7 +208,7 @@ class TypeAliasParser(): Parser<TypeAliasNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TypeAliasNode> {
         val parser = KeywordParser("type").rCompose(idenParser()).lCompose(SpecialCharParser("=")).bind { iden ->
             TypeParser().map { type ->
-                TypeAliasNode(iden.first, iden.second, type, index)
+                TypeAliasNode(iden.first, iden.second, type, NodeLoc(env.file, tokens[index].line))
             }
         }
         return parser.parse(tokens, index, env)
@@ -227,7 +227,7 @@ class ExtensibleVariantTypeParser(): Parser<ExtensibleVariantTypeNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ExtensibleVariantTypeNode> {
         val parser = KeywordParser("type").rCompose(
             idenParser()).lCompose(SpecialCharParser("=")).lCompose(CompoundSpecialCharParser("..")).map { iden ->
-                ExtensibleVariantTypeNode(iden.first, iden.second, tokens[index].line)
+                ExtensibleVariantTypeNode(iden.first, iden.second, NodeLoc(env.file, tokens[index].line))
             }
         return parser.parse(tokens, index, env)
     }
@@ -250,7 +250,7 @@ class VariantExtendParser(): Parser<VariantExtendNode>() {
                     val list = ArrayList<ConDefNode>()
                     list.add(first)
                     list.addAll(second)
-                    VariantExtendNode(iden.first, iden.second, list, tokens[index].line)
+                    VariantExtendNode(iden.first, iden.second, list, NodeLoc(env.file, tokens[index].line))
                 }
             }
         }
@@ -272,7 +272,7 @@ class VariantExtendParser(): Parser<VariantExtendNode>() {
 class ExceptionParser(): Parser<VariantExtendNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<VariantExtendNode> {
         return KeywordParser("exception").rCompose(ConDefParser()).map { con ->
-            VariantExtendNode("exn", emptyList(), listOf(con), tokens[index].line)
+            VariantExtendNode("exn", emptyList(), listOf(con), NodeLoc(env.file, tokens[index].line))
         }.parse(tokens, index, env)
     }
 
@@ -283,7 +283,7 @@ class ExceptionParser(): Parser<VariantExtendNode>() {
 class TopOpenParser(): Parser<TopOpenNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TopOpenNode> {
         val parseRes = KeywordParser("open").rCompose(LongConstructorParser()).map { iden ->
-            TopOpenNode(iden, tokens[index].line)
+            TopOpenNode(iden, NodeLoc(env.file, tokens[index].line))
         }
         return parseRes.parse(tokens, index, env)
     }
@@ -292,7 +292,7 @@ class TopOpenParser(): Parser<TopOpenNode>() {
 class TopIncludeParser(): Parser<TopIncludeNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TopIncludeNode> {
         val parseRes = KeywordParser("include").rCompose(LongConstructorParser()).map { iden ->
-            TopIncludeNode(iden, tokens[index].line)
+            TopIncludeNode(iden, NodeLoc(env.file, tokens[index].line))
         }
         return parseRes.parse(tokens, index, env)
     }
@@ -303,7 +303,7 @@ class ExternalDefParser(): Parser<ExternalDefNode>() {
         return KeywordParser("external").rCompose(LetBindingParser()).bind { name ->
             SpecialCharParser(":").rCompose(TypeParser()).bind { type ->
                 SpecialCharParser("=").rCompose(StringLitParser()).map { lit ->
-                    ExternalDefNode(name, type, lit, tokens[index].line)
+                    ExternalDefNode(name, type, lit, NodeLoc(env.file, tokens[index].line))
                 }
             }
         }.parse(tokens, index, env)
@@ -318,7 +318,7 @@ class StructParser(): Parser<ModuleStructNode>() {
         return KeywordParser("module").rCompose(ConstructorParser()).bind { name ->
             OptionalParser(SpecialCharParser(":").rCompose(LongConstructorParser())).lCompose(SpecialCharParser("=")).bind { sig ->
                 KeywordParser("struct").rCompose(ProgramParser(KeywordParser("end") as Parser<Any>)).lCompose(KeywordParser("end")).map { (nodes, outEnv) ->
-                    ModuleStructNode(name, nodes, sig, outEnv, tokens[index].line)
+                    ModuleStructNode(name, nodes, sig, outEnv, NodeLoc(newEnv.file, tokens[index].line))
                 }
             }
         }.parse(tokens, index, newEnv)
@@ -333,7 +333,7 @@ class SigParser(): Parser<ModuleSigNode>() {
         return KeywordParser("module").rCompose(KeywordParser("type"))
             .rCompose(ConstructorParser()).lCompose(SpecialCharParser("=")).bind { name ->
             KeywordParser("sig").rCompose(InterfaceParser(KeywordParser("end") as Parser<Any>)).lCompose(KeywordParser("end")).map {nodes ->
-                ModuleSigNode(name, nodes.first, nodes.second, tokens[index].line)
+                ModuleSigNode(name, nodes.first, nodes.second, NodeLoc(newEnv.file, tokens[index].line))
             }
         }.parse(tokens, index, newEnv)
     }

@@ -38,15 +38,15 @@ class LetParser(): Parser<LetNode>() {
                     OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).bind { type ->
                         SpecialCharParser("=").rCompose(ExprParser()).bind { second ->
                             KeywordParser("in").rCompose(ExprParser()).map { third ->
-                                if(rec.isPresent() && arguments.isEmpty()) throw ParseException(tokens[index].line, "Only functions can be recursive, not values.")
+                                if(rec.isPresent() && arguments.isEmpty()) throw ParseException(NodeLoc(env.file, tokens[index].line), "Only functions can be recursive, not values.")
 
                                 val node = arguments.foldRightIndexed(second, { index, str, exist ->
                                     if(rec.isPresent() && index == 0) {
-                                        RecursiveFunctionNode(MBinding(first, Optional.empty()), FunctionNode(str, exist, tokens[index].line), tokens[index].line)
+                                        RecursiveFunctionNode(MBinding(first, Optional.empty()), FunctionNode(str, exist, NodeLoc(env.file, tokens[index].line)), NodeLoc(env.file, tokens[index].line))
                                     }
-                                    else FunctionNode(str, exist, tokens[index].line)
+                                    else FunctionNode(str, exist, NodeLoc(env.file, tokens[index].line))
                                 })
-                                LetNode(MBinding(first, type), node, third, tokens[index].line)
+                                LetNode(MBinding(first, type), node, third, NodeLoc(env.file, tokens[index].line))
                             }
                         }
                     }
@@ -67,7 +67,7 @@ class IfParser(): Parser<IfNode>() {
                         first,
                         second,
                         third,
-                        tokens[index].line
+                        NodeLoc(env.file, tokens[index].line)
                     )
                 }
             }
@@ -79,7 +79,7 @@ class IfParser(): Parser<IfNode>() {
 class IntegerParser(): Parser<IntegerNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<IntegerNode> {
         val parser = DecimalNumberParser().disjoint(HexNumberParser()).map { second ->
-            IntegerNode(second, tokens[index].line)
+            IntegerNode(second, NodeLoc(env.file, tokens[index].line))
         }
         return parser.parse(tokens, index, env)
     }
@@ -87,26 +87,26 @@ class IntegerParser(): Parser<IntegerNode>() {
 
 class StringParser(): Parser<StringNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<StringNode> {
-        return StringLitParser().map { str -> StringNode(str, tokens[index].line) }.parse(tokens, index, env)
+        return StringLitParser().map { str -> StringNode(str, NodeLoc(env.file, tokens[index].line)) }.parse(tokens, index, env)
     }
 }
 
 class CharParser(): Parser<CharNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<CharNode> {
-        return CharLitParser().map { c -> CharNode(c, tokens[index].line) }.parse(tokens, index, env)
+        return CharLitParser().map { c -> CharNode(c, NodeLoc(env.file, tokens[index].line)) }.parse(tokens, index, env)
     }
 
 }
 
 class TrueParser(): Parser<TrueNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TrueNode> {
-        return KeywordParser("true").map {_ -> TrueNode(tokens[index].line) }.parse(tokens, index, env)
+        return KeywordParser("true").map {_ -> TrueNode(NodeLoc(env.file, tokens[index].line)) }.parse(tokens, index, env)
     }
 }
 
 class FalseParser(): Parser<FalseNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<FalseNode> {
-        return KeywordParser("false").map {_ -> FalseNode(tokens[index].line) }.parse(tokens, index, env)
+        return KeywordParser("false").map {_ -> FalseNode(NodeLoc(env.file, tokens[index].line)) }.parse(tokens, index, env)
     }
 }
 
@@ -120,7 +120,7 @@ class FloatParser(): Parser<FloatNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<FloatNode> {
         val parser = DecimalNumberParser().lCompose(SpecialCharParser(".")).bind { second ->
             PositiveDecimalNumberParser().map { third ->
-                FloatNode(second + toDec(third), tokens[index].line)
+                FloatNode(second + toDec(third), NodeLoc(env.file, tokens[index].line))
             }
         }
         return parser.parse(tokens, index, env)
@@ -129,13 +129,13 @@ class FloatParser(): Parser<FloatNode>() {
 
 class UnitParser(): Parser<UnitNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<UnitNode> {
-        return LParenParser().rCompose(RParenParser()).map { _ -> UnitNode(tokens[index].line) }.parse(tokens, index, env)
+        return LParenParser().rCompose(RParenParser()).map { _ -> UnitNode(NodeLoc(env.file, tokens[index].line)) }.parse(tokens, index, env)
     }
 }
 
 class VariableParser(): Parser<VariableNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<VariableNode> {
-        return LongIdentifierParser().map { r -> VariableNode(r, tokens[index].line) }.parse(tokens, index, env)
+        return LongIdentifierParser().map { r -> VariableNode(r, NodeLoc(env.file, tokens[index].line)) }.parse(tokens, index, env)
     }
 }
 
@@ -147,7 +147,7 @@ class RecordLookupParser(): Parser<AstNode>() {
                     first
                 }
                 else {
-                    rest.fold(first as AstNode) { acc, field -> RecordLookupNode(acc, field, acc.line) }
+                    rest.fold(first as AstNode) { acc, field -> RecordLookupNode(acc, field, acc.loc) }
                 }
             }
         }.parse(tokens, index, env)
@@ -169,7 +169,7 @@ class ParenthesesParser(): Parser<AstNode>() {
                     val list = ArrayList<AstNode>()
                     list.add(first)
                     list.addAll(second)
-                    TupleNode(list, first.line) as AstNode
+                    TupleNode(list, first.loc) as AstNode
                 }
             }
         }.parse(tokens, index, env)
@@ -191,7 +191,7 @@ class RecordExpandParser(): Parser<RecordExpandNode>() {
                             if(k in map) throw BadRecordException(k)
                             map.put(k, v)
                         }
-                        RecordExpandNode(original, map, tokens[index].line)
+                        RecordExpandNode(original, map, NodeLoc(env.file, tokens[index].line))
                     }
             }
         }.parse(tokens, index, env)
@@ -213,7 +213,7 @@ class RecordLiteralParser(): Parser<RecordLiteralNode>() {
                         map.put(k, v)
                     }
 
-                    RecordLiteralNode(map, tokens[index].line)
+                    RecordLiteralNode(map, NodeLoc(env.file, tokens[index].line))
                 }
         }.parse(tokens, index, env)
     }
@@ -226,9 +226,9 @@ class ApplicationParser(): Parser<AstNode>() {
             ZeroOrMore(PrecedenceParsers.ConstLevel()).map { second: List<AstNode> ->
                 if (second.isEmpty()) return@map first
 
-                var app = AppNode(first, second[0], tokens[index].line)
+                var app = AppNode(first, second[0], NodeLoc(env.file, tokens[index].line))
                 for (i in 1..<second.size) {
-                    app = AppNode(app, second[i], tokens[index].line)
+                    app = AppNode(app, second[i], NodeLoc(env.file, tokens[index].line))
                 }
                 app
             }
@@ -239,7 +239,7 @@ class ApplicationParser(): Parser<AstNode>() {
 class AssertionParser(): Parser<AssertNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AssertNode> {
         return KeywordParser("assert")
-            .rCompose(PrecedenceParsers.ConstLevel()).map { AssertNode(it, tokens[index].line) }
+            .rCompose(PrecedenceParsers.ConstLevel()).map { AssertNode(it, NodeLoc(env.file, tokens[index].line)) }
             .parse(tokens, index, env)
     }
 
@@ -250,8 +250,8 @@ class FunctionParser(): Parser<FunctionNode>() {
         return KeywordParser("fun").rCompose(TypedIdentifierParser()).bind { first ->
             ZeroOrMore(TypedIdentifierParser()).bind { others ->
                 SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(ExprParser()).map { second ->
-                    val secondFunc = others.foldRight(second, {cur, acc -> FunctionNode(cur, acc, acc.line)})
-                    FunctionNode(first, secondFunc, tokens[index].line)
+                    val secondFunc = others.foldRight(second, {cur, acc -> FunctionNode(cur, acc, acc.loc)})
+                    FunctionNode(first, secondFunc, NodeLoc(env.file, tokens[index].line))
                 }
             }
         }.parse(tokens, index, env)
@@ -262,7 +262,7 @@ class ConNodeParser(): Parser<ConNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConNode> {
         return LongConstructorParser().bind { cons ->
             OptionalParser(PrecedenceParsers.ConstLevel()).map { value ->
-                ConNode(cons, value, tokens[index].line)
+                ConNode(cons, value, NodeLoc(env.file, tokens[index].line))
             }
         }.parse(tokens, index, env)
     }
@@ -283,7 +283,7 @@ class ConDefParser(): Parser<ConDefNode>() {
 
         return name.bind { cons ->
             OptionalParser(KeywordParser("of").rCompose(TypeParser())).map { typ ->
-                ConDefNode(MBinding(cons, typ), index)
+                ConDefNode(MBinding(cons, typ), NodeLoc(env.file, index))
             }
         }.parse(tokens, index, env)
     }
@@ -298,7 +298,7 @@ class MatchCaseParser(): Parser<MatchCaseNode>() {
                     val list = ArrayList<Pair<PatternNode, AstNode>>()
                     list.add(first)
                     list.addAll(rest)
-                    MatchCaseNode(expr, list, tokens[index].line)
+                    MatchCaseNode(expr, list, NodeLoc(env.file, tokens[index].line))
                 }
             }
         }
@@ -314,7 +314,7 @@ class TryWithParser(): Parser<TryWithNode>() {
                     val list = ArrayList<Pair<PatternNode, AstNode>>()
                     list.add(first)
                     list.addAll(rest)
-                    TryWithNode(expr, list, tokens[index].line)
+                    TryWithNode(expr, list, NodeLoc(env.file, tokens[index].line))
                 }
             }
         }
@@ -339,7 +339,7 @@ class LocalOpenParser(): Parser<LocalOpenNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<LocalOpenNode> {
         return KeywordParser("let").rCompose(KeywordParser("open")).rCompose(LongConstructorParser()).bind { iden ->
             KeywordParser("in").rCompose(ExprParser()).map { expr ->
-                LocalOpenNode(iden, expr, tokens[index].line)
+                LocalOpenNode(iden, expr, NodeLoc(env.file, tokens[index].line))
             }
         }.parse(tokens, index, env)
     }
