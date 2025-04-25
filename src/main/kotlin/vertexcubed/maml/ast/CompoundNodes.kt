@@ -440,10 +440,6 @@ class ExternalCallNode(val javaFunc: String, val argCount: Int, line: Int): AstN
 
 
 
-
-
-
-
 class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode>>, line: Int): AstNode(line) {
     override fun eval(env: DynEnv): MValue {
         val exprVal = expr.eval(env)
@@ -495,6 +491,60 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
         return "MatchCase($expr, ${nodes.joinToString(separator = " | ")})"
     }
 }
+
+class TryWithNode(val expr: AstNode, val exceptions: List<Pair<PatternNode, AstNode>>, line: Int): AstNode(line) {
+    override fun eval(env: DynEnv): MValue {
+        try {
+            return expr.eval(env)
+        }
+        catch(e: MaMLException) {
+            val exn = e.exn
+            for((pat, newExpr) in exceptions) {
+                val patBindings = pat.unify(exn)
+                if(patBindings.isPresent) {
+                    val newEnv = env.copy()
+                    newEnv.addAllBindings(patBindings.get())
+                    return newExpr.eval(newEnv)
+                }
+            }
+            throw e
+        }
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        val exprType = expr.inferType(env)
+
+        val exnType = env.lookupType("exn").instantiate(env.typeSystem)
+        for((p, e) in exceptions) {
+            val (pType, pBindings) = p.inferPatternType(env)
+            try {
+                exnType.unify(pType, env.typeSystem)
+            }
+            catch(e: UnifyException) {
+                throw patException(env, pType, exnType)
+            }
+            val newEnv = env.copy()
+            newEnv.addAllBindings(pBindings.mapValues { t -> ForAll.empty(t.value) })
+            val eType = e.inferType(newEnv)
+            try {
+                exprType.unify(eType, env.typeSystem)
+            }
+            catch(e: UnifyException) {
+                throw TypeCheckException(line, this, env, eType, exprType)
+            }
+        }
+        return exprType
+    }
+
+    fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
+        return TypeCheckException(line, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
+                "but a pattern was expected which matches values of type ${expectedType.asString(env)}")
+    }
+
+}
+
+
+
 
 
 class LocalOpenNode(val name: MIdentifier, val body: AstNode, line: Int): AstNode(line) {

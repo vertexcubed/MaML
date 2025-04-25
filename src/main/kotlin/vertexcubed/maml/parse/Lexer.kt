@@ -48,6 +48,7 @@ class Lexer(val source: String) {
                 "sig",
                 "struct",
                 "then",
+                "try",
                 "type",
                 "val",
                 "with",

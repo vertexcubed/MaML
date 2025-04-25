@@ -126,6 +126,12 @@ class PrecedenceParsers {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
             return InfixLevel().disjoint(MatchCaseParser() as Parser<AstNode>).parse(tokens, index, env)
         }
+    }
+
+    class TryLevel(): Parser<AstNode>() {
+        override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
+            return MatchLevel().disjoint(TryWithParser() as Parser<AstNode>).parse(tokens, index, env)
+        }
 
     }
 
@@ -133,7 +139,7 @@ class PrecedenceParsers {
 
     class SequenceLevel(): Parser<AstNode>() {
         override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<AstNode> {
-            val parser: Parser<AstNode> = MatchLevel().bind { first ->
+            val parser: Parser<AstNode> = TryLevel().bind { first ->
                 OptionalParser(SpecialCharParser(";").rCompose(ExprParser())).map { second ->
                     if(second.isPresent) LetNode(MBinding("_", Optional.empty()), first, second.get(), tokens[index].line)
                 else first

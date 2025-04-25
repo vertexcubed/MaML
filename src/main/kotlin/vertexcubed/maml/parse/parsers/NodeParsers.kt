@@ -306,6 +306,23 @@ class MatchCaseParser(): Parser<MatchCaseNode>() {
     }
 }
 
+class TryWithParser(): Parser<TryWithNode>() {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TryWithNode> {
+        val parser = KeywordParser("try").rCompose(ExprParser()).lCompose(KeywordParser("with")).bind { expr ->
+            OptionalParser(SpecialCharParser("|")).rCompose(MatchParser()).bind { first ->
+                ZeroOrMore(SpecialCharParser("|").rCompose(MatchParser())).lCompose(KeywordParser("end")).map { rest ->
+                    val list = ArrayList<Pair<PatternNode, AstNode>>()
+                    list.add(first)
+                    list.addAll(rest)
+                    TryWithNode(expr, list, tokens[index].line)
+                }
+            }
+        }
+        return parser.parse(tokens, index, env)
+    }
+}
+
+
 class MatchParser(): Parser<Pair<PatternNode, AstNode>>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Pair<PatternNode, AstNode>> {
         //TODO: implement patterns
