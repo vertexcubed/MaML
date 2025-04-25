@@ -15,17 +15,26 @@ class ParseEnv() {
 
     //default values
     fun init() {
-        infixMap[0] = Associativity.RIGHT to arrayListOf("||")
-        infixMap[1] = Associativity.RIGHT to arrayListOf("&&")
-        infixMap[2] = Associativity.LEFT to arrayListOf("=", "!=", "<=", ">=", "<", ">")
-        infixMap[3] = Associativity.RIGHT to arrayListOf("::")
-        infixMap[4] = Associativity.LEFT to arrayListOf("+", "-")
-        infixMap[5] = Associativity.LEFT to arrayListOf("*", "/", "%")
+//        infixMap[0] = Associativity.RIGHT to arrayListOf("||")
+//        infixMap[1] = Associativity.RIGHT to arrayListOf("&&")
+//        infixMap[2] = Associativity.LEFT to arrayListOf("=", "!=", "<=", ">=", "<", ">")
+//        infixMap[3] = Associativity.RIGHT to arrayListOf("::")
+//        infixMap[4] = Associativity.LEFT to arrayListOf("+", "-")
+//        infixMap[5] = Associativity.LEFT to arrayListOf("*", "/", "%")
+
+        infixMap.mapValues { (_, v) ->
+            v.second.sortDescending()
+            v
+        }
     }
 
 
     fun addAllFrom(other: ParseEnv) {
         infixMap.putAll(other.infixMap)
+        infixMap.mapValues { (_, v) ->
+            v.second.sortDescending()
+            v
+        }
         modules.putAll(other.modules)
     }
 
@@ -62,6 +71,7 @@ class ParseEnv() {
         if(rule.assoc != assoc) throw IllegalArgumentException("Cannot have multiple associativities of same precedence level!")
         if(rule.assoc == Associativity.NONE && names.size > 0) throw IllegalArgumentException("Only one nonfix operator per precedence level!")
         names.add(rule.name)
+        names.sortDescending()
     }
 
     fun allStrings(): List<String> {

@@ -22,7 +22,12 @@ class PatternPrecedence {
 
             val parser = each.bind { first ->
                 ZeroOrMore(CompoundSpecialCharParser("::").rCompose(each)).map { rest ->
-                    rest.foldRight(first) { n, acc ->
+                    if(rest.isEmpty()) {
+                        return@map first
+                    }
+                    val list = listOf(first) + rest.subList(0, rest.lastIndex)
+
+                    list.foldRight(rest.last()) { n, acc ->
                         ConstructorPatternNode(MIdentifier("::"), Optional.of(TuplePatternNode(listOf(n, acc), n.line)), n.line)
                     }
                 }

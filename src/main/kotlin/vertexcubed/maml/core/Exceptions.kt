@@ -9,7 +9,10 @@ import vertexcubed.maml.type.TypeEnv
 /**
  * Thrown when parsing, usually in the case of illegal literals
  */
-class ParseException(line: Int, message: String) : Exception("Error on line $line: $message")
+class ParseException(val line: Int, val log: String)
+    : Exception("Error on line $line: $log") {
+        constructor(lineText: String, line: Int, log: String): this(line, "$lineText\n$log")
+    }
 
 /**
  * Thrown when trying to lookup a variable in the environment, but none was found.

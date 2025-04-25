@@ -144,6 +144,18 @@ class KeywordParser(private val word: String): Parser<String>() {
 
 class NonInfixIdentifierParser(): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
+        val parser = LParenParser().rCompose(OneOrMore(SimpleParser(TokenType.SPECIAL_CHAR)).map { it.joinToString("")}).lCompose(RParenParser())
+
+        val first = parser.parse(tokens, index, env)
+        when(first) {
+            is ParseResult.Success -> {
+                return first
+            }
+            is ParseResult.Failure -> {
+
+            }
+        }
+
         val base = IdentifierParser().parse(tokens, index, env)
         when(base) {
             is ParseResult.Success -> {

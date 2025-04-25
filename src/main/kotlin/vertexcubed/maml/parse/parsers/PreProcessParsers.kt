@@ -14,7 +14,7 @@ class InfixParser(): Parser<InfixRule>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<InfixRule> {
         return (KeywordParser("infix").disjoint(KeywordParser("infixr")).disjoint(KeywordParser("nonfix"))).bind { assoc ->
             DecimalNumberParser().bind { prec ->
-                IdentifierParser().map { iden ->
+                LetBindingParser().map { iden ->
                     val associativity = when(assoc) {
                         "infix" -> Associativity.LEFT
                         "infixr" -> Associativity.RIGHT

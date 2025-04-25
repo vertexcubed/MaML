@@ -9,16 +9,19 @@ import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.parse.parsers.ProgramParser
 import vertexcubed.maml.parse.result.ParseResult
 import vertexcubed.maml.type.*
+import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
 import java.util.*
+import kotlin.math.*
 
 class Interpreter {
 
     private val namedValues: MutableMap<String, MValue>
-    var dynEnv: DynEnv
-    var typeEnv: TypeEnv
-
-    val typeSystem: TypeSystem = TypeSystem()
-
+    private var dynEnv: DynEnv
+    private var typeEnv: TypeEnv
+    private val typeSystem: TypeSystem = TypeSystem()
+    private val globalModules = mutableListOf<ModuleWrapper>()
 
     //TODO: IMPLEMENT AND/OR SHORT CIRCUITING
     init {
@@ -26,25 +29,6 @@ class Interpreter {
 
         typeEnv = TypeEnv(typeSystem)
         typeEnv.addAllBindings(mapOf(
-            "||" to infixType(MBool, MBool),
-            "&&" to infixType(MBool, MBool),
-            "=" to genericType(MBool),
-            "!=" to genericType(MBool),
-            "<" to infixType(MInt, MBool),
-            "<=" to infixType(MInt, MBool),
-            ">" to infixType(MInt, MBool),
-            ">=" to infixType(MInt, MBool),
-            "+" to infixType(MInt, MInt),
-            "-" to infixType(MInt, MInt),
-            "*" to infixType(MInt, MInt),
-            "/" to infixType(MInt, MInt),
-            "%" to infixType(MInt, MInt),
-            "+." to infixType(MFloat, MFloat),
-            "-." to infixType(MFloat, MFloat),
-            "*." to infixType(MFloat, MFloat),
-            "/." to infixType(MFloat, MFloat),
-            "%." to infixType(MFloat, MFloat),
-
 
             //Unary prefix operators
             "~-" to ForAll.empty(MFunction(MInt, MInt)),
@@ -60,31 +44,6 @@ class Interpreter {
             "string" to ForAll.empty(MString),
         ))
         dynEnv = DynEnv()
-        dynEnv.addAllBindings(mapOf(
-            "||" to BuiltinOperators.or(dynEnv),
-            "&&" to BuiltinOperators.and(dynEnv),
-            "=" to BuiltinOperators.eq(dynEnv),
-            "!=" to BuiltinOperators.neq(dynEnv),
-            "<" to BuiltinOperators.lt(dynEnv),
-            "<=" to BuiltinOperators.lte(dynEnv),
-            ">" to BuiltinOperators.gt(dynEnv),
-            ">=" to BuiltinOperators.gte(dynEnv),
-            "+" to BuiltinOperators.add(dynEnv),
-            "-" to BuiltinOperators.sub(dynEnv),
-            "*" to BuiltinOperators.mul(dynEnv),
-            "/" to BuiltinOperators.div(dynEnv),
-            "%" to BuiltinOperators.mod(dynEnv),
-            "+." to BuiltinOperators.addf(dynEnv),
-            "-." to BuiltinOperators.subf(dynEnv),
-            "*." to BuiltinOperators.mulf(dynEnv),
-            "/." to BuiltinOperators.divf(dynEnv),
-            "%." to BuiltinOperators.modf(dynEnv),
-
-            //Unary prefix operators
-            "~-" to BuiltinOperators.negate(dynEnv),
-            "~-." to BuiltinOperators.negatef(dynEnv),
-            "!" to BuiltinOperators.not(dynEnv),
-        ))
 
 
 
@@ -94,6 +53,56 @@ class Interpreter {
             namedValues[name] = value
             UnitValue
         }
+
+        registerExternal("maml_core_add") { x, y -> IntegerValue(longOrThrow(x) + longOrThrow(y))}
+        registerExternal("maml_core_sub") { x, y -> IntegerValue(longOrThrow(x) - longOrThrow(y))}
+        registerExternal("maml_core_mul") { x, y -> IntegerValue(longOrThrow(x) * longOrThrow(y))}
+        registerExternal("maml_core_div") { x, y -> IntegerValue(longOrThrow(x) / longOrThrow(y))}
+        registerExternal("maml_core_mod") { x, y -> IntegerValue(longOrThrow(x) % longOrThrow(y))}
+        registerExternal("maml_core_addf") { x, y -> FloatValue(floatOrThrow(x) + floatOrThrow(y))}
+        registerExternal("maml_core_subf") { x, y -> FloatValue(floatOrThrow(x) - floatOrThrow(y))}
+        registerExternal("maml_core_mulf") { x, y -> FloatValue(floatOrThrow(x) * floatOrThrow(y))}
+        registerExternal("maml_core_divf") { x, y -> FloatValue(floatOrThrow(x) / floatOrThrow(y))}
+        registerExternal("maml_core_modf") { x, y -> FloatValue(floatOrThrow(x) % floatOrThrow(y))}
+        registerExternal("maml_core_eq") { x, y -> BooleanValue(x == y)}
+        registerExternal("maml_core_neq") { x, y -> BooleanValue(x != y)}
+        registerExternal("maml_core_lt") { x, y -> BooleanValue(x < y)}
+        registerExternal("maml_core_lte") { x, y -> BooleanValue(x <= y)}
+        registerExternal("maml_core_gt") { x, y -> BooleanValue(x > y)}
+        registerExternal("maml_core_gte") { x, y -> BooleanValue(x >= y)}
+        registerExternal("maml_core_not") { x -> BooleanValue(!boolOrThrow(x))}
+        registerExternal("maml_core_and") { x, y -> BooleanValue(boolOrThrow(x) && boolOrThrow(y))}
+        registerExternal("maml_core_or") { x, y -> BooleanValue(boolOrThrow(x) || boolOrThrow(y))}
+        registerExternal("maml_core_negate") { x -> IntegerValue(-longOrThrow(x))}
+        registerExternal("maml_core_negatef") { x -> FloatValue(-floatOrThrow(x))}
+
+        registerExternal("maml_list_cons") { x, xs ->
+            ConValue(MIdentifier("::"), Optional.of(TupleValue(listOf(x, xs))))
+        }
+
+        registerExternal("maml_core_int_of_float") { x -> IntegerValue(floatOrThrow(x).toLong())}
+        registerExternal("maml_core_float_of_int") { x -> FloatValue(longOrThrow(x).toFloat())}
+        registerExternal("maml_core_string_of_int") { x -> StringValue(longOrThrow(x).toString())}
+        registerExternal("maml_core_string_of_float") { x -> StringValue(floatOrThrow(x).toString())}
+
+//        I could not be bothered to actually implement these so we're using externals
+        registerExternal("maml_core_sqrt") { x -> FloatValue(sqrt(floatOrThrow(x)))}
+        registerExternal("maml_core_pow") { x, y -> FloatValue((floatOrThrow(x).pow(floatOrThrow(y)))) }
+        registerExternal("maml_core_log") { x -> FloatValue(ln(floatOrThrow(x))) }
+        registerExternal("maml_core_log10") { x -> FloatValue(log10(floatOrThrow(x))) }
+
+        registerExternal("maml_core_sin") { x -> FloatValue(sin(floatOrThrow(x))) }
+        registerExternal("maml_core_cos") { x -> FloatValue(cos(floatOrThrow(x))) }
+        registerExternal("maml_core_tan") { x -> FloatValue(tan(floatOrThrow(x))) }
+        registerExternal("maml_core_asin") { x -> FloatValue(asin(floatOrThrow(x))) }
+        registerExternal("maml_core_acos") { x -> FloatValue(acos(floatOrThrow(x))) }
+        registerExternal("maml_core_atan") { x -> FloatValue(atan(floatOrThrow(x))) }
+        registerExternal("maml_core_atan2") { y, x -> FloatValue(atan2(floatOrThrow(y), floatOrThrow(x))) }
+
+
+        registerExternal("maml_core_floor") { x -> FloatValue(floor(floatOrThrow(x))) }
+        registerExternal("maml_core_ceil") { x -> FloatValue(ceil(floatOrThrow(x))) }
+        registerExternal("maml_core_round") { x -> FloatValue(round(floatOrThrow(x))) }
     }
 
 
@@ -173,45 +182,97 @@ class Interpreter {
     }
 
 
+    private fun fileToString(file: File): String {
+        val lines = StringBuilder()
+        val reader = Scanner(file)
+        try {
+            while(reader.hasNextLine()) {
+                lines.append(reader.nextLine())
+                lines.append('\n')
+            }
+        }
+        catch (e: IOException) {
+            e.printStackTrace()
+        }
+        finally {
+            reader.close()
+        }
+        return lines.toString()
+    }
 
-
-    fun run(code: String) {
+    private fun parseFile(code: String, moduleName: String): ModuleStructNode? {
         val lexer = Lexer(code)
-
         val strList = lexer.toStringList()
-
 
         val parser = ProgramParser()
         val tokens = lexer.read()
         println(tokens)
         val parseEnv = ParseEnv()
         parseEnv.init()
-        var result = parser.parse(tokens, parseEnv)
+        val result = parser.parse(tokens, parseEnv)
 
         if(result is ParseResult.Failure) {
             val line = result.token.line
             println(strList[line - 1].trim())
             println(result)
-            return
+            return null
         }
         if(result !is ParseResult.Success) {
             println("Catastrophic failure: parse result isn't a success OR failure (This will never happen).")
-            return
+            return null
+        }
+        return ModuleStructNode(moduleName, result.result.first, Optional.empty(), result.result.second, 1)
+    }
+
+
+    fun run(code: String) {
+
+        val classLoader = Thread.currentThread().contextClassLoader
+
+        val parseEnv = ParseEnv()
+        parseEnv.init()
+
+        val core = File(classLoader.getResource("core/core.ml")?.toURI() ?: throw FileNotFoundException("Could not find file core/core.ml"))
+
+        globalModules.add(ModuleWrapper(fileToString(core), "Core", parseEnv))
+
+        val stdlibEnum = classLoader.getResources("stdlib")
+
+        if(stdlibEnum.hasMoreElements()) {
+            val folderURL = stdlibEnum.nextElement()
+            val files = File(folderURL.toURI()).listFiles()
+
+            if(files != null) {
+                for(f in files.filterNotNull()) {
+                    val str = fileToString(f)
+                    var moduleName = f.name.replaceFirstChar { it.uppercase() }
+                    moduleName = moduleName.substring(0, moduleName.indexOf(".ml"))
+                    println(moduleName)
+                    globalModules.add(ModuleWrapper(str, moduleName, parseEnv))
+                }
+            }
         }
 
-        val program = ModuleStructNode("Program", result.result, Optional.empty(), parseEnv, 1)
-        println(program.nodes)
-        println("Parse successful. Type checking...")
+        val program = ModuleWrapper(code, "Program", parseEnv)
+
+        println(program.node)
+
+        for(mod in globalModules) {
+            try {
+                mod.typeCheck(typeEnv)
+            }
+            catch(e: TypeCheckException) {
+                println(mod.strList[e.line - 1].trim())
+                println("Error on line ${e.line} (${e.node.pretty()})\n${e.log}")
+                return
+            }
+        }
+
         try {
-            program.exportTypes(typeEnv)
+            program.node.exportTypes(typeEnv, true)
         }
         catch(e: TypeCheckException) {
-            println(strList[e.line - 1].trim())
-            println("Error on line ${e.line} (${e.node.pretty()})\n${e.log}")
-            return
-        }
-        catch(e: MissingSigFieldException) {
-            println(strList[e.line - 1].trim())
+            println(program.strList[e.line - 1].trim())
             println("Error on line ${e.line} (${e.node.pretty()})\n${e.log}")
             return
         }
@@ -219,8 +280,19 @@ class Interpreter {
         typeSystem.normalizeTypeNames()
 
         println("Type checked. Evaluating...")
+
+        for(mod in globalModules) {
+            try {
+                mod.evaluate(dynEnv)
+            }
+            catch(e: Exception) {
+                println("Runtime Error: $e")
+                return
+            }
+        }
+
         try {
-            program.exportValues(dynEnv)
+            program.node.exportValues(dynEnv)
         }
         catch(e: Exception) {
             println("Runtime Error: $e")
@@ -228,198 +300,46 @@ class Interpreter {
     }
 }
 
-class BuiltinOperators {
-    companion object {
 
-        fun eq(env: DynEnv): MValue {
-            return bop(env, { x, y -> BooleanValue(x == y)})
-        }
-
-        fun neq(env: DynEnv): MValue {
-            return bop(env, { x, y -> BooleanValue(x != y)})
-        }
-
-        fun lt(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                BooleanValue(x.value < y.value)
-            })
-        }
-
-        fun lte(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                BooleanValue(x.value <= y.value)
-            })
-        }
-
-        fun gt(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                BooleanValue(x.value > y.value)
-            })
-        }
-
-        fun gte(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                BooleanValue(x.value >= y.value)
-            })
-        }
-
-        fun add(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                IntegerValue(x.value + y.value)
-            })
-        }
-
-        fun sub(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                IntegerValue(x.value - y.value)
-            })
-        }
-
-        fun mul(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                IntegerValue(x.value * y.value)
-            })
-        }
-
-        fun div(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                IntegerValue(x.value / y.value)
-            })
-        }
-
-        fun mod(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                if(y !is IntegerValue) throw AssertionError("Should not happen")
-                IntegerValue(x.value % y.value)
-            })
-        }
-
-        fun negate(env: DynEnv): MValue {
-            return uop(env, { x ->
-                if(x !is IntegerValue) throw AssertionError("Should not happen")
-                IntegerValue(-x.value)
-            })
-        }
-
-        fun addf(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is FloatValue) throw AssertionError("Should not happen")
-                if(y !is FloatValue) throw AssertionError("Should not happen")
-                FloatValue(x.value + y.value)
-            })
-        }
-
-        fun subf(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is FloatValue) throw AssertionError("Should not happen")
-                if(y !is FloatValue) throw AssertionError("Should not happen")
-                FloatValue(x.value - y.value)
-            })
-        }
-
-        fun mulf(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is FloatValue) throw AssertionError("Should not happen")
-                if(y !is FloatValue) throw AssertionError("Should not happen")
-                FloatValue(x.value * y.value)
-            })
-        }
-
-        fun divf(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is FloatValue) throw AssertionError("Should not happen")
-                if(y !is FloatValue) throw AssertionError("Should not happen")
-                FloatValue(x.value / y.value)
-            })
-        }
-
-        fun modf(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is FloatValue) throw AssertionError("Should not happen")
-                if(y !is FloatValue) throw AssertionError("Should not happen")
-                FloatValue(x.value % y.value)
-            })
-        }
-
-        fun negatef(env: DynEnv): MValue {
-            return uop(env, { x ->
-                if(x !is FloatValue) throw AssertionError("Should not happen")
-                FloatValue(-x.value)
-            })
-        }
-
-        fun and(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is BooleanValue) throw AssertionError("Should not happen")
-                if(y !is BooleanValue) throw AssertionError("Should not happen")
-                BooleanValue(x.value && y.value)
-            })
-        }
-
-        fun or(env: DynEnv): MValue {
-            return bop(env, { x, y ->
-                if(x !is BooleanValue) throw AssertionError("Should not happen")
-                if(y !is BooleanValue) throw AssertionError("Should not happen")
-                BooleanValue(x.value || y.value)
-            })
-        }
-
-        fun not(env: DynEnv): MValue {
-            return uop(env, { x ->
-                if(x !is BooleanValue) throw AssertionError("Should not happen")
-                BooleanValue(!x.value)
-            })
-        }
-
-        private fun uop(env: DynEnv, func: (MValue) -> MValue): MValue {
-            return FunctionValue("x", BuiltinOpNode({ e ->
-                val x = e.lookupBinding("x")
-                func(x)
-            }, 1), env)
-        }
+class ModuleWrapper(code: String, moduleName: String, val parseEnv: ParseEnv) {
 
 
+    val strList: List<String>
+    val node: ModuleStructNode
 
-        private fun bop(env: DynEnv, func: (MValue, MValue) -> MValue): MValue {
-            return FunctionValue("x", FunctionNode(MBinding("y"), BuiltinOpNode({ e ->
-                val x = e.lookupBinding("x")
-                val y = e.lookupBinding("y")
-                func(x, y)
-            }, 1), 1), env)
-        }
+    init {
+        strList = code.split('\n')
+        node = parseFile(code, moduleName)
     }
 
+    private fun parseFile(code: String, moduleName: String): ModuleStructNode {
+        val lexer = Lexer(code)
 
-    //TODO: this is very fragile and unsafe. Replace with much more stable version.
-    class BuiltinOpNode(val evalFunc: (DynEnv) -> MValue, line: Int): AstNode(line) {
-        override fun eval(env: DynEnv): MValue {
-            return evalFunc(env)
+        val parser = ProgramParser()
+        val tokens = lexer.read()
+        println(tokens)
+        val result = parser.parse(tokens, parseEnv)
+
+        if(result is ParseResult.Failure) {
+            val line = result.token.line
+            throw ParseException(strList[line - 1].trim(), line, result.logMessage)
         }
-
-        override fun inferType(env: TypeEnv): MType {
-            throw AssertionError("This should never be callled...")
+        if(result !is ParseResult.Success) {
+            println("Catastrophic failure: parse result isn't a success OR failure (This will never happen).")
+            throw AssertionError()
         }
+        return ModuleStructNode(moduleName, result.result.first, Optional.empty(), result.result.second, 1)
+    }
 
-        override fun pretty(): String {
-            return "<fun>"
-        }
+    fun typeCheck(env: TypeEnv) {
+        val module = node.exportTypes(env, false)
+        env.addModule(module)
+    }
 
+    fun evaluate(env: DynEnv) {
+        val module = node.exportValues(env)
+        env.addModule(module)
     }
 }
+
+

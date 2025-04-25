@@ -180,7 +180,7 @@ class TuplePatternNode(val nodes: List<PatternNode>, line: Int): PatternNode(lin
     }
 
     override fun toString(): String {
-        return super.toString()
+        return "TuplePat($nodes)"
     }
 
 }

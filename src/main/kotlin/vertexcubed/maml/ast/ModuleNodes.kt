@@ -17,7 +17,7 @@ import java.util.*
 //TODO: THIS NEEDS ONLY NEW STUFF, NOT THE WHOLE PARSEENV
 class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Optional<MIdentifier>, val parseEnv: ParseEnv, line: Int): AstNode(line) {
 
-    private fun typeVariant(node: VariantTypeNode, typeEnv: TypeEnv, toWrite: TypeEnv) {
+    private fun typeVariant(node: VariantTypeNode, typeEnv: TypeEnv, toWrite: TypeEnv, debug: Boolean) {
         val newEnv = typeEnv.copy()
 
         val nodeType = node.inferType(newEnv)
@@ -61,10 +61,12 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                 )
             }
         }
-        println("Type of $node : ${nodeType.asString(typeEnv)}")
+        if(debug) {
+            println("Type of $node : ${nodeType.asString(typeEnv)}")
+        }
     }
 
-    private fun typeAlias(node: TypeAliasNode, typeEnv: TypeEnv, toWrite: TypeEnv) {
+    private fun typeAlias(node: TypeAliasNode, typeEnv: TypeEnv, toWrite: TypeEnv, debug: Boolean) {
         val newEnv = typeEnv.copy()
         for(arg in node.args) {
             newEnv.addVarLabel(arg.name to newEnv.typeSystem.newTypeVar())
@@ -77,7 +79,9 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
         val scheme = ForAll.generalize(nodeType, typeEnv.typeSystem)
         typeEnv.addType(node.name to scheme)
         toWrite.addType(node.name to scheme)
-        println("Type of $node : ${nodeType.asString(typeEnv)}")
+        if(debug) {
+            println("Type of $node : ${nodeType.asString(typeEnv)}")
+        }
     }
 
 
@@ -157,7 +161,7 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
 
 
 
-    fun exportTypes(env: TypeEnv): StructType {
+    fun exportTypes(env: TypeEnv, debug: Boolean): StructType {
         val newEnv = env.copy()
         val moduleTypes = TypeEnv(env.typeSystem)
         for(node in nodes) {
@@ -169,12 +173,14 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                         newEnv.addBinding(node.name.binding to scheme)
                         moduleTypes.addBinding(node.name.binding to scheme)
                     }
-                    println("Type of $node : ${nodeType.asString(newEnv)}")
+                    if(debug) {
+                        println("Type of $node : ${nodeType.asString(newEnv)}")
+                    }
 
                 }
 
                 is VariantTypeNode -> {
-                    typeVariant(node, newEnv, moduleTypes)
+                    typeVariant(node, newEnv, moduleTypes, debug)
                 }
 
                 is ExtensibleVariantTypeNode -> {
@@ -182,11 +188,11 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                 }
 
                 is TypeAliasNode -> {
-                    typeAlias(node, newEnv, moduleTypes)
+                    typeAlias(node, newEnv, moduleTypes, debug)
                 }
 
                 is ModuleStructNode -> {
-                    val module = node.exportTypes(newEnv)
+                    val module = node.exportTypes(newEnv, debug)
                     newEnv.addModule(module)
                     moduleTypes.addModule(module)
 
@@ -214,13 +220,17 @@ class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig: Opti
                     val scheme = ForAll.generalize(t, newEnv.typeSystem)
                     newEnv.addBinding(node.name to scheme)
                     moduleTypes.addBinding(node.name to scheme)
-                    println("Type of $node : ${t.asString(newEnv)}")
+                    if(debug) {
+                        println("Type of $node : ${t.asString(newEnv)}")
+                    }
 
                 }
 
                 else -> {
                     val t = node.inferType(newEnv)
-                    println("Type of $node : ${t.asString(newEnv)}")
+                    if(debug) {
+                        println("Type of $node : ${t.asString(newEnv)}")
+                    }
                 }
             }
         }

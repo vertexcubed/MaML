@@ -12,10 +12,10 @@ import java.util.*
 import kotlin.jvm.optionals.getOrDefault
 
 @Suppress("UNCHECKED_CAST")
-class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
+class ProgramParser(val terminator: Parser<Any>): Parser<Pair<List<AstNode>, ParseEnv>>() {
     constructor(): this(EOFParser() as Parser<Any>)
 
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<List<AstNode>> {
+    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Pair<List<AstNode>, ParseEnv>> {
         val parser = ChoiceParser(listOf(
             TopLetParser() as Parser<AstNode>,
             TypeAliasParser() as Parser<AstNode>,
@@ -26,6 +26,9 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
             TopIncludeParser() as Parser<AstNode>,
             ExternalDefParser() as Parser<AstNode>,
         ))
+
+        val outEnv = ParseEnv()
+
         var workingIndex = index
         val output = ArrayList<AstNode>()
         while(workingIndex < tokens.size) {
@@ -39,6 +42,7 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
                 is ParseResult.Success -> {
                     try {
                         env.addInfixRule(infixRes.result)
+                        outEnv.addInfixRule(infixRes.result)
                     }
                     catch(e: IllegalArgumentException) {
                         val precedence = infixRes.result.precedence
@@ -60,6 +64,9 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
             }
 
 
+
+
+
             val res = parser.parse(tokens, workingIndex, env)
             when(res) {
                 is ParseResult.Success -> {
@@ -75,11 +82,13 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
                         val module = env.lookupModule(res.result.name)
                         if(module.isPresent) {
                             env.addAllFrom(module.get().parseEnv)
+                            outEnv.addAllFrom(module.get().parseEnv)
                         }
                     }
 
                     if(res.result is ModuleStructNode) {
                         env.addModule(res.result)
+                        outEnv.addModule(res.result)
                     }
 
 
@@ -91,7 +100,7 @@ class ProgramParser(val terminator: Parser<Any>): Parser<List<AstNode>>() {
                 }
             }
         }
-        return ParseResult.Success(output, workingIndex + 1)
+        return ParseResult.Success(output to outEnv, workingIndex + 1)
     }
 }
 
@@ -209,8 +218,8 @@ class StructParser(): Parser<ModuleStructNode>() {
         val newEnv = env.copy()
         return KeywordParser("module").rCompose(ConstructorParser()).bind { name ->
             OptionalParser(SpecialCharParser(":").rCompose(LongConstructorParser())).lCompose(SpecialCharParser("=")).bind { sig ->
-                KeywordParser("struct").rCompose(ProgramParser(KeywordParser("end") as Parser<Any>)).lCompose(KeywordParser("end")).map { nodes ->
-                    ModuleStructNode(name, nodes, sig, newEnv, tokens[index].line)
+                KeywordParser("struct").rCompose(ProgramParser(KeywordParser("end") as Parser<Any>)).lCompose(KeywordParser("end")).map { (nodes, outEnv) ->
+                    ModuleStructNode(name, nodes, sig, outEnv, tokens[index].line)
                 }
             }
         }.parse(tokens, index, newEnv)

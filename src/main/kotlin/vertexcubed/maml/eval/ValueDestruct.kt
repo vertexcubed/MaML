@@ -23,10 +23,25 @@ fun boolOf(value: MValue): Boolean? {
     }
 }
 
+fun boolOrThrow(value: MValue): Boolean {
+    return when(value) {
+        is BooleanValue -> value.value
+        else -> throw IllegalArgumentException("Value $value is not a boolean!")
+    }
+}
+
 fun stringOf(value: MValue): String? {
     return when(value) {
         is StringValue -> value.value
         else -> null
+    }
+}
+
+
+fun stringOrThrow(value: MValue): String {
+    return when(value) {
+        is StringValue -> value.value
+        else -> throw IllegalArgumentException("Value $value is not a string!")
     }
 }
 
@@ -37,6 +52,11 @@ fun charOf(value: MValue): Char? {
     }
 }
 
+
+fun charOrThrow(value: MValue): Char {
+    return charOf(value)?: throw IllegalArgumentException("Value $value is not a char!")
+}
+
 fun floatOf(value: MValue): Float? {
     return when(value) {
         is FloatValue -> value.value
@@ -44,11 +64,21 @@ fun floatOf(value: MValue): Float? {
     }
 }
 
+
+fun floatOrThrow(value: MValue): Float {
+    return floatOf(value)?: throw IllegalArgumentException("Value $value is not a float!")
+}
+
 fun unitOf(value: MValue): Unit? {
     return when(value) {
         is UnitValue -> Unit
         else -> null
     }
+}
+
+
+fun unitOrThrow(value: MValue): Unit {
+    return unitOf(value)?: throw IllegalArgumentException("Value $value is not a unit!")
 }
 
 fun pairOf(value: MValue): Pair<MValue, MValue>? {
@@ -59,6 +89,10 @@ fun pairOf(value: MValue): Pair<MValue, MValue>? {
     }
 }
 
+fun pairOrThrow(value: MValue): Pair<MValue, MValue> {
+    return pairOf(value)?: throw IllegalArgumentException("Value $value is not a pair!")
+}
+
 fun tripleOf(value: MValue): Triple<MValue, MValue, MValue>? {
     return when(value) {
         is TupleValue ->
@@ -66,6 +100,11 @@ fun tripleOf(value: MValue): Triple<MValue, MValue, MValue>? {
         else -> null
     }
 }
+
+fun tripleOrThrow(value: MValue): Triple<MValue, MValue, MValue> {
+    return tripleOf(value)?: throw IllegalArgumentException("Value $value is not a triple!")
+}
+
 
 fun tupleToList(value: MValue): List<MValue>? {
     return when(value) {

@@ -55,9 +55,6 @@ fun main(args: Array<String>) {
         UnitValue
     }
 
-    interp.registerExternal("maml_list_cons") { x, xs ->
-        ConValue(MIdentifier("::"), Optional.of(TupleValue(listOf(x, xs))))
-    }
 
     interp.registerExternal("maml_some_value", { -> IntegerValue(12) })
 
