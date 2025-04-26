@@ -7,12 +7,18 @@ import kotlin.collections.ArrayList
 class MVirtualMachine {
 
     val argStack: Deque<Value> = LinkedList()
-    val retStack: Deque<Value> = LinkedList()
+
+
+    var retTop: Pair<Int, LinkedList<Value>> = 0 to LinkedList()
+    val retStack: Deque<RetBlock> = LinkedList()
+
+    var env: ArrayList<Value> = ArrayList()
+
+
 
 
     var accumulator: Value = IntValue(0)
 
-    var env: LinkedList<Value> = LinkedList()
 
     fun run() {
 
@@ -82,7 +88,16 @@ class MVirtualMachine {
 
                 // Creates a closure and stores it in the accumulator
                 CLOSURE -> {
-                    accumulator = Closure(instr.operand, LinkedList(env))
+
+                    // Save volatile part of environment
+                    val newEnv = ArrayList(retTop.second)
+                    newEnv.addAll(env)
+                    env = newEnv
+                    // Wipe volatile part
+                    retTop = 0 to LinkedList()
+
+                    // Create closure
+                    accumulator = Closure(instr.operand, ArrayList(env))
                 }
                 // Sets the accumulator to some constant
                 CONST -> {
@@ -104,13 +119,24 @@ class MVirtualMachine {
                 GRAB -> {
                     val top = argStack.pop()
                     if(top is Mark) {
-                        accumulator = Closure(ip, LinkedList(env))
-                        val ret = retStack.pop() as Closure
+                        // new closure env
+                        val newEnv = ArrayList(retTop.second)
+                        newEnv.addAll(env)
+
+                        accumulator = Closure(ip, newEnv)
+
+                        // Apply closure on retStack
+                        val ret = retStack.pop()
+
                         ip = ret.ip
                         env = ret.env
+                        retTop = ret.volatileSize to ret.volatile
+
                     }
                     else {
-                        env.push(top)
+                        // Push to volatile env
+                        retTop.second.push(top)
+                        retTop = retTop.first + 1 to retTop.second
                     }
                 }
 
@@ -123,13 +149,15 @@ class MVirtualMachine {
                     ip = closure.ip
                     env = closure.env
                     // Push the arg we popped off into the environment
-                    env.push(arg)
+                    retTop.second.push(arg)
+                    // Update size
+                    retTop = retTop.first + 1 to retTop.second
                 }
 
                 // Applies the closure currently in the accumulator.
                 APPLY -> {
                     // Push return point to the stack
-                    retStack.push(Closure(ip, LinkedList(env)))
+                    retStack.push(RetBlock(ip, ArrayList(env), retTop.first, LinkedList(retTop.second)))
 
                     // Pop the first arg off the stack - saves a GRAB call
                     val arg = argStack.pop()
@@ -138,30 +166,48 @@ class MVirtualMachine {
                     // Applies the current closure
                     ip = closure.ip
                     env = closure.env
-                    // Pushes the arg we popped off into the environment
-                    env.push(arg)
+
+                    // Pushes the arg we popped off into the volatile environment
+                    retTop = 1 to LinkedList()
+                    retTop.second.push(arg)
                 }
 
                 // Accesses a local variable from the environment, and stores it in the accumulator
                 ACCESS -> {
-                    val value = env[instr.operand]
-                    accumulator = value
+                    // access op is in the volatile cache
+                    if(retTop.first > instr.operand) {
+                        accumulator = retTop.second[instr.operand]
+                    }
+                    else {
+                        // access op is in the stable env
+                        accumulator = env[instr.operand]
+                    }
                 }
 
                 // Returns back after a function call
                 RETURN -> {
                     val top = argStack.pop()
                     if(top is Mark) {
-                        val ret = retStack.pop() as Closure
+                        // new closure env
+                        val newEnv = ArrayList(retTop.second)
+                        newEnv.addAll(env)
+
+                        // Apply closure on retStack
+                        val ret = retStack.pop()
+
                         ip = ret.ip
                         env = ret.env
+                        retTop = ret.volatileSize to ret.volatile
                     }
                     else {
-                        // Over application
+
+                        // Perform over application - f: 'a -> 'b -> 'c applied to f 1 2 3
                         val ret = accumulator as Closure
                         ip = ret.ip
                         env = ret.env
-                        env.push(top)
+                        // Push from stack to volatile env
+                        retTop = 1 to LinkedList()
+                        retTop.second.push(top)
                     }
                 }
 
@@ -178,27 +224,43 @@ class MVirtualMachine {
 
                 // Copies the value in the accumulator and puts it in the environment.
                 LET -> {
-                    env.push(accumulator)
+                    retTop.second.push(accumulator)
+                    retTop = retTop.first + 1 to retTop.second
                 }
 
                 // Destroys the last environment value, aka. the local let
                 ENDLET -> {
-                    env.pop()
+                    if(retTop.first > 0) {
+                        retTop.second.pop()
+                        retTop = retTop.first - 1 to retTop.second
+                    }
+                    else {
+                        // No volatile environment. Turn old environment into volatile.
+                        retTop = (env.size - 1) to LinkedList()
+                        for(i in 1 until env.size) {
+                            retTop.second.addLast(env[i])
+                        }
+                        env = ArrayList()
+                    }
                 }
 
                 // Adds a "Dummy" value to the environment, for use in recursive lets.
                 // This dummy will be updated later.
                 DUMMY -> {
-                    env.push(Dummy)
+                    // Push to volatile
+                    retTop.second.push(Dummy)
+                    retTop = retTop.first + 1 to retTop.second
                 }
 
                 UPDATE -> {
-                    val top = env.pop()
-                    if(top !is Dummy) {
-                        //TODO: do something here in case of this failing - probably like throwing an error
-
+                    // If volatile: override on volatile
+                    if(retTop.first > 0) {
+                        retTop.second[0] = (accumulator)
                     }
-                    env.push(accumulator)
+                    // If not volatile: override on regular env
+                    else {
+                        env[0] = accumulator
+                    }
                 }
             }
         }
@@ -242,6 +304,9 @@ data class IntValue(val value: Int) : Value()
 
 data object Mark: Value()
 
-data class Closure(val ip: Int, val env: LinkedList<Value>): Value()
+data class Closure(val ip: Int, val env: ArrayList<Value>): Value()
 
 data object Dummy: Value()
+
+
+data class RetBlock(val ip: Int, val env: ArrayList<Value>, val volatileSize: Int, val volatile: LinkedList<Value>)
