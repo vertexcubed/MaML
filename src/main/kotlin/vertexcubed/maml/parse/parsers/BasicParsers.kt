@@ -210,18 +210,6 @@ class LetBindingParser(): Parser<String>() {
 
 }
 
-
-
-class CompoundSpecialCharParser(val name: String): Parser<String>() {
-    override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
-        if(name.isEmpty()) throw IllegalArgumentException("Cannot make compound special char parser on empty string")
-        return SeriesParser(name.map { c -> SpecialCharParser("$c") }).map { results ->
-            results.joinToString(separator = "")
-        }.parse(tokens, index, env)
-    }
-
-}
-
 class SpecificIdentifierParser(val name: String): Parser<String>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<String> {
         return simple(tokens, index, TokenType.IDENTIFIER, name)

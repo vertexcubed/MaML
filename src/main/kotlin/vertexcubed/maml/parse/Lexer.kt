@@ -11,6 +11,8 @@ private val IDENTIFIER_REG = Regex("[a-zA-Z0-9_']")
 private val DIGIT_REG = Regex("[0-9]")
 private val HEX_DIGIT_REG = Regex("[0-9a-fA-F]")
 
+private val SPECIAL_CHAR_REG = Regex("[!%&\$#+/:<=>?@\\\\~`^|*.,;]")
+
 
 
 class Lexer(val source: String, val fileName: String) {
@@ -108,14 +110,14 @@ class Lexer(val source: String, val fileName: String) {
 
     private fun token(c: Char): Token {
         return when(c) {
-            '!', '%', '&', '$', '#', '+', '/',
-            ':', '<', '=', '>', '?', '@', '\\', '~',
-            '`', '^', '|', '*', '.', ',', ';', -> Token(SPECIAL_CHAR, "$c", lineIdx)
+//            '!', '%', '&', '$', '#', '+', '/',
+//            ':', '<', '=', '>', '?', '@', '\\', '~',
+//            '`', '^', '|', '*', '.', ',', ';', -> Token(SPECIAL_CHAR, "$c", lineIdx)
             '-' -> {
                 if(hasNext() && DIGIT_REG.matches(peek().toString())) {
                     return numberLit(c)
                 }
-                Token(SPECIAL_CHAR, "$c", lineIdx)
+                return specialChar(c)
             }
             '{' -> Token(LCURL, "$c", lineIdx)
             '}' -> Token(RCURL, "$c", lineIdx)
@@ -153,9 +155,13 @@ class Lexer(val source: String, val fileName: String) {
                 else if(hasNext() && peek() == '\\') {
                     return escapeSequence()
                 }
-                return Token(SPECIAL_CHAR, "$c", lineIdx)
+                return specialChar(c)
             }
             else -> {
+                if(SPECIAL_CHAR_REG.matches("$c")) {
+                    return specialChar(c)
+                }
+
                 if(DIGIT_REG.matches("$c")) {
                     return numberLit(c)
                 }
@@ -165,6 +171,14 @@ class Lexer(val source: String, val fileName: String) {
             }
 
         }
+    }
+
+    private fun specialChar(currentChar: Char): Token {
+        val builder = StringBuilder().append(currentChar)
+        while(hasNext() && SPECIAL_CHAR_REG.matches("${peek()}")) {
+            builder.append(poll())
+        }
+        return Token(SPECIAL_CHAR, builder.toString(), lineIdx)
     }
 
     private fun numberLit(currentChar: Char): Token {

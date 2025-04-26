@@ -146,7 +146,7 @@ class MVirtualMachine {
                     val closure = accumulator as Closure
                     // Pop the first arg off the stack - saves a GRAB call
                     val arg = argStack.pop()
-                    ip = closure.ip
+                    ip = closure.progCounter
                     env = closure.env
                     // Push the arg we popped off into the environment
                     retTop.second.push(arg)
@@ -164,7 +164,7 @@ class MVirtualMachine {
                     val closure = accumulator as Closure
 
                     // Applies the current closure
-                    ip = closure.ip
+                    ip = closure.progCounter
                     env = closure.env
 
                     // Pushes the arg we popped off into the volatile environment
@@ -203,7 +203,7 @@ class MVirtualMachine {
 
                         // Perform over application - f: 'a -> 'b -> 'c applied to f 1 2 3
                         val ret = accumulator as Closure
-                        ip = ret.ip
+                        ip = ret.progCounter
                         env = ret.env
                         // Push from stack to volatile env
                         retTop = 1 to LinkedList()
@@ -252,6 +252,7 @@ class MVirtualMachine {
                     retTop = retTop.first + 1 to retTop.second
                 }
 
+                // Replaces a dummy value with a proper closure stored in accumulator
                 UPDATE -> {
                     // If volatile: override on volatile
                     if(retTop.first > 0) {
@@ -273,9 +274,6 @@ class MVirtualMachine {
     enum class OpCode {
 
         ADDINT,
-
-
-
         CONST,
         CLOSURE,
         ACCESS,
@@ -298,15 +296,44 @@ class MVirtualMachine {
 }
 
 
+/*
+    Values are represented differently from how they are in ZINC / Caml / OCaml
+    Java doesn't have fine grained memory manipulation, and trying to implement
+    my own systems for it would be out of scope for this project, so I'm just
+    going to wrap them in types and let the JVM handle everything
+ */
+
 sealed class Value()
 
 data class IntValue(val value: Int) : Value()
 
 data object Mark: Value()
 
-data class Closure(val ip: Int, val env: ArrayList<Value>): Value()
+data class Closure(val progCounter: Int, val env: ArrayList<Value>): Value()
 
 data object Dummy: Value()
 
+data class ConstCtor(val id: Int)
+data class Ctor(val id: Int, val args: Array<Value>) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
 
+        other as Ctor
+
+        if (id != other.id) return false
+        if (!args.contentEquals(other.args)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = id
+        result = 31 * result + args.contentHashCode()
+        return result
+    }
+}
+
+
+// Used in retStack - easier to represent
 data class RetBlock(val ip: Int, val env: ArrayList<Value>, val volatileSize: Int, val volatile: LinkedList<Value>)

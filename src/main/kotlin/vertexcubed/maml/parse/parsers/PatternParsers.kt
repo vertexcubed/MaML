@@ -21,7 +21,7 @@ class PatternPrecedence {
             ))
 
             val parser = each.bind { first ->
-                ZeroOrMore(CompoundSpecialCharParser("::").rCompose(each)).map { rest ->
+                ZeroOrMore(SpecialCharParser("::").rCompose(each)).map { rest ->
                     if(rest.isEmpty()) {
                         return@map first
                     }
@@ -135,7 +135,7 @@ class RecordPatternParser(): Parser<RecordPatternNode>() {
         val entry = AndParser(IdentifierParser().lCompose(SpecialCharParser("=")), PatternPrecedence.Main())
         val parser = LCurlParser().rCompose(entry).bind { first ->
             ZeroOrMore(SpecialCharParser(";").rCompose(entry)).bind { rest ->
-                SpecialCharParser(";").rCompose(CompoundSpecialCharParser("..")).map { _ ->
+                SpecialCharParser(";").rCompose(SpecialCharParser("..")).map { _ ->
                     val list = listOf(first) + rest
                     val map = mutableMapOf<String, PatternNode>()
                     for((k, v) in list) {

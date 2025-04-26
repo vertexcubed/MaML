@@ -99,7 +99,7 @@ class ParseEnv() {
         for((_, v) in sortedMap) {
             val (_, names) = v
             val nameParser = ChoiceParser(names.map { name ->
-                CompoundSpecialCharParser(name).disjoint(SpecificIdentifierParser(name))
+                SpecialCharParser(name).disjoint(SpecificIdentifierParser(name))
             })
             list.add(nameParser.map { str -> MIdentifier(str) })
         }
@@ -114,7 +114,7 @@ class ParseEnv() {
         for((_, v) in sortedMap) {
             val (assoc, names) = v
             val nameParser = ChoiceParser(names.map { name ->
-                CompoundSpecialCharParser(name).disjoint(SpecificIdentifierParser(name))
+                SpecialCharParser(name).disjoint(SpecificIdentifierParser(name))
             })
             //Need to use a list because closures are weird.
             parserList.add(newParser(assoc, nameParser, parserList, i))

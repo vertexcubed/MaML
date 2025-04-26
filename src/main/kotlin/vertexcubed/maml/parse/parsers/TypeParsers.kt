@@ -113,7 +113,7 @@ class FunctionTypeParser(): Parser<DummyType>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<DummyType> {
         return TupleTypeParser().bind { first ->
             ZeroOrMore(
-                CompoundSpecialCharParser("->").rCompose(FunctionTypeParser())
+                SpecialCharParser("->").rCompose(FunctionTypeParser())
             ).map { moreTypes ->
                 moreTypes.foldRight(first, {acc, rest -> FunctionDummy(rest, acc) })
             }

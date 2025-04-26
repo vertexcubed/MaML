@@ -26,7 +26,7 @@ fun main(args: Array<String>) {
     vm.run()
 
 
-    if(true) return
+//    if(true) return
 
     val interp = Interpreter()
 

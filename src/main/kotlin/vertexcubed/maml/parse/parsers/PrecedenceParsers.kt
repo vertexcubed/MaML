@@ -53,11 +53,11 @@ class PrecedenceParsers {
 
 
             val opParser =
-                    CompoundSpecialCharParser("-.")
+                    SpecialCharParser("-.")
                     .disjoint(SpecialCharParser("-"))
                     .disjoint(SpecialCharParser("!"))
-                    .disjoint(CompoundSpecialCharParser("~-."))
-                    .disjoint(CompoundSpecialCharParser("~-"))
+                    .disjoint(SpecialCharParser("~-."))
+                    .disjoint(SpecialCharParser("~-"))
             return (RecordExpandLevel() as Parser<AstNode>)
                 .disjoint(AssertionParser() as Parser<AstNode>)
                 .disjoint(opParser.bind { op ->

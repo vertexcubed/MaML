@@ -512,7 +512,7 @@ class ModuleWrapper(val fileName: String, code: String, moduleName: String, val 
 
         val parser = ProgramParser()
         val tokens = lexer.read()
-//        println(tokens)
+        println(tokens)
         val newEnv = parseEnv.copy()
         newEnv.file = fileName
         val result = parser.parse(tokens, newEnv)

@@ -226,7 +226,7 @@ class TypeAliasParser(): Parser<TypeAliasNode>() {
 class ExtensibleVariantTypeParser(): Parser<ExtensibleVariantTypeNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ExtensibleVariantTypeNode> {
         val parser = KeywordParser("type").rCompose(
-            idenParser()).lCompose(SpecialCharParser("=")).lCompose(CompoundSpecialCharParser("..")).map { iden ->
+            idenParser()).lCompose(SpecialCharParser("=")).lCompose(SpecialCharParser("..")).map { iden ->
                 ExtensibleVariantTypeNode(iden.first, iden.second, NodeLoc(env.file, tokens[index].line))
             }
         return parser.parse(tokens, index, env)
@@ -244,7 +244,7 @@ class ExtensibleVariantTypeParser(): Parser<ExtensibleVariantTypeNode>() {
 class VariantExtendParser(): Parser<VariantExtendNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<VariantExtendNode> {
         val parser = KeywordParser("type").rCompose(
-            idenParser()).lCompose(CompoundSpecialCharParser("+=")).bind { iden ->
+            idenParser()).lCompose(SpecialCharParser("+=")).bind { iden ->
             ConDefParser().bind { first ->
                 ZeroOrMore(SpecialCharParser("|").rCompose(ConDefParser())).map { second ->
                     val list = ArrayList<ConDefNode>()

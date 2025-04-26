@@ -249,7 +249,7 @@ class FunctionParser(): Parser<FunctionNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<FunctionNode> {
         return KeywordParser("fun").rCompose(TypedIdentifierParser()).bind { first ->
             ZeroOrMore(TypedIdentifierParser()).bind { others ->
-                SpecialCharParser("-").rCompose(SpecialCharParser(">")).rCompose(ExprParser()).map { second ->
+                SpecialCharParser("->").rCompose(ExprParser()).map { second ->
                     val secondFunc = others.foldRight(second, {cur, acc -> FunctionNode(cur, acc, acc.loc)})
                     FunctionNode(first, secondFunc, NodeLoc(env.file, tokens[index].line))
                 }
@@ -272,7 +272,7 @@ class ConDefParser(): Parser<ConDefNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<ConDefNode> {
 
         val listCons = LParenParser()
-            .rCompose(AndParser(SpecialCharParser(":"), SpecialCharParser(":")).map { "${it.first}${it.second}" })
+            .rCompose(SpecialCharParser("::"))
             .lCompose(RParenParser())
 
 
@@ -326,7 +326,7 @@ class TryWithParser(): Parser<TryWithNode>() {
 class MatchParser(): Parser<Pair<PatternNode, AstNode>>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<Pair<PatternNode, AstNode>> {
         //TODO: implement patterns
-        val parser = PatternPrecedence.Main().lCompose(SpecialCharParser("-")).lCompose(SpecialCharParser(">")).bind { pattern ->
+        val parser = PatternPrecedence.Main().lCompose(SpecialCharParser("->")).bind { pattern ->
             ExprParser().map { expr ->
                 Pair(pattern, expr)
             }
