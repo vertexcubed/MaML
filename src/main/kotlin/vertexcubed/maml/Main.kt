@@ -1,5 +1,6 @@
 package vertexcubed.maml
 
+import vertexcubed.maml.bytecode.MVirtualMachine
 import vertexcubed.maml.core.Interpreter
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.MaMLException
@@ -20,7 +21,12 @@ import kotlin.io.path.Path
 fun main(args: Array<String>) {
 
 
+    val vm = MVirtualMachine()
 
+    vm.run()
+
+
+    if(true) return
 
     val interp = Interpreter()
 
