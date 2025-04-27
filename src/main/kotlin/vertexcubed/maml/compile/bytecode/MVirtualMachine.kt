@@ -1,23 +1,23 @@
-package vertexcubed.maml.bytecode
+package vertexcubed.maml.compile.bytecode
 
 import java.util.*
-import vertexcubed.maml.bytecode.MVirtualMachine.OpCode.*
+import vertexcubed.maml.compile.bytecode.MVirtualMachine.OpCode.*
 import kotlin.collections.ArrayList
 
 class MVirtualMachine {
 
-    val argStack: Deque<Value> = LinkedList()
+    val argStack: Deque<ZValue> = LinkedList()
 
 
-    var retTop: Pair<Int, LinkedList<Value>> = 0 to LinkedList()
+    var retTop: Pair<Int, LinkedList<ZValue>> = 0 to LinkedList()
     val retStack: Deque<RetBlock> = LinkedList()
 
-    var env: ArrayList<Value> = ArrayList()
+    var env: ArrayList<ZValue> = ArrayList()
 
 
 
 
-    var accumulator: Value = IntValue(0)
+    var accumulator: ZValue = ZInt(0)
 
 
     fun run() {
@@ -97,11 +97,11 @@ class MVirtualMachine {
                     retTop = 0 to LinkedList()
 
                     // Create closure
-                    accumulator = Closure(instr.operand, ArrayList(env))
+                    accumulator = ZClosure(instr.operand, ArrayList(env))
                 }
                 // Sets the accumulator to some constant
                 CONST -> {
-                    accumulator = IntValue(instr.operand)
+                    accumulator = ZInt(instr.operand.toLong())
                 }
                 // Pushes the current accumulator value to the arg stack.
                 PUSH -> {
@@ -109,7 +109,7 @@ class MVirtualMachine {
                 }
                 // Pushes a mark onto the arg stack, denoting the end of a function application.
                 PUSHMARK -> {
-                    argStack.push(Mark)
+                    argStack.push(ZMark)
                 }
 
                 // Grabs the first value off the stack.
@@ -118,12 +118,12 @@ class MVirtualMachine {
                 // Failing on a grab enables partial application of functions
                 GRAB -> {
                     val top = argStack.pop()
-                    if(top is Mark) {
+                    if(top is ZMark) {
                         // new closure env
                         val newEnv = ArrayList(retTop.second)
                         newEnv.addAll(env)
 
-                        accumulator = Closure(ip, newEnv)
+                        accumulator = ZClosure(ip, newEnv)
 
                         // Apply closure on retStack
                         val ret = retStack.pop()
@@ -143,7 +143,7 @@ class MVirtualMachine {
                 // Tail recursive application: does not create a new closure
                 APPLYTERM -> {
 
-                    val closure = accumulator as Closure
+                    val closure = accumulator as ZClosure
                     // Pop the first arg off the stack - saves a GRAB call
                     val arg = argStack.pop()
                     ip = closure.progCounter
@@ -161,7 +161,7 @@ class MVirtualMachine {
 
                     // Pop the first arg off the stack - saves a GRAB call
                     val arg = argStack.pop()
-                    val closure = accumulator as Closure
+                    val closure = accumulator as ZClosure
 
                     // Applies the current closure
                     ip = closure.progCounter
@@ -187,7 +187,7 @@ class MVirtualMachine {
                 // Returns back after a function call
                 RETURN -> {
                     val top = argStack.pop()
-                    if(top is Mark) {
+                    if(top is ZMark) {
                         // new closure env
                         val newEnv = ArrayList(retTop.second)
                         newEnv.addAll(env)
@@ -202,7 +202,7 @@ class MVirtualMachine {
                     else {
 
                         // Perform over application - f: 'a -> 'b -> 'c applied to f 1 2 3
-                        val ret = accumulator as Closure
+                        val ret = accumulator as ZClosure
                         ip = ret.progCounter
                         env = ret.env
                         // Push from stack to volatile env
@@ -218,8 +218,8 @@ class MVirtualMachine {
 
                 // Add instruction
                 ADDINT -> {
-                    val other = argStack.pop() as IntValue
-                    accumulator = IntValue((accumulator as IntValue).value + other.value)
+                    val other = argStack.pop() as ZInt
+                    accumulator = ZInt((accumulator as ZInt).value + other.value)
                 }
 
                 // Copies the value in the accumulator and puts it in the environment.
@@ -244,11 +244,11 @@ class MVirtualMachine {
                     }
                 }
 
-                // Adds a "Dummy" value to the environment, for use in recursive lets.
+                // Adds a "ZDummy" value to the environment, for use in recursive lets.
                 // This dummy will be updated later.
                 DUMMY -> {
                     // Push to volatile
-                    retTop.second.push(Dummy)
+                    retTop.second.push(ZDummy)
                     retTop = retTop.first + 1 to retTop.second
                 }
 
@@ -303,23 +303,27 @@ class MVirtualMachine {
     going to wrap them in types and let the JVM handle everything
  */
 
-sealed class Value()
+sealed class ZValue()
 
-data class IntValue(val value: Int) : Value()
+data class ZInt(val value: Long) : ZValue()
+data class ZFloat(val value: Float) : ZValue()
+data class ZChar(val value: Char) : ZValue()
+data class ZString(val value: String) : ZValue()
 
-data object Mark: Value()
+data object ZMark: ZValue()
 
-data class Closure(val progCounter: Int, val env: ArrayList<Value>): Value()
+data class ZClosure(val progCounter: Int, val env: ArrayList<ZValue>): ZValue()
 
-data object Dummy: Value()
+data object ZDummy: ZValue()
 
-data class ConstCtor(val id: Int)
-data class Ctor(val id: Int, val args: Array<Value>) {
+// Constructors
+data class ZConstCtor(val id: Int): ZValue()
+data class ZCtor(val id: Int, val args: Array<ZValue>): ZValue() {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as Ctor
+        other as ZCtor
 
         if (id != other.id) return false
         if (!args.contentEquals(other.args)) return false
@@ -334,6 +338,21 @@ data class Ctor(val id: Int, val args: Array<Value>) {
     }
 }
 
+data class ZTuple(val values: Array<ZValue>): ZValue() {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as ZTuple
+
+        return values.contentEquals(other.values)
+    }
+
+    override fun hashCode(): Int {
+        return values.contentHashCode()
+    }
+}
+
 
 // Used in retStack - easier to represent
-data class RetBlock(val ip: Int, val env: ArrayList<Value>, val volatileSize: Int, val volatile: LinkedList<Value>)
+data class RetBlock(val ip: Int, val env: ArrayList<ZValue>, val volatileSize: Int, val volatile: LinkedList<ZValue>)

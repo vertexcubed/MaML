@@ -1,5 +1,12 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.compile.CompEnv
+import vertexcubed.maml.compile.bytecode.ZChar
+import vertexcubed.maml.compile.bytecode.ZFloat
+import vertexcubed.maml.compile.bytecode.ZInt
+import vertexcubed.maml.compile.bytecode.ZString
+import vertexcubed.maml.compile.lambda.LConst
+import vertexcubed.maml.compile.lambda.LambdaNode
 import vertexcubed.maml.core.MBinding
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.TypeCheckException
@@ -14,6 +21,10 @@ class UnitNode(loc: NodeLoc) : AstNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         return MUnit
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        return LConst(ZInt(0), loc)
     }
 
     override fun pretty(): String {
@@ -32,6 +43,10 @@ class TrueNode(loc: NodeLoc) : AstNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         return MBool
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        return LConst(ZInt(1), loc)
     }
 
     override fun pretty(): String {
@@ -53,6 +68,10 @@ class FalseNode(loc: NodeLoc) : AstNode(loc) {
         return MBool
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        return LConst(ZInt(0), loc)
+    }
+
     override fun pretty(): String {
         return "false"
     }
@@ -72,6 +91,10 @@ class StringNode(val text: String, loc: NodeLoc) : AstNode(loc) {
         return MString
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        return LConst(ZString(text), loc)
+    }
+
     override fun pretty(): String {
         return "\"$text\""
     }
@@ -88,6 +111,10 @@ class CharNode(val text: Char, loc: NodeLoc): AstNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         return MChar
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        return LConst(ZChar(text), loc)
     }
 
     override fun pretty(): String {
@@ -113,6 +140,10 @@ class IntegerNode(val number: Long, loc: NodeLoc) : AstNode(loc) {
         return MInt
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        return LConst(ZInt(number), loc)
+    }
+
     override fun pretty(): String {
         return "$number"
     }
@@ -130,6 +161,10 @@ class FloatNode(val number: Float, loc: NodeLoc): AstNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         return MFloat
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        return LConst(ZFloat(number), loc)
     }
 
     override fun pretty(): String {
@@ -150,6 +185,10 @@ class TupleNode(val nodes: List<AstNode>, loc: NodeLoc): AstNode(loc) {
         return MTuple(nodes.map { node -> node.inferType(env) })
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
+
     override fun pretty(): String {
         return nodes.joinToString(", ", "(", ")") { n -> n.pretty() }
     }
@@ -166,6 +205,10 @@ class RecordLiteralNode(val fields: Map<String, AstNode>, loc: NodeLoc): AstNode
 
     override fun inferType(env: TypeEnv): MType {
         return MRecord(fields.mapValues { (_, v) -> v.inferType(env) }, MEmptyRow)
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {
@@ -192,6 +235,10 @@ class VariableNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
         catch(e: UnboundException) {
             throw TypeCheckException(loc, this, e.log)
         }
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {
@@ -227,6 +274,10 @@ class ConDefNode(val name: MBinding, loc: NodeLoc): AstNode(loc) {
         }
         //TODO: Uhhhh figure out what to do here cuz this is definitely wrong
         return MUnit
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {

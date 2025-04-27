@@ -1,5 +1,11 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.compile.CompEnv
+import vertexcubed.maml.compile.bytecode.ZConstCtor
+import vertexcubed.maml.compile.bytecode.ZCtor
+import vertexcubed.maml.compile.bytecode.ZTuple
+import vertexcubed.maml.compile.lambda.LConst
+import vertexcubed.maml.compile.lambda.LambdaNode
 import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.*
 import vertexcubed.maml.type.*
@@ -56,6 +62,19 @@ class AppNode(val func: AstNode, val arg: AstNode, loc: NodeLoc) : AstNode(loc) 
 //        return funcType.ret
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+
+        // Special Case A: function applied to a "primitive" function
+        // These get compiled to special primitive operations
+
+        // Special Case B: function pattern matching against all its args
+        // Function matching is currently NYI, so we don't have to worry about this
+
+        // Every other case
+
+        TODO("Not yet implemented")
+    }
+
     override fun pretty(): String {
         return "${func.pretty()} ${arg.pretty()}"
     }
@@ -94,6 +113,10 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
             throw TypeCheckException(elseBranch.loc, this, env, elseType, thenType)
         }
         return thenType
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {
@@ -145,6 +168,10 @@ class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>
         return originalType
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
+
     override fun toString(): String {
         return "Expand($original, $newPairs)"
     }
@@ -167,6 +194,10 @@ class RecordLookupNode(val record: AstNode, val field: String, loc: NodeLoc): As
         recordType.unify(polyRecord, env.typeSystem)
         return retType
 
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun toString(): String {
@@ -229,6 +260,10 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
 
         return expression.inferType(newEnv)
 
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {
@@ -305,6 +340,10 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, loc: Nod
 
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
+
     override fun pretty(): String {
         return "rec fun $name -> $node"
     }
@@ -353,6 +392,9 @@ class FunctionNode(val arg: MBinding, val body: AstNode, loc: NodeLoc) : AstNode
         return MFunction(argType, bodyType)
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
 
 
     override fun pretty(): String {
@@ -367,6 +409,7 @@ class FunctionNode(val arg: MBinding, val body: AstNode, loc: NodeLoc) : AstNode
 class ConNode(val name: MIdentifier, val value: Optional<AstNode>, loc: NodeLoc): AstNode(loc) {
     constructor(name: String, value: Optional<AstNode>, loc: NodeLoc): this(MIdentifier(name), value, loc)
 
+    private var type: MConstr? = null
     override fun eval(env: DynEnv): MValue {
         if(value.isPresent) {
             return ConValue(name, Optional.of(value.get().eval(env)))
@@ -413,10 +456,31 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, loc: NodeLoc)
             }
             throw TypeCheckException(loc, this, env, valueType, expectedType)
         }
-
+        type = myType
 
         return myType.type
     }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        if(value.isPresent) {
+            val node = value.get().compile(env)
+            if(node is LConst) {
+                // If arg is tuple - decompose
+                if(node.value is ZTuple) {
+                    return LConst(ZCtor(type!!.id, node.value.values), loc)
+                }
+                // else just stick it in
+                return LConst(ZCtor(type!!.id, arrayOf(node.value)), loc)
+            }
+            else {
+                //else we need to build a new block - arg is maybe mutable
+            }
+        }
+        //TODO: this is kinda bad lol, but i guess i do need *some* type info when compiling to lambda.
+        return LConst(ZConstCtor(type!!.id), loc)
+    }
+
+
 
     private fun conException(env: TypeEnv, expectedSize: Int, actualSize: Int): TypeCheckException {
         return TypeCheckException(
@@ -463,6 +527,10 @@ class ExternalCallNode(val javaFunc: String, val argCount: Int, loc: NodeLoc): A
 
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not type check external calls!")
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun toString(): String {
@@ -513,6 +581,10 @@ class MatchCaseNode(val expr: AstNode, val nodes: List<Pair<PatternNode, AstNode
             }
         }
         return retType
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
@@ -574,6 +646,10 @@ class TryWithNode(val expr: AstNode, val exceptions: List<Pair<PatternNode, AstN
         return exprType
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
+
     fun patException(env: TypeEnv, actualType: MType, expectedType: MType): TypeCheckException {
         return TypeCheckException(
             loc, this, "This pattern matches values of type ${actualType.asString(env)}\n" +
@@ -613,6 +689,10 @@ class LocalOpenNode(val name: MIdentifier, val body: AstNode, loc: NodeLoc): Ast
         }
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
+
 }
 
 class AssertNode(val check: AstNode, loc: NodeLoc): AstNode(loc) {
@@ -635,6 +715,10 @@ class AssertNode(val check: AstNode, loc: NodeLoc): AstNode(loc) {
         val checkType = check.inferType(env)
         checkType.unify(MBool, env.typeSystem)
         return MUnit
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {

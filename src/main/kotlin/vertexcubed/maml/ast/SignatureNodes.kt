@@ -1,5 +1,7 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.compile.CompEnv
+import vertexcubed.maml.compile.lambda.LambdaNode
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.core.UnboundException
@@ -15,6 +17,10 @@ import java.util.*
 sealed class SigNode(loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         throw AssertionError("Do not evaluate module signature nodes!")
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 }
 

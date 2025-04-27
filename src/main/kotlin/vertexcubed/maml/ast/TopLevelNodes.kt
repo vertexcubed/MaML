@@ -1,5 +1,7 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.compile.CompEnv
+import vertexcubed.maml.compile.lambda.LambdaNode
 import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.MValue
@@ -48,6 +50,10 @@ class TopLetNode(val name: MBinding, val statement: AstNode, loc: NodeLoc): AstN
         return statementType
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
+
     override fun pretty(): String {
         return "let $name = $statement"
     }
@@ -76,6 +82,10 @@ class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val c
             con.inferType(newEnv)
         }
         return myType
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {
@@ -108,6 +118,10 @@ class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDum
         newEnv.addType(name to ForAll.generalize(myType, env.typeSystem))
         return myType
     }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
 }
 
 class VariantExtendNode(val name: String, val arguments: List<TypeVarDummy>, val cons: List<ConDefNode>, loc: NodeLoc): AstNode(loc) {
@@ -117,6 +131,10 @@ class VariantExtendNode(val name: String, val arguments: List<TypeVarDummy>, val
 
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not type check extend node")
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {
@@ -153,6 +171,10 @@ class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: Du
         }
     }
 
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
+    }
+
     override fun toString(): String {
         return "TypeAlias($name, $args, $type)"
     }
@@ -166,6 +188,10 @@ class TopOpenNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not typecheck open nodes!")
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun pretty(): String {
@@ -184,6 +210,10 @@ class TopIncludeNode(val name: MIdentifier, loc: NodeLoc): AstNode(loc) {
 
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not typecheck open nodes!")
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun toString(): String {
@@ -213,6 +243,10 @@ class ExternalDefNode(val name: String, val type: DummyType, val javaFunc: Strin
         catch(e: UnboundException) {
             throw TypeCheckException(loc, this, e.log)
         }
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun toString(): String {

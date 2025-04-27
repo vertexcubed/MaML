@@ -208,10 +208,10 @@ data class MTuple(val types: List<MType>): MType() {
 /**
  * Not *type constructors*, but rather a wrapped type for constructors themselves
  */
-data class MConstr(val name: String, val type: MType, val argType: Optional<MType>): MType() {
+data class MConstr(val name: String, val id: Int, val type: MType, val argType: Optional<MType>): MType() {
     override fun substitute(from: MType, to: MType): MType {
-        if(argType.isEmpty) return MConstr(name, type.substitute(from, to), Optional.empty())
-        return MConstr(name, type.substitute(from, to), Optional.of(argType.get().substitute(from, to)))
+        if(argType.isEmpty) return MConstr(name, id, type.substitute(from, to), Optional.empty())
+        return MConstr(name, id, type.substitute(from, to), Optional.of(argType.get().substitute(from, to)))
     }
 
     override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {

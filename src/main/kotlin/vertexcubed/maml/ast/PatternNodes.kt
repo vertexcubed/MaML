@@ -1,5 +1,7 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.compile.CompEnv
+import vertexcubed.maml.compile.lambda.LambdaNode
 import vertexcubed.maml.core.MIdentifier
 import vertexcubed.maml.core.TypeCheckException
 import vertexcubed.maml.core.UnboundException
@@ -11,6 +13,10 @@ import java.util.*
 sealed class PatternNode(loc: NodeLoc): AstNode(loc) {
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not inferType of a pattern, use inferPatternType instead.")
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     override fun eval(env: DynEnv): MValue {

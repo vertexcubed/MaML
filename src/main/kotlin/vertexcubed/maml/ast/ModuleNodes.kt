@@ -1,5 +1,7 @@
 package vertexcubed.maml.ast
 
+import vertexcubed.maml.compile.CompEnv
+import vertexcubed.maml.compile.lambda.LambdaNode
 import vertexcubed.maml.core.*
 import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.MValue
@@ -30,7 +32,7 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
             newEnv.addVarLabel(arg)
         }
 
-        for(con in nodeCons) {
+        for((i, con) in nodeCons.withIndex()) {
             if(con.name.type.isPresent) {
                 val conDummy = con.name.type.get()
 
@@ -40,10 +42,10 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
 //                    conType = conType.substitute(conType, )
 
                     typeEnv.addConstructor(con.name.binding to
-                            ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.of(conType)))
+                            ForAll(scheme.typeVars, MConstr(con.name.binding, i, scheme.type, Optional.of(conType)))
                     )
                     toWrite.addConstructor(con.name.binding to
-                            ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.of(conType)))
+                            ForAll(scheme.typeVars, MConstr(con.name.binding, i, scheme.type, Optional.of(conType)))
                     )
                 }
                 catch(e: UnboundTypeLabelException) {
@@ -52,10 +54,10 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
             }
             else {
                 typeEnv.addConstructor(con.name.binding to
-                        ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.empty())))
+                        ForAll(scheme.typeVars, MConstr(con.name.binding, i, scheme.type, Optional.empty())))
 
                 toWrite.addConstructor(con.name.binding to
-                        ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.empty()))
+                        ForAll(scheme.typeVars, MConstr(con.name.binding, i, scheme.type, Optional.empty()))
                 )
             }
         }
@@ -81,7 +83,7 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
             labelEnv.addVarLabel(node.arguments[i].name to nodeType.args[i].second)
         }
 
-        for(con in node.cons) {
+        for((i, con) in node.cons.withIndex()) {
             if(con.name.type.isPresent) {
                 val conDummy = con.name.type.get()
 
@@ -90,10 +92,10 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
                     val conType = conDummy.lookup(labelEnv)
 
                     typeEnv.addConstructor(con.name.binding to
-                            ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.of(conType)))
+                            ForAll(scheme.typeVars, MConstr(con.name.binding, i, scheme.type, Optional.of(conType)))
                     )
                     toWrite.addConstructor(con.name.binding to
-                            ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.of(conType)))
+                            ForAll(scheme.typeVars, MConstr(con.name.binding, i, scheme.type, Optional.of(conType)))
                     )
                 }
                 catch(e: UnboundTypeLabelException) {
@@ -102,10 +104,10 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
             }
             else {
                 typeEnv.addConstructor(con.name.binding to
-                        ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.empty())))
+                        ForAll(scheme.typeVars, MConstr(con.name.binding, i, scheme.type, Optional.empty())))
 
                 toWrite.addConstructor(con.name.binding to
-                        ForAll(scheme.typeVars, MConstr(con.name.binding, scheme.type, Optional.empty()))
+                        ForAll(scheme.typeVars, MConstr(con.name.binding, i, scheme.type, Optional.empty()))
                 )
             }
             if(debug) {
@@ -141,6 +143,10 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
 
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not infer types of modules normally!")
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
 
@@ -386,6 +392,10 @@ class ModuleSigNode(val name: String, val nodes: List<SigNode>, val parseEnv: Pa
 
     override fun inferType(env: TypeEnv): MType {
         throw AssertionError("Do not type check sig nodes!")
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+        TODO("Not yet implemented")
     }
 
     fun exportTypes(env: TypeEnv): SigType {
