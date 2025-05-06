@@ -4,14 +4,14 @@ import vertexcubed.maml.core.BindException
 import vertexcubed.maml.core.UnifyException
 import java.util.*
 
-class MTypeVar(val id: Int): MType() {
+data class MTypeVar(val id: Int): MType() {
 
     var display = "'$id"
 
     private var substitute = Optional.empty<MType>()
 
-    override fun occurs(other: MType): Boolean {
-        if(substitute.isPresent) return substitute.get().occurs(other)
+    override fun contains(other: MType): Boolean {
+        if(substitute.isPresent) return substitute.get().contains(other)
         if(other is MTypeVar) {
             return id == other.id
         }
@@ -52,7 +52,7 @@ class MTypeVar(val id: Int): MType() {
         }
         val otherType = other.find()
         if(otherType is MTypeVar && this.id == otherType.id) return
-        if(otherType.occurs(this)) throw UnifyException(this, otherType)
+        if(otherType.contains(this)) throw UnifyException(this, otherType)
         bind(otherType)
     }
 
@@ -81,11 +81,32 @@ class MTypeVar(val id: Int): MType() {
         return end.asString(env)
     }
 
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(substitute.isPresent) {
+            return substitute.get().isSame(otherType)
+        }
+        return true
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as MTypeVar
+
+        return id == other.id
+    }
+
+    override fun hashCode(): Int {
+        return id
+    }
+
 }
 
 data class MGeneralTypeVar(val id: Int): MType() {
 
-    override fun occurs(other: MType): Boolean {
+    override fun contains(other: MType): Boolean {
         return this == other
     }
 
@@ -99,6 +120,12 @@ data class MGeneralTypeVar(val id: Int): MType() {
             return to
         }
         return this
+    }
+
+    override fun isSame(other: MType): Boolean {
+        val otherType = other.find()
+        if(otherType !is MGeneralTypeVar) return false
+        return id == otherType.id
     }
 
     override fun toString(): String {
@@ -120,13 +147,15 @@ data class MBaseTypeVar(val id: Int): MType() {
         return this
     }
 
-    override fun occurs(other: MType): Boolean {
+    override fun contains(other: MType): Boolean {
         return isSame(other)
     }
 
 
     override fun isSame(other: MType): Boolean {
-        return (other is MBaseTypeVar && id == other.id)
+        val otherType = other.find()
+        if(otherType !is MBaseTypeVar) return false
+        return id == otherType.id
     }
 
     override fun toString(): String {

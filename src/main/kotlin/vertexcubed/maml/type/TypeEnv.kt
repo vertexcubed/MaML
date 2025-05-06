@@ -76,29 +76,13 @@ class TypeEnv(val typeSystem: TypeSystem) {
         return lastEnv.lookupConstructor(binding.path.last())
     }
 
-    fun lookupType(id: UUID): Pair<String, ForAll> {
-        for((k, v) in typeDefs) {
-            if(v.type is MExtensibleVariantType && v.type.id == id) {
-                return k to v
-            }
-            if(v.type is MVariantType && v.type.id == id) {
-                return k to v
-            }
-            if(v.type is MTypeAlias && v.type.id == id) {
-                return k to v
-            }
-            if(v.type is MDummyCons && v.type.id == id) {
+    fun lookupType(id: Int): Pair<String, ForAll> {
+        for((k, v) in typeDefs.entries.reversed()) {
+            if(v.type is MTypeCon && v.type.id == id) {
                 return k to v
             }
         }
-        for((k, v) in modules) {
-            try {
-                val ret = v.types.lookupType(id)
-                return "$k.${ret.first}" to ret.second
-            }
-            catch(_: IllegalArgumentException) {}
-        }
-        throw IllegalArgumentException("id not found: $id")
+        throw UnboundTyConException("$id")
     }
 
     fun lookupType(type: String): ForAll {

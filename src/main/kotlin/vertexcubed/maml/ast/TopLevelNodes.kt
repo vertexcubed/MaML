@@ -8,7 +8,6 @@ import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
 import vertexcubed.maml.parse.TypeVarDummy
 import vertexcubed.maml.type.*
-import java.util.*
 
 
 class TopLetNode(val name: MBinding, val statement: AstNode, loc: NodeLoc): AstNode(loc) {
@@ -42,7 +41,12 @@ class TopLetNode(val name: MBinding, val statement: AstNode, loc: NodeLoc): AstN
                     break
                 }
             }
-            nameType.unify(lastType, newEnv.typeSystem)
+            try {
+                nameType.unify(lastType, newEnv.typeSystem)
+            }
+            catch(e: UnifyException) {
+                throw TypeCheckException(loc, this, newEnv, lastType, nameType)
+            }
         }
 
 
@@ -73,8 +77,8 @@ class VariantTypeNode(val name: String, val arguments: List<TypeVarDummy>, val c
         throw AssertionError("Probably shouldn't be evaluated?")
     }
 
-    override fun inferType(env: TypeEnv): MVariantType {
-        val myType = MVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, env.typeSystem.newTypeVar()) })
+    override fun inferType(env: TypeEnv): MTypeCon {
+        val myType = MTypeCon(env.typeSystem.newTyConId(), arguments.map { _ -> env.typeSystem.newTypeVar() })
         val newEnv = env.copy()
         newEnv.addType(name to ForAll.generalize(myType, env.typeSystem))
         for(con in cons) {
@@ -112,9 +116,12 @@ class ExtensibleVariantTypeNode(val name: String, val arguments: List<TypeVarDum
         throw AssertionError("Probably shouldn't be evaluated")
     }
 
-    override fun inferType(env: TypeEnv): MExtensibleVariantType {
-        val myType = MExtensibleVariantType(UUID.randomUUID(), arguments.map { a -> Pair(a.name, env.typeSystem.newTypeVar()) })
+    override fun inferType(env: TypeEnv): MExtensibleVariant {
         val newEnv = env.copy()
+        for(arg in arguments) {
+            newEnv.addVarLabel(arg.name to newEnv.typeSystem.newTypeVar())
+        }
+        val myType = MExtensibleVariant(env.typeSystem.newTyConId(), arguments.map { a -> a.lookup(newEnv) })
         newEnv.addType(name to ForAll.generalize(myType, env.typeSystem))
         return myType
     }
@@ -163,8 +170,8 @@ class TypeAliasNode(val name: String, val args: List<TypeVarDummy>, val type: Du
     override fun inferType(env: TypeEnv): MType {
         try {
             val original = type.lookup(env)
-            val id = UUID.randomUUID()
-            return MTypeAlias(id, args.map{ a -> Pair(a.name, a.lookup(env))}, original)
+            if(original !is MTypeCon) throw AssertionError("Should not happen")
+            return MAlias(original.id, args.map { it.lookup(env) }, original.args)
         }
         catch(e: UnboundException) {
             throw TypeCheckException(loc, this, e.log)

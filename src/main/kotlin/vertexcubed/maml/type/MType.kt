@@ -1,17 +1,32 @@
 package vertexcubed.maml.type
 
-import vertexcubed.maml.core.BindException
 import vertexcubed.maml.core.UnifyException
 import java.util.*
 import kotlin.jvm.optionals.getOrElse
+
+
 sealed class MType() {
+
+    companion object {
+//        val ABSTRACT_ID = 0
+        val INT_ID = 1
+        val BOOL_ID = 2
+        val FLOAT_ID = 3
+        val CHAR_ID = 4
+        val STRING_ID = 5
+        val UNIT_ID = 6
+        val FUNCTION_ID = 7
+        val TUPLE_ID = 8
+        val RECORD_ID = 9
+        val EMPTY_ROW_ID = 10
+        val NEW_BASE = 11
+    }
+
 
     /**
      * Check if some other type occurs in this type.
      */
-    open fun occurs(other: MType): Boolean {
-        return false
-    }
+    abstract fun contains(other: MType): Boolean
     open fun find(): MType {
         return this
     }
@@ -21,7 +36,7 @@ sealed class MType() {
     }
 
     /**
-     *
+     * Unifies this type with another type.
      */
     open fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
         val myType = find()
@@ -49,7 +64,6 @@ sealed class MType() {
 //                if(modString.isPresent) return Optional.of("${t.name}.${modString.get()}")
 //            }
 
-            if(t is MTypeAlias && t.real.isSame(this.find())) return Optional.of(k)
             if(t.isSame(this.find())) {
                 return Optional.of(k)
             }
@@ -57,186 +71,128 @@ sealed class MType() {
         return Optional.empty()
     }
 
-    open fun isSame(other: MType): Boolean {
-        return this.find() == other.find()
-    }
+    abstract fun isSame(other: MType): Boolean
 }
 
-data object MInt: MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        return MInt
-    }
-}
-data object MFloat: MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        return MFloat
-    }
-}
-data object MBool: MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        return MBool
-    }
-}
-data object MString: MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        return MString
-    }
-}
-data object MChar: MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        return MChar
-    }
-}
-data object MUnit: MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        return MUnit
-    }
-}
+open class MTypeCon(open val id: Int, open val args: List<MType>): MType() {
 
-data class MFunction(val arg: MType, val ret: MType): MType() {
-    override fun toString(): String {
-        val argStr: String
-        if(arg.find() is MFunction) {
-            argStr = "($arg)"
-        }
-        else argStr = arg.toString()
-
-        return "$argStr -> $ret"
-    }
-
-    override fun occurs(other: MType): Boolean {
-        return arg.occurs(other) || ret.occurs(other)
-    }
-
-    override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
-        val myType = find()
-        val otherType = other.find()
-        if(otherType is MTypeVar) {
-            if(looser) throw BindException(myType, otherType)
-
-            otherType.unify(myType, typeSystem, looser)
-            return
-        }
-        if(otherType !is MFunction) throw UnifyException(myType, otherType)
-        arg.unify(otherType.arg, typeSystem, looser)
-        ret.unify(otherType.ret, typeSystem, looser)
-    }
 
     override fun substitute(from: MType, to: MType): MType {
-        return MFunction(arg.substitute(from, to), ret.substitute(from, to))
+        return MTypeCon(id, args.map { it.substitute(from, to) })
     }
 
-    override fun asString(env: TypeEnv): String {
-        val opt = stringOpt(env)
-        if(opt.isPresent) {
-            return opt.get()
-        }
-        return "${arg.asString(env)} -> ${ret.asString(env)}"
-    }
-
-    override fun isSame(other: MType): Boolean {
-        val otherType = other.find()
-        if(otherType !is MFunction) return false
-        return arg.isSame(otherType.arg) && ret.isSame(otherType.ret)
-    }
-
-}
-
-data class MTuple(val types: List<MType>): MType() {
-    init {
-        if(types.isEmpty()) throw IllegalArgumentException("Cannot create tuple of empty type")
-    }
-    override fun toString(): String {
-        var str = types[0].toString()
-        for(i in 1 until types.size) {
-            str += " * " + types[i].toString()
-        }
-        return str
-    }
-
-    override fun occurs(other: MType): Boolean {
-        for(type in types) {
-            if (type.occurs(other)) return true
+    override fun contains(other: MType): Boolean {
+        for(a in args) {
+            if(a.contains(other)) return true
         }
         return false
     }
 
+
     override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
-        val myType = find()
         val otherType = other.find()
         if(otherType is MTypeVar) {
-            if(looser) throw BindException(myType, otherType)
-
-            otherType.unify(myType, typeSystem, looser)
-            return
+            if(looser) throw UnifyException(this, otherType)
+            return otherType.unify(this, typeSystem, looser)
         }
-        if(otherType !is MTuple) throw UnifyException(myType, otherType)
-        if(otherType.types.size != types.size) throw UnifyException(myType, otherType)
-        for(i in types.indices) {
-            types[i].unify(otherType.types[i], typeSystem, looser)
-        }
-    }
 
-    override fun substitute(from: MType, to: MType): MType {
-        return MTuple(types.map { it.substitute(from, to) })
+        if(otherType !is MTypeCon) throw UnifyException(this, otherType)
+        if(otherType.args.size != this.args.size || otherType.id != this.id) throw UnifyException(this, otherType)
+        for(i in args.indices) {
+            args[i].unify(otherType.args[i], typeSystem, looser)
+        }
     }
 
     override fun asString(env: TypeEnv): String {
-        val opt = stringOpt(env)
-        if(opt.isPresent) {
-            return opt.get()
+        val pair = stringOpt(env, env, "").getOrElse {
+            return "TyCon($id, ${args.joinToString(", ") { it.asString(env) }})"
         }
-        return types.map { t -> t.asString(env) }.joinToString(" * ")
+        return "${pair.first}${pair.second}"
+    }
+
+    private fun stringOpt(env: TypeEnv, parentEnv: TypeEnv, module: String): Optional<Pair<String, String>> {
+        if(id == 15) {
+            0
+        }
+        for((k, v) in env.typeDefs.entries.reversed()) {
+            val otherType = v.instantiate(env.typeSystem).find()
+//            if(otherType is ModuleType) {
+//                val modString = stringOpt(otherType.types, parentEnv, "$module${otherType.name}.")
+//                if(modString.isPresent) return modString
+//            }
+            if(otherType is MAlias && isSame(otherType)) {
+                var str = ""
+                if(otherType.realArgs.size == 1) {
+                    str += otherType.realArgs[0].asString(parentEnv) + " "
+                }
+                else if(otherType.realArgs.isNotEmpty()) {
+                    str += otherType.realArgs.map { p -> p.asString(parentEnv) }.joinToString(", ", "(" , ") ")
+                }
+                var modOut = module
+                if(modOut.isNotEmpty()) {
+                    modOut += "."
+                }
+                return Optional.of(str to modOut + k)
+            }
+            if(otherType is MTypeCon && isSame(otherType)) {
+                var str = ""
+                if(args.size == 1) {
+                    str += args[0].asString(parentEnv) + " "
+                }
+                else if(args.isNotEmpty()) {
+                    str += args.map { p -> p.asString(parentEnv) }.joinToString(", ", "(" , ") ")
+                }
+                var modOut = module
+                if(modOut.isNotEmpty()) {
+                    modOut += "."
+                }
+                return Optional.of(str to modOut + k)
+            }
+        }
+
+        for((k, v) in env.modules.entries.reversed()) {
+            val opt = stringOpt(v.types, parentEnv, k)
+            if(opt.isPresent) {
+                if(module.isNotEmpty()) {
+                    return Optional.of(opt.get().first to "$module.${opt.get().second}");
+                }
+                return opt
+            }
+        }
+
+        return Optional.empty()
     }
 
     override fun isSame(other: MType): Boolean {
         val otherType = other.find()
-        if(otherType !is MTuple) return false
-        if(otherType.types.size != this.types.size) return false
-        for(i in types.indices) {
-            if(!types[i].isSame(otherType.types[i])) return false
+        if(otherType is MTypeVar) return otherType.isSame(this)
+        if(otherType !is MTypeCon) return false
+        if(otherType.id != this.id || otherType.args.size != this.args.size) return false
+        for(i in args.indices) {
+            if(!otherType.args[i].isSame(this.args[i])) return false
         }
         return true
     }
-}
 
-
-
-
-
-
-/**
- * Not *type constructors*, but rather a wrapped type for constructors themselves
- */
-data class MConstr(val name: String, val id: Int, val type: MType, val argType: Optional<MType>): MType() {
-    override fun substitute(from: MType, to: MType): MType {
-        if(argType.isEmpty) return MConstr(name, id, type.substitute(from, to), Optional.empty())
-        return MConstr(name, id, type.substitute(from, to), Optional.of(argType.get().substitute(from, to)))
+    override fun toString(): String {
+        return "TyCon($id, $args)"
     }
 
-    override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
-        type.unify(other, typeSystem, looser)
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as MTypeCon
+
+        if (id != other.id) return false
+        if (args != other.args) return false
+
+        return true
     }
 
-    override fun occurs(other: MType): Boolean {
-        return type.occurs(other)
-    }
-
-    override fun find(): MType {
-        return type.find()
-    }
-
-    override fun isSame(other: MType): Boolean {
-        val otherType = other.find()
-        if(otherType !is MConstr) return false
-        if(argType.isPresent) {
-            val at = argType.get()
-            if(otherType.argType.isEmpty) return false
-            if(!at.isSame(otherType.argType.get())) return false
-        }
-        else if(otherType.argType.isPresent) {
-            return false
-        }
-        return name == otherType.name && type.isSame(otherType.type)
+    override fun hashCode(): Int {
+        var result = id
+        result = 31 * result + args.hashCode()
+        return result
     }
 }

@@ -3,7 +3,7 @@ package vertexcubed.maml.type
 import vertexcubed.maml.core.BindException
 import vertexcubed.maml.core.UnifyException
 
-data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
+data class MRecord(val fields: Map<String, MType>, val rest: MType): MTypeCon(RECORD_ID, fields.values.toList() + listOf(rest)) {
 
 
     /**
@@ -23,11 +23,11 @@ data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
     }
 
 
-    override fun occurs(other: MType): Boolean {
+    override fun contains(other: MType): Boolean {
         for(v in fields.values) {
-            if(v.occurs(other)) return true
+            if(v.contains(other)) return true
         }
-        return rest.occurs(other)
+        return rest.contains(other)
     }
 
     override fun unify(other: MType, typeSystem: TypeSystem, looser: Boolean) {
@@ -80,6 +80,7 @@ data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
 
     override fun isSame(other: MType): Boolean {
         val otherType = other.find()
+        if(otherType is MTypeVar) return otherType.isSame(this)
         if(otherType !is MRecord) return false
         val allFields = fields.keys + otherType.fields.keys
         for(k in allFields) {
@@ -121,7 +122,7 @@ data class MRecord(val fields: Map<String, MType>, val rest: MType): MType() {
     }
 }
 
-data object MEmptyRow: MType() {
+data object MEmptyRow: MTypeCon(EMPTY_ROW_ID, emptyList()) {
     override fun substitute(from: MType, to: MType): MType {
         return MEmptyRow
     }

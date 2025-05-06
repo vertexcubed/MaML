@@ -215,7 +215,7 @@ class Interpreter {
 
         if(con !is MConstr) throw IllegalArgumentException("Cannot raise non-exception $name")
         val conType = con.type
-        if(conType !is MExtensibleVariantType) throw IllegalArgumentException("Cannot raise non-exception $name")
+        if(conType !is MExtensibleVariant) throw IllegalArgumentException("Cannot raise non-exception $name")
         val (exn, _) = typeEnv.lookupType(conType.id)
         if(exn != "Core.exn") throw IllegalArgumentException("Cannot raise non-exception $name")
 
@@ -423,7 +423,7 @@ class Interpreter {
 //        println(program.node)
 
         try {
-            program.node.exportTypes(typeEnv, true)
+            typeEnv.addModule(program.node.exportTypes(typeEnv, true))
         }
         catch(e: TypeCheckException) {
             println(program.strList[e.loc.line - 1].trim())
@@ -432,7 +432,7 @@ class Interpreter {
         }
 
         try {
-            program.node.exportValues(dynEnv, true)
+            dynEnv.addModule(program.node.exportValues(dynEnv, true))
         }
         catch(e: MaMLException) {
             println("Exception: ${e.exn}")

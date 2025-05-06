@@ -20,7 +20,23 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
     private fun typeVariant(node: VariantTypeNode, typeEnv: TypeEnv, toWrite: TypeEnv, debug: Boolean) {
         val newEnv = typeEnv.copy()
 
-        val nodeType = node.inferType(newEnv)
+        var nodeType = node.inferType(newEnv)
+//        if(sig.isPresent) {
+//            val sigType = newEnv.lookupSignature(sig.get())
+//            try {
+//                val abstype = sigType.types.lookupType(node.name).type as MTypeCon
+//                if(abstype.args.size != nodeType.args.size) {
+//                    throw TypeCheckException(
+//                        loc, this,
+//                        "Signature ${this.sig.get()} contains type ${abstype.asString(sigType.types)} " +
+//                                "which is incompatible with type ${nodeType.asString(newEnv)}")
+//                }
+//                nodeType = MTypeCon(abstype.id, nodeType.args)
+//            }
+//            catch(_: UnboundException) {
+//
+//            }
+//        }
         val nodeCons = node.cons
 
         val scheme = ForAll.generalize(nodeType, typeEnv.typeSystem)
@@ -28,8 +44,8 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
         newEnv.addType(node.name to scheme)
         toWrite.addType(node.name to scheme)
 
-        for(arg in (scheme.type as MVariantType).args) {
-            newEnv.addVarLabel(arg)
+        for((i, arg) in node.arguments.withIndex()) {
+            newEnv.addVarLabel(arg.name to (scheme.type as MTypeCon).args[i])
         }
 
         for((i, con) in nodeCons.withIndex()) {
@@ -71,7 +87,7 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
 
         val scheme = typeEnv.lookupType(node.name)
         val nodeType = scheme.instantiate(typeEnv.typeSystem)
-        if(nodeType !is MExtensibleVariantType) {
+        if(nodeType !is MExtensibleVariant) {
             throw TypeCheckException(node.loc, node, "Type ${nodeType.asString(typeEnv)} is not extensible.")
         }
         if(node.arguments.size != nodeType.args.size) {
@@ -80,7 +96,7 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
         }
         for(i in node.arguments.indices) {
             // We don't care if the labels are different
-            labelEnv.addVarLabel(node.arguments[i].name to nodeType.args[i].second)
+            labelEnv.addVarLabel(node.arguments[i].name to nodeType.args[i])
         }
 
         for((i, con) in node.cons.withIndex()) {
@@ -239,32 +255,39 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
         if(sig.isPresent) {
             val newOut = TypeEnv(env.typeSystem)
             val sig = env.lookupSignature(sig.get())
-            val sigTypes = sig.types
+            val sigTypes = sig.types.copy()
 
             for((k, v) in sigTypes.typeDefs) {
-                val sigVal = v.instantiate(newEnv.typeSystem) as MDummyCons
+                val sigVal = v.instantiate(newEnv.typeSystem) as MTypeCon
                 val modVal: MType
                 try {
-                    modVal = moduleTypes.lookupType(k).instantiate(newEnv.typeSystem)
+                    modVal = moduleTypes.lookupType(k).instantiate(newEnv.typeSystem) as MTypeCon
                 }
                 catch (e: UnboundTyConException) {
                     throw MissingSigTypeException(loc, this, sigVal, sigTypes, name, this.sig.get())
                 }
 
-                if(modVal is MVariantType && modVal.args.size == sigVal.args.size
-                    || modVal is MTypeAlias && modVal.args.size == sigVal.args.size) {
-                    newOut.addType(k to moduleTypes.lookupType(k))
+                if(modVal.args.size == sigVal.args.size) {
+                    newOut.addType(k to v)
                 }
                 else {
+
+                    val errEnv = newEnv.copy()
+                    errEnv.addAllFrom(sigTypes)
                     throw TypeCheckException(
                         loc, this,
-                        "Signature ${this.sig.get()} contains type ${sigVal.asString(sigTypes)} " +
-                        "which is incompatible with type ${modVal.asString(newEnv)}")
+                        "Signature ${this.sig.get()} contains type ${sigVal.asString(errEnv)} " +
+                        "which is incompatible with type ${modVal.asString(errEnv)}")
                 }
             }
 
 
             for((k, v) in sigTypes.bindingTypes) {
+                if(name == "Mod") {
+                    0
+                }
+
+
                 val modVal: MType
                 try {
                     modVal = moduleTypes.lookupBinding(k).instantiate(newEnv.typeSystem)
@@ -272,9 +295,15 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
                 catch(e: UnboundVarException) {
                     throw MissingSigFieldException(loc, this, k, name, this.sig.get())
                 }
-                var sigVal = v.instantiateBase(newEnv.typeSystem)
+                val baseVars = arrayListOf<MType>()
+                for(i in v.typeVars.indices) {
+                    baseVars.add(newEnv.typeSystem.newBaseType())
+                }
+
+
+                var sigVal = v.instantiate(baseVars)
                 for((tk, tv) in sigTypes.typeDefs) {
-                    sigVal = sigVal.substitute(tv.instantiateBase(newEnv.typeSystem), moduleTypes.lookupType(tk).instantiateBase(newEnv.typeSystem))
+                    sigVal = sigVal.substitute(tv.instantiate(baseVars), moduleTypes.lookupType(tk).instantiate(baseVars))
                 }
 
 
@@ -285,19 +314,21 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
                     modVal.unify(sigVal, newEnv.typeSystem, true)
                 }
                 catch(e: UnifyException) {
+                    val errEnv = newEnv.copy()
+                    errEnv.addAllFrom(sigTypes)
                     throw TypeCheckException(
                         loc, this,
-                        "Expression $k in module $name has type ${modVal.asString(newEnv)} \n" +
-                        "which is incompatible with type ${v.instantiate(newEnv.typeSystem)} in signature ${this.sig.get()}")
+                        "Expression $k in module $name has type ${modVal.asString(errEnv)} \n" +
+                        "which is incompatible with type ${v.instantiate(errEnv.typeSystem).asString(errEnv)} in signature ${this.sig.get()}")
                 }
 
                 //TODO: this is inefficient.
-                var out = v.instantiate(newEnv.typeSystem)
-                for((tk, tv) in sigTypes.typeDefs) {
-                    out = out.substitute(tv.instantiate(newEnv.typeSystem), moduleTypes.lookupType(tk).instantiate(newEnv.typeSystem))
-                }
+//                var out = v.instantiate(newEnv.typeSystem)
+//                for((tk, tv) in sigTypes.typeDefs) {
+//                    out = out.substitute(tv.instantiate(newEnv.typeSystem), moduleTypes.lookupType(tk).instantiate(newEnv.typeSystem))
+//                }
 
-                newOut.addBinding(k to ForAll.generalize(out, newEnv.typeSystem))
+                newOut.addBinding(k to v)
             }
             return StructType(name, Optional.of(sig), newOut)
         }
@@ -306,7 +337,38 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
         return StructType(name, Optional.empty(), moduleTypes)
     }
 
-
+//    private fun replaceAbstract(type: MType, absId: Int, concreteId: Int): MType {
+//        when(type) {
+//            is MFunction -> {
+//                return MFunction(replaceAbstract(type.arg, absId, concreteId), replaceAbstract(type.ret, absId, concreteId))
+//            }
+//            is MGeneralTypeVar -> return type
+//            is MBaseTypeVar -> return type
+//            is MTuple -> {
+//                return MTuple(type.types.map { replaceAbstract(it, absId, concreteId) })
+//            }
+//            is MTypeVar -> return type
+//
+//            MBool, MChar, MFloat, MInt, MString, MUnit, MEmptyRow -> return type
+//
+//            is MConstr -> {
+//                if(type.argType.isPresent) {
+//                    return MConstr(type.name, type.conId, replaceAbstract(type.type, absId, concreteId), Optional.of(replaceAbstract(type.argType.get(), absId, concreteId)))
+//                }
+//                return MConstr(type.name, type.conId, replaceAbstract(type.type, absId, concreteId), Optional.empty())
+//            }
+//            is MRecord -> {
+//                return MRecord(type.fields.mapValues { (_, v) -> replaceAbstract(v, absId, concreteId) }, replaceAbstract(type.rest, absId, concreteId))
+//            }
+//            is MTypeCon -> {
+//                if(type.id == absId) {
+//                    return MTypeCon(concreteId, type.args.map { replaceAbstract(it, absId, concreteId) })
+//                }
+//                return MTypeCon(absId, type.args.map { replaceAbstract(it, absId, concreteId) })
+//            }
+//        }
+//    }
+//
 
     fun exportValues(env: DynEnv, debug: Boolean): StructEval {
         val newBindings = DynEnv()
@@ -447,6 +509,7 @@ data class StructType(val name: String, val sig: Optional<SigType>, val types: T
 data class SigType(val name: String, val types: TypeEnv)
 
 
+// TODO: fix open not working in toplevel
 class TopLevel(nodes: List<AstNode>, parseEnv: ParseEnv, val isExpr: Boolean): ModuleStructNode("//toplevel//", nodes, Optional.empty(), parseEnv, NodeLoc("//toplevel//", 0)) {
 
     fun runAll(typeEnv: TypeEnv, dynEnv: DynEnv): Pair<TypeEnv, DynEnv> {

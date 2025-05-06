@@ -28,7 +28,7 @@ val fold_right: ('a -> 'acc -> 'acc) -> 'a list -> 'acc -> 'acc
 val filter: ('a -> bool) -> 'a list -> 'a list
 
 (** Filters an option list. Elements are kept if they are Some e *)
-val filter_opt: 'a option list -> 'b list
+val filter_opt: 'a option list -> 'a list
 
 (** Returns the nth element in a list *)
 val nth: 'a list -> int -> 'a

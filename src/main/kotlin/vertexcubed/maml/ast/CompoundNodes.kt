@@ -467,17 +467,17 @@ class ConNode(val name: MIdentifier, val value: Optional<AstNode>, loc: NodeLoc)
             if(node is LConst) {
                 // If arg is tuple - decompose
                 if(node.value is ZTuple) {
-                    return LConst(ZCtor(type!!.id, node.value.values), loc)
+                    return LConst(ZCtor(type!!.conId, node.value.values), loc)
                 }
                 // else just stick it in
-                return LConst(ZCtor(type!!.id, arrayOf(node.value)), loc)
+                return LConst(ZCtor(type!!.conId, arrayOf(node.value)), loc)
             }
             else {
                 //else we need to build a new block - arg is maybe mutable
             }
         }
         //TODO: this is kinda bad lol, but i guess i do need *some* type info when compiling to lambda.
-        return LConst(ZConstCtor(type!!.id), loc)
+        return LConst(ZConstCtor(type!!.conId), loc)
     }
 
 

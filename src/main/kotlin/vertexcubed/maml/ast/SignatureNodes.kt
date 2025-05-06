@@ -9,10 +9,9 @@ import vertexcubed.maml.eval.DynEnv
 import vertexcubed.maml.eval.MValue
 import vertexcubed.maml.parse.DummyType
 import vertexcubed.maml.parse.TypeVarDummy
-import vertexcubed.maml.type.MDummyCons
+import vertexcubed.maml.type.MAbstractType
 import vertexcubed.maml.type.MType
 import vertexcubed.maml.type.TypeEnv
-import java.util.*
 
 sealed class SigNode(loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
@@ -55,7 +54,7 @@ class TypeSigNode(val name: String, val args: List<TypeVarDummy>, loc: NodeLoc):
         for(arg in args) {
             newEnv.addVarLabel(arg.name to newEnv.typeSystem.newTypeVar())
         }
-        return MDummyCons(UUID.randomUUID(), args.map { a -> a.name to a.lookup(newEnv) })
+        return MAbstractType(env.typeSystem.newTyConId(), args.map { a -> a.lookup(newEnv) })
     }
 
     override fun pretty(): String {

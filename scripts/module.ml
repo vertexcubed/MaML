@@ -1,11 +1,17 @@
-module A = struct
-  module B = struct
-    type 'a t = Meow of int
+module type SIG =
+  sig
+    type 'a t
+
+    val f: 'a -> 'a t
+
+
   end
 
-  let f (x: 'a B.t) = x
-end
-open A
+module Mod: SIG =
+  struct
 
+    type 'a t = 'a option
 
-let e = A.f 2
+    let f x = Some x
+
+  end

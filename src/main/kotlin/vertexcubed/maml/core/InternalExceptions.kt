@@ -76,7 +76,7 @@ class IfException() : Exception("Cannot use non-boolean as condition")
  * Report as a bug if this is not caught!
  */
 class TypeConException(env: TypeEnv, val constr: MType, val expectedArgs: Int, val actualArgs: Int)
-    : Exception("The type constructor ${constr.asString(env)} expects $expectedArgs argument(s),\n" +
+    : UnboundException("The type constructor ${constr.asString(env)} expects $expectedArgs argument(s),\n" +
         "but is here applied to $actualArgs argument(s)")
 
 /**

@@ -8,6 +8,11 @@ class TypeSystem() {
     private var id = 0
     private var genId = 0
     private var baseId = 0
+    private var tyConId = MType.NEW_BASE
+
+    fun newTyConId(): Int {
+        return tyConId++
+    }
 
     fun newTypeVar(): MTypeVar {
         val ret = MTypeVar(id++)
