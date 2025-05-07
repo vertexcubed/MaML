@@ -156,19 +156,24 @@ class InterfaceParser(val terminator: Parser<Any>): Parser<Pair<List<SigNode>, P
 class TopLetParser(): Parser<TopLetNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<TopLetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
-            LetBindingParser().bind { first ->
+            LetBindingParser().bind { statement ->
                 ZeroOrMore(TypedIdentifierParser()).bind { arguments ->
                     OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).bind { type ->
-                        SpecialCharParser("=").rCompose(ExprParser()).map { second ->
-                            if(rec.isPresent() && arguments.isEmpty()) throw ParseException(NodeLoc(env.file, tokens[index].line), "Only functions can be recursive, not values.")
+                        SpecialCharParser("=").rCompose(ExprParser()).map { value ->
+                            // TODO: make sure this is always up to date w/ local let
+                            if(arguments.isEmpty()) {
+                                if(rec.isPresent()) throw ParseException(NodeLoc(env.file, tokens[index].line), "Only functions can be recursive, not values.")
+                                TopLetNode(MBinding(statement, type), value, NodeLoc(env.file, tokens[index].line))
+                            }
+                            else {
+                                var func: AstNode = FunctionNode(arguments, value, NodeLoc(env.file, tokens[index].line))
 
-                            val node = arguments.foldRightIndexed(second, { index, str, exist ->
-                                if(rec.isPresent() && index == 0) {
-                                    RecursiveFunctionNode(MBinding(first, Optional.empty()), FunctionNode(str, exist, NodeLoc(env.file, tokens[index].line)), NodeLoc(env.file, tokens[index].line))
+                                if(rec.isPresent()) {
+                                    func = RecursiveFunctionNode(MBinding(statement, type), func as FunctionNode, func.loc)
                                 }
-                                else FunctionNode(str, exist, NodeLoc(env.file, tokens[index].line))
-                            })
-                            TopLetNode(MBinding(first, type), node, NodeLoc(env.file, tokens[index].line))
+
+                                TopLetNode(MBinding(statement, type), func, NodeLoc(env.file, tokens[index].line))
+                            }
                         }
                     }
                 }

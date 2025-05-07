@@ -12,80 +12,7 @@ import vertexcubed.maml.type.*
 import java.util.*
 
 
-class AppNode(val func: AstNode, val arg: AstNode, loc: NodeLoc) : AstNode(loc) {
-
-    override fun eval(env: DynEnv): MValue {
-        val argEval = arg.eval(env)
-
-        val funcVal = func.eval(env)
-        when(funcVal) {
-            is FunctionValue -> {
-                val newEnv = funcVal.env.copy()
-                newEnv.addBinding(funcVal.arg to argEval)
-                return funcVal.expr.eval(newEnv)
-            }
-            is RecursiveFunctionValue -> {
-                val newEnv = funcVal.func.env.copy()
-                newEnv.addBinding(funcVal.func.arg to argEval)
-                newEnv.addBinding(funcVal.name to funcVal)
-                return funcVal.func.expr.eval(newEnv)
-            }
-            else -> throw ApplicationException("Cannot apply non-function value")
-        }
-    }
-
-    override fun inferType(env: TypeEnv): MType {
-
-        val funcType = func.inferType(env)
-
-        val argType = arg.inferType(env)
-
-        val myType = env.typeSystem.newTypeVar()
-
-        val other = MFunction(argType, myType)
-        try {
-            funcType.unify(other, env.typeSystem)
-        }
-        catch(e: UnifyException) {
-            throw TypeCheckException(loc, this, env, e.t2, e.t1)
-        }
-
-
-        return myType
-
-//        val funcType = func.type(env, types)
-//        if(funcType !is MFunction) throw TypeException(line, func, "This expression has type $funcType\nThis is not a function; it cannot be applied")
-//
-//        val argType = arg.type(env, types)
-//
-//        if(argType != funcType.arg) throw TypeException(line, arg, argType, funcType.arg)
-//        return funcType.ret
-    }
-
-    override fun compile(env: CompEnv): LambdaNode {
-
-        // Special Case A: function applied to a "primitive" function
-        // These get compiled to special primitive operations
-
-        // Special Case B: function pattern matching against all its args
-        // Function matching is currently NYI, so we don't have to worry about this
-
-        // Every other case
-
-        TODO("Not yet implemented")
-    }
-
-    override fun pretty(): String {
-        return "${func.pretty()} ${arg.pretty()}"
-    }
-
-    override fun toString(): String {
-        return "App($func, $arg)"
-    }
-}
-
 class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: AstNode, loc: NodeLoc) : AstNode(loc) {
-
     override fun eval(env: DynEnv): MValue {
         val conditionValue = condition.eval(env)
         if(conditionValue !is BooleanValue) throw IfException()
@@ -128,6 +55,8 @@ class IfNode(val condition: AstNode, val thenBranch: AstNode, val elseBranch: As
     }
 
 }
+
+
 
 class RecordExpandNode(val original: AstNode, val newPairs: Map<String, AstNode>, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
@@ -275,14 +204,141 @@ class LetNode(val name: MBinding, val statement: AstNode, val expression: AstNod
     }
 }
 
+class AppNode(val func: AstNode, val args: List<AstNode>, loc: NodeLoc) : AstNode(loc) {
+
+    init {
+        if(args.isEmpty()) throw IllegalArgumentException("Cannot apply function to nothing!")
+    }
+
+
+    private fun internalEval(funcVal: MValue, argList: List<MValue>): MValue {
+        when(funcVal) {
+            is FunctionValue -> {
+                val newEnv = funcVal.env.copy()
+//                newEnv.addBinding(funcVal.arg to argEval)
+//                return funcVal.expr.eval(newEnv)
+                val diff = argList.size.compareTo(funcVal.args.size)
+                when {
+                    diff > 0 -> {
+                        // Over application
+                        for(i in funcVal.args.indices) {
+                            newEnv.addBinding(funcVal.args[i] to argList[i])
+                        }
+                        val newFunc = funcVal.expr.eval(newEnv)
+                        val leftover = argList.subList(funcVal.args.size, argList.size)
+                        return internalEval(newFunc, leftover)
+                    }
+                    diff == 0 -> {
+                        // Exact application
+                        for(i in argList.indices) {
+                            newEnv.addBinding(funcVal.args[i] to argList[i])
+                        }
+                        return funcVal.expr.eval(newEnv)
+                    }
+                    else -> {
+                        // Partial Application
+                        for(i in argList.indices) {
+                            newEnv.addBinding(funcVal.args[i] to argList[i])
+                        }
+                        val leftover = funcVal.args.subList(argList.size, funcVal.args.size)
+                        return FunctionValue(leftover, funcVal.expr, newEnv)
+                    }
+                }
+
+            }
+            is RecursiveFunctionValue -> {
+                val newEnv = funcVal.func.env.copy()
+                newEnv.addBinding(funcVal.name to funcVal)
+                return internalEval(funcVal.func, argList)
+            }
+            else -> throw ApplicationException("Cannot apply non-function value")
+        }
+    }
+
+
+    override fun eval(env: DynEnv): MValue {
+
+        val argList = ArrayList<MValue>()
+        // consistency with compiled version: arguments are evaluated right to left
+        // todo: maybe typecheck right to left too?
+        for(i in args.lastIndex downTo 0) {
+            argList.addFirst(args[i].eval(env))
+        }
+        val funcVal = func.eval(env)
+        return internalEval(funcVal, argList)
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+        val funcType = func.inferType(env)
+        val argList = args.map { it.inferType(env) }
+        val myType = env.typeSystem.newTypeVar()
+        val expected = argList.foldRight(myType as MType) { t, acc -> MFunction(t, acc)}
+        try {
+            funcType.unify(expected, env.typeSystem)
+        }
+        catch(e: UnifyException) {
+            throw TypeCheckException(loc, this, env, e.t2, e.t1)
+        }
+
+        return myType
+
+    }
+
+    override fun compile(env: CompEnv): LambdaNode {
+
+        // Special Case A: function applied to a "primitive" function
+        // These get compiled to special primitive operations
+
+        // Special Case B: function pattern matching against all its args
+        // Function matching is currently NYI, so we don't have to worry about this
+
+        // Every other case
+
+        TODO("Not yet implemented")
+    }
+
+    override fun pretty(): String {
+        return "${func.pretty()} ${args.joinToString(" ") { it.pretty() }}"
+    }
+
+    override fun toString(): String {
+        return "App($func, $args)"
+    }
+}
+
 class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, loc: NodeLoc): AstNode(loc) {
     override fun eval(env: DynEnv): MValue {
         val nodeVal = node.eval(env)
         return RecursiveFunctionValue(name.binding, nodeVal)
     }
 
+    private fun argType(arg: MBinding, env: TypeEnv): MType {
+        val argType = env.typeSystem.newTypeVar()
+
+        if(arg.type.isPresent) {
+            val labels = arg.type.get().getAllLabels()
+            for(l in labels) {
+                env.addVarLabel(l to env.typeSystem.newTypeVar())
+            }
+            val expectedType: MType
+            try {
+                expectedType = arg.type.get().lookup(env)
+            }
+            catch(e: UnboundException) {
+                throw TypeCheckException(loc, this, e.log)
+            }
+
+            //This should never throw an exception
+            argType.unify(expectedType, env.typeSystem)
+        }
+        if(arg.binding != "_") {
+            env.addBinding(arg.binding to ForAll.empty(argType))
+        }
+        return argType
+    }
+
     override fun inferType(env: TypeEnv): MType {
-        var newEnv = env.copy()
+        val newEnv = env.copy()
         val myRetType = newEnv.typeSystem.newTypeVar()
         if(name.type.isPresent) {
             val labels = name.type.get().getAllLabels()
@@ -303,40 +359,17 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, loc: Nod
         }
         if(name.binding == "_") throw TypeCheckException(loc, this, "Only variables are allowed as left-hand side of let rec")
 
-        val argType = newEnv.typeSystem.newTypeVar()
-        if(node.arg.type.isPresent) {
-            val labels = node.arg.type.get().getAllLabels()
-            for(l in labels) {
-                newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
-            }
-            val expectedType: MType
-            try {
-                expectedType = node.arg.type.get().lookup(newEnv)
-            }
-            catch(e: UnboundException) {
-                throw TypeCheckException(loc, this, e.log)
-            }
-
-            //This should never throw an exception
-            argType.unify(expectedType, env.typeSystem)
-
-        }
-        val myType = MFunction(argType, myRetType)
+        // construct expected type, bind preemptively to environment
+        val argList = node.args.map { argType(it, newEnv) }
+        val myType = argList.foldRight(myRetType as MType) {t, acc -> MFunction(t, acc) }
         newEnv.addBinding(name.binding to ForAll.empty(myType))
 
-        if(node.arg.binding == "_") {
-            val bodyType = node.body.inferType(newEnv)
-            return MFunction(argType, bodyType)
-        }
-        newEnv = newEnv.copy()
-        newEnv.addBinding(node.arg.binding to ForAll.empty(argType))
         val bodyType = node.body.inferType(newEnv)
 
         //This should never throw an exception?
         myRetType.unify(bodyType, env.typeSystem)
 
-        return MFunction(argType, bodyType)
-
+        return myType
 
     }
 
@@ -354,24 +387,24 @@ class RecursiveFunctionNode(val name: MBinding, val node: FunctionNode, loc: Nod
 
 }
 
-class FunctionNode(val arg: MBinding, val body: AstNode, loc: NodeLoc) : AstNode(loc) {
+class FunctionNode(val args: List<MBinding>, val body: AstNode, loc: NodeLoc) : AstNode(loc) {
+
 
     override fun eval(env: DynEnv): FunctionValue {
-        return FunctionValue(arg.binding, body, env)
+        return FunctionValue(args.map { it.binding }, body, env)
     }
 
-    override fun inferType(env: TypeEnv): MType {
-        val newEnv = env.copy()
-        val argType = newEnv.typeSystem.newTypeVar()
+    private fun argType(arg: MBinding, env: TypeEnv): MType {
+        val argType = env.typeSystem.newTypeVar()
 
         if(arg.type.isPresent) {
             val labels = arg.type.get().getAllLabels()
             for(l in labels) {
-                newEnv.addVarLabel(l to newEnv.typeSystem.newTypeVar())
+                env.addVarLabel(l to env.typeSystem.newTypeVar())
             }
             val expectedType: MType
             try {
-                expectedType = arg.type.get().lookup(newEnv)
+                expectedType = arg.type.get().lookup(env)
             }
             catch(e: UnboundException) {
                 throw TypeCheckException(loc, this, e.log)
@@ -380,16 +413,25 @@ class FunctionNode(val arg: MBinding, val body: AstNode, loc: NodeLoc) : AstNode
             //This should never throw an exception
             argType.unify(expectedType, env.typeSystem)
         }
-        if(arg.binding == "_") {
-            val bodyType = body.inferType(newEnv)
-            return MFunction(argType, bodyType)
+        if(arg.binding != "_") {
+            env.addBinding(arg.binding to ForAll.empty(argType))
+        }
+        return argType
+    }
+
+    override fun inferType(env: TypeEnv): MType {
+
+        if(args.size == 4) {
+            0
         }
 
-        newEnv.addBinding(arg.binding to ForAll.empty(argType))
+
+        val newEnv = env.copy()
+        val argList = args.map { argType(it, newEnv) }
         val bodyType = body.inferType(newEnv)
 
 
-        return MFunction(argType, bodyType)
+        return argList.foldRight(bodyType) {t, acc -> MFunction(t, acc) }
     }
 
     override fun compile(env: CompEnv): LambdaNode {
@@ -398,11 +440,11 @@ class FunctionNode(val arg: MBinding, val body: AstNode, loc: NodeLoc) : AstNode
 
 
     override fun pretty(): String {
-        return "fun ${arg.binding} -> $body"
+        return "fun ${args.joinToString(" ") { it.binding }} -> $body"
     }
 
     override fun toString(): String {
-        return "Fun($arg, $body)"
+        return "Fun($args, $body)"
     }
 }
 

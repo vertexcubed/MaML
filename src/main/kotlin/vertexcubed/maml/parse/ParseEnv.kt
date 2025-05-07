@@ -139,7 +139,7 @@ class ParseEnv() {
 
                     when (assoc) {
                         Associativity.NONE -> {
-                            AppNode(AppNode(VariableNode(secondList[0].first, secondList[0].second.loc), first, first.loc), secondList[0].second, secondList[0].second.loc)
+                            AppNode(VariableNode(secondList[0].first, secondList[0].second.loc), listOf(first, secondList[0].second), secondList[0].second.loc)
                         }
 
                         Associativity.LEFT -> {
@@ -160,7 +160,7 @@ class ParseEnv() {
     //this shoooooould work?
     fun leftAssocParser(first: AstNode, secondList: List<Pair<String, AstNode>>): AstNode {
         val node = secondList.fold(first) { acc, n ->
-            AppNode(AppNode(VariableNode(n.first, n.second.loc), acc, acc.loc), n.second, n.second.loc)
+            AppNode(VariableNode(n.first, n.second.loc), listOf(acc, n.second), n.second.loc)
 //            AppNode(acc, n.second, n.second.line)
         }
         return node
@@ -179,7 +179,7 @@ class ParseEnv() {
 
         val node = newList.foldRight(last) {n, acc ->
 
-            AppNode(AppNode(VariableNode(n.second, n.first.loc), n.first, n.first.loc), acc, acc.loc)
+            AppNode(VariableNode(n.second, n.first.loc), listOf(n.first, acc), acc.loc)
 //            AppNode(n.first, acc, acc.line)
         }
         return node

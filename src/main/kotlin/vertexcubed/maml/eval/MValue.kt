@@ -66,7 +66,7 @@ data class BooleanValue(val value: Boolean) : MValue() {
 
 data class StringValue(val value: String): MValue() {
     override fun toString(): String {
-        return "\"$value\""
+        return value
     }
 
     override fun compareTo(y: MValue): Int {
@@ -75,7 +75,7 @@ data class StringValue(val value: String): MValue() {
     }
 }
 
-data class FunctionValue(val arg: String, val expr: AstNode, val env: DynEnv) : MValue() {
+data class FunctionValue(val args: List<String>, val expr: AstNode, val env: DynEnv) : MValue() {
     override fun toString(): String {
         return "<fun>"
     }

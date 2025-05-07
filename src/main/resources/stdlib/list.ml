@@ -1,5 +1,5 @@
 
-let rec length l =
+let length l =
   let rec go subl acc =
     match subl with
     | [] -> acc

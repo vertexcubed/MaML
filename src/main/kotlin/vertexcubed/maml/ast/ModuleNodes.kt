@@ -10,6 +10,7 @@ import vertexcubed.maml.parse.FunctionDummy
 import vertexcubed.maml.parse.ParseEnv
 import vertexcubed.maml.type.*
 import java.util.*
+import kotlin.collections.ArrayList
 
 
 /**
@@ -409,19 +410,28 @@ open class ModuleStructNode(val name: String, val nodes: List<AstNode>, val sig:
 
                 is ExternalDefNode -> {
 
-                    fun createFunction(type: DummyType, argCount: Int): AstNode {
+                    fun createFunction(type: DummyType): AstNode {
                         return when(type) {
                             is FunctionDummy -> {
-                                FunctionNode(MBinding("p$argCount", Optional.empty()), createFunction(type.second,argCount + 1), node.loc)
-
+//                                FunctionNode(MBinding("p$argCount", Optional.empty()), createFunction(type.second,argCount + 1), node.loc)
+                                val argList = ArrayList<MBinding>()
+                                var trav = type
+                                var argCount = 0
+                                while(trav is FunctionDummy) {
+                                    argList.add(MBinding("p$argCount", Optional.of(trav.first)))
+                                    trav = trav.second
+                                    argCount++
+                                }
+                                //TODO: return type is yeeted
+                                FunctionNode(argList, ExternalCallNode(node.javaFunc, argCount, node.loc), node.loc)
                             }
                             else -> {
-                                ExternalCallNode(node.javaFunc, argCount, node.loc)
+                                ExternalCallNode(node.javaFunc, 0, node.loc)
                             }
                         }
                     }
 
-                    val n = createFunction(node.type, 0)
+                    val n = createFunction(node.type)
 
                     val value = n.eval(newEnv)
 

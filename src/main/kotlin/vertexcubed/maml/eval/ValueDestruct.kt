@@ -114,24 +114,25 @@ fun tupleToList(value: MValue): List<MValue>? {
 }
 
 fun toFunction(value: MValue): ((MValue) -> MValue)? {
-    return when(value) {
-        is FunctionValue -> {
-            {
-                val newEnv = value.env.copy()
-                newEnv.addBinding(value.arg to it)
-                value.expr.eval(newEnv)
-            }
-        }
-        is RecursiveFunctionValue -> {
-            {
-                val newEnv = value.func.env.copy()
-                newEnv.addBinding(value.func.arg to it)
-                newEnv.addBinding(value.name to value)
-                value.func.expr.eval(newEnv)
-            }
-        }
-        else -> null
-    }
+    TODO("Have yet to implement toFunction")
+//    return when(value) {
+//        is FunctionValue -> {
+//            {
+//                val newEnv = value.env.copy()
+//                newEnv.addBinding(value.arg to it)
+//                value.expr.eval(newEnv)
+//            }
+//        }
+//        is RecursiveFunctionValue -> {
+//            {
+//                val newEnv = value.func.env.copy()
+//                newEnv.addBinding(value.func.arg to it)
+//                newEnv.addBinding(value.name to value)
+//                value.func.expr.eval(newEnv)
+//            }
+//        }
+//        else -> null
+//    }
 }
 
 fun recordToMap(value: MValue): Map<String, MValue>? {

@@ -75,9 +75,9 @@ external (>=): 'a -> 'a -> bool = "maml_core_gte"
 infix 2 (>=)
 
 external (!): bool -> bool = "maml_core_not"
-external (&&): bool -> bool = "maml_core_and"
+external (&&): bool -> bool -> bool = "maml_core_and"
 infixr 1 (&&)
-external (||): bool -> bool = "maml_core_or"
+external (||): bool -> bool -> bool = "maml_core_or"
 infixr 0 (||)
 
 external (~-): int -> int = "maml_core_negate"

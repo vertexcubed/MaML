@@ -33,20 +33,25 @@ class ExprParser(): Parser<AstNode>() {
 class LetParser(): Parser<LetNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<LetNode> {
         val parser = KeywordParser("let").rCompose(OptionalParser(KeywordParser("rec"))).bind { rec ->
-            LetBindingParser().bind { first ->
+            LetBindingParser().bind { statement ->
                     ZeroOrMore(TypedIdentifierParser()).bind { arguments ->
                     OptionalParser(SpecialCharParser(":").rCompose(TypeParser())).bind { type ->
-                        SpecialCharParser("=").rCompose(ExprParser()).bind { second ->
-                            KeywordParser("in").rCompose(ExprParser()).map { third ->
-                                if(rec.isPresent() && arguments.isEmpty()) throw ParseException(NodeLoc(env.file, tokens[index].line), "Only functions can be recursive, not values.")
+                        SpecialCharParser("=").rCompose(ExprParser()).bind { value ->
+                            KeywordParser("in").rCompose(ExprParser()).map { rest ->
+                                if(arguments.isEmpty()) {
+                                    if(rec.isPresent()) throw ParseException(NodeLoc(env.file, tokens[index].line), "Only functions can be recursive, not values.")
+                                    LetNode(MBinding(statement, type), value, rest, NodeLoc(env.file, tokens[index].line))
+                                }
+                                else {
+                                    var func: AstNode = FunctionNode(arguments, value, NodeLoc(env.file, tokens[index].line))
 
-                                val node = arguments.foldRightIndexed(second, { index, str, exist ->
-                                    if(rec.isPresent() && index == 0) {
-                                        RecursiveFunctionNode(MBinding(first, Optional.empty()), FunctionNode(str, exist, NodeLoc(env.file, tokens[index].line)), NodeLoc(env.file, tokens[index].line))
+                                    if(rec.isPresent()) {
+                                        func = RecursiveFunctionNode(MBinding(statement, type), func as FunctionNode, func.loc)
                                     }
-                                    else FunctionNode(str, exist, NodeLoc(env.file, tokens[index].line))
-                                })
-                                LetNode(MBinding(first, type), node, third, NodeLoc(env.file, tokens[index].line))
+
+                                    LetNode(MBinding(statement, type), func, rest, NodeLoc(env.file, tokens[index].line))
+                                }
+
                             }
                         }
                     }
@@ -225,12 +230,7 @@ class ApplicationParser(): Parser<AstNode>() {
         return PrecedenceParsers.ConstLevel().bind {first ->
             ZeroOrMore(PrecedenceParsers.ConstLevel()).map { second: List<AstNode> ->
                 if (second.isEmpty()) return@map first
-
-                var app = AppNode(first, second[0], NodeLoc(env.file, tokens[index].line))
-                for (i in 1..<second.size) {
-                    app = AppNode(app, second[i], NodeLoc(env.file, tokens[index].line))
-                }
-                app
+                AppNode(first, second, first.loc)
             }
         }.parse(tokens, index, env)
     }
@@ -248,10 +248,10 @@ class AssertionParser(): Parser<AssertNode>() {
 class FunctionParser(): Parser<FunctionNode>() {
     override fun parse(tokens: List<Token>, index: Int, env: ParseEnv): ParseResult<FunctionNode> {
         return KeywordParser("fun").rCompose(TypedIdentifierParser()).bind { first ->
-            ZeroOrMore(TypedIdentifierParser()).bind { others ->
-                SpecialCharParser("->").rCompose(ExprParser()).map { second ->
-                    val secondFunc = others.foldRight(second, {cur, acc -> FunctionNode(cur, acc, acc.loc)})
-                    FunctionNode(first, secondFunc, NodeLoc(env.file, tokens[index].line))
+            ZeroOrMore(TypedIdentifierParser()).bind { second ->
+                SpecialCharParser("->").rCompose(ExprParser()).map { body ->
+                    val args = listOf(first) + second
+                    FunctionNode(args, body, NodeLoc(env.file, tokens[index].line))
                 }
             }
         }.parse(tokens, index, env)

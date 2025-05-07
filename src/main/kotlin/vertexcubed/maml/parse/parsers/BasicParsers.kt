@@ -68,7 +68,7 @@ class ListLitParser(): Parser<AstNode>() {
             else {
                 data.get().foldRight(
                     ConNode("[]", Optional.empty(), NodeLoc("", tokens[index].line)) as AstNode)
-                    { node, acc -> AppNode(AppNode(VariableNode(MIdentifier("::"), node.loc), node, node.loc), acc, acc.loc) }
+                    { node, acc -> AppNode(VariableNode(MIdentifier("::"), node.loc), listOf(node, acc), acc.loc) }
             }
         }
         return parser.parse(tokens, index, env)

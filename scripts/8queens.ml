@@ -1,8 +1,3 @@
-(* I haven't implemented conversion functions yet so these have type 'a -> unit for now *)
-external print: 'a -> unit = "maml_core_print"
-external println: 'a -> unit = "maml_core_println"
-
-
 (*  N Queens solver, I believe originally by Hongwei Xi? Modified for use in MaML *)
 (*  Essentially just like my main testing script since it covers many features in the language *)
 
@@ -143,6 +138,7 @@ let abs (n : int) : int = if n < 0 then -n else n
 
 let safety_test1 (i0 : int) (j0 : int) (i : int) (j : int) : bool =
   j0 != j && abs (i0 - i) != abs (j0 - j)
+
 
 (*
     fun safety_test2

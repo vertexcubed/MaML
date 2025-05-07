@@ -73,7 +73,7 @@ class PrecedenceParsers {
                     else if(op == "-.") {
                         oper = "~-."
                     }
-                    AppNode(VariableNode(oper, second.loc), second, second.loc)
+                    AppNode(VariableNode(oper, second.loc), listOf(second), second.loc)
                 }
             }).parse(tokens, index, env)
         }
